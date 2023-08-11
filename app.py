@@ -1,13 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from io import BytesIO
 from fastapi.middleware.cors import CORSMiddleware
-from async_poe_client import Poe_Client
-from data_handle import var, logger
+from .async_poe_client import Poe_Client
+from .data_handle import var, logger
+from .jwt import get_current_user
+
 
 api_path = "/api"
 
 app = FastAPI()
+
 
 # 跨域
 app.add_middleware(
@@ -30,9 +33,10 @@ async def _():
     var.enable = True
     logger.info("poe ai on")
 
+
 # 创建对话，bot_id由前端生成
 @app.get(f"{api_path}/create")
-async def _(bod_id: str):
+async def _(bod_id: str, user_data: dict = Depends(get_current_user)):
     if var.enable is False:
         return Response({"msg": "poe未登录"}, 500)
 
@@ -42,6 +46,7 @@ async def _(bod_id: str):
         suggested_replies=False,
     )
     return Response({"msg": "创建成功"})
+
 
 # 对话，text就是问题
 @app.get(f"{api_path}/talk")
@@ -60,6 +65,7 @@ async def _(bod_id: str, text: str):
 
     return StreamingResponse(generate(), media_type="text/plain")
 
+
 # 切换模型
 @app.get(f"{api_path}/model")
 async def _(bod_id: str, model: str):
@@ -71,6 +77,7 @@ async def _(bod_id: str, model: str):
         base_model=model,
     )
     return Response({"msg": "修改成功"})
+
 
 # 切换预设
 @app.get(f"{api_path}/prompt")
@@ -84,6 +91,7 @@ async def _(bod_id: str, prompt: str):
     )
     return Response({"msg": "修改成功"})
 
+
 # 删除对话
 @app.get(f"{api_path}/del")
 async def _(bod_id: str):
@@ -92,6 +100,7 @@ async def _(bod_id: str):
 
     await var.poe.delete_bot(url_botname=bod_id)
     return Response({"msg": "删除成功"})
+
 
 # 重置对话
 @app.get(f"{api_path}/clear")
