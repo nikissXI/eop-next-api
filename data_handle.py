@@ -18,6 +18,7 @@ var = Var()
 async def login_poe() -> JSONResponse:
     p_b, formkey, proxy = await Config.get_setting()
     try:
+        logger.info("poe ai 登陆中......")
         var.poe = await Poe_Client(p_b, formkey, proxy).create()
         msg = "poe ai 登陆成功"
         logger.info(msg)
