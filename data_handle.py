@@ -28,9 +28,6 @@ async def login_poe() -> JSONResponse:
         logger.error(msg)
         return JSONResponse({"code": 2000, "message": msg}, 500)
 
-    # "HbWywbzhu5baGOPgXctWEg%3D%3D",
-    # "2cf0720596f3f7f81baff7890380e3f7",
-
 
 def generate_random_string():
     """生成随机字符串"""
