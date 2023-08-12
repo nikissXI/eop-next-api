@@ -1,0 +1,8 @@
+aiohttp==3.8.5
+aiohttp_socks==0.8.0
+fastapi==0.101.0
+loguru==0.7.0
+passlib==1.7.4
+PyJWT==2.8.0
+tortoise-orm[asyncpg]==0.20.0
+uvicorn==0.23.2

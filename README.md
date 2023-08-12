@@ -1,5 +1,1 @@
-依赖库  
-fastapi  
-aiohttp  
-aiohttp_socks  
-loguru
+require Python environment >= 3.10
