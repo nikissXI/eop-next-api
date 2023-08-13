@@ -1,11 +1,11 @@
-from async_poe_client import Poe_Client
-from logging import getLogger
+from poe_lib import Poe_Client
 from random import choice
 from string import ascii_letters, digits
 from fastapi.responses import JSONResponse
-from db_model import Config
+from .db_model import Config
+import logging
 
-logger = getLogger("uvicorn.error")
+logger = logging.getLogger("uvicorn.error")
 
 
 class Var:
@@ -17,11 +17,12 @@ var = Var()
 
 async def login_poe() -> JSONResponse:
     p_b, formkey, proxy = await Config.get_setting()
+    if proxy:
+        logger.info(f"使用代理连接Poe {proxy}")
+    else:
+        proxy = None
     try:
-        logger.info("poe ai 登陆中......")
         var.poe = await Poe_Client(p_b, formkey, proxy).create()
-        msg = "poe ai 登陆成功"
-        logger.info(msg)
         return JSONResponse({"code": 2000, "message": "success"}, 200)
     except Exception as e:
         msg = "poe ai 登陆失败。" + str(e)
@@ -33,12 +34,3 @@ def generate_random_string():
     """生成随机字符串"""
     letters = ascii_letters + digits
     return "".join(choice(letters) for i in range(20))
-
-
-def handle_exception(err_msg: str) -> JSONResponse:
-    """处理poe请求错误"""
-    if "The bot doesn't exist or isn't accessible" in err_msg:
-        return JSONResponse({"code": 6000, "message": "该会话已失效，请创建新会话"}, 500)
-
-    logger.error(err_msg)
-    return JSONResponse({"code": 6000, "message": err_msg}, 500)

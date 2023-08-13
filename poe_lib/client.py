@@ -8,7 +8,7 @@ from typing import List, Union, AsyncGenerator, Optional
 
 import aiohttp
 from aiohttp_socks import ProxyConnector
-from loguru import logger
+# from loguru import logger
 
 from .util import (
     HOME_URL,
@@ -21,7 +21,10 @@ from .util import (
     generate_nonce,
     extract_formkey,
 )
+import logging
 
+# 获取 uvicorn 的默认日志记录器
+logger = logging.getLogger("uvicorn.error")
 
 class Poe_Client:
     def __init__(
@@ -146,6 +149,7 @@ class Poe_Client:
         Note:
             This function should be called after creating a new Async_Poe_Client instance to ensure that all necessary data is fetched and set up.
         """
+        logger.info("Poe登陆中...")
         retry = 1
         while retry >= 0:
             try:
@@ -156,7 +160,7 @@ class Poe_Client:
                 if retry == 0:
                     raise e
         await self.get_bots()
-        logger.info("Succeed to create async_poe_client instance")
+        logger.info("Poe登陆成功")
         return self
 
     async def get_botdata(self, url_botname: str) -> dict:
@@ -327,7 +331,7 @@ class Poe_Client:
                     }
                 ]
             })
-            logger.info("Succeed to subscribe")
+            # logger.info("Succeed to subscribe")
         except Exception as e:
             raise Exception(
                 "Failed to subscribe by sending SubscriptionsMutation"

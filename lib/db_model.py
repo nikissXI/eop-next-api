@@ -1,5 +1,5 @@
 from tortoise import fields
-from db import Model
+from .db import Model
 from hashlib import sha256
 
 
@@ -36,6 +36,11 @@ class User(Model):
         except Exception as e:
             return f"failed, reason: {repr(e)}"
 
+    # 修改用户密码
+    @classmethod
+    async def update_passwd(cls, user: str, newPasswd: str):
+        await cls.filter(user=user).update(passwd=newPasswd)
+
     # 认证用户
     @classmethod
     async def check_user(cls, user: str, passwd: str) -> bool:
@@ -61,14 +66,14 @@ class User(Model):
     async def add_user_botId(cls, user: str, botId: str, botNick: str):
         botIdList = await cls.get_user_botIdList(user)
         botIdList[botId] = botNick
-        await cls.filter(user=user).update(value=str(botIdList))
+        await cls.filter(user=user).update(botIdList=str(botIdList))
 
     # 删除用户的botIdList
     @classmethod
     async def del_user_botId(cls, user: str, botId: str):
         botIdList = await cls.get_user_botIdList(user)
         botIdList.pop(botId)
-        await cls.filter(user=user).update(value=str(botIdList))
+        await cls.filter(user=user).update(botIdList=str(botIdList))
 
 
 class Config(Model):
@@ -88,7 +93,7 @@ class Config(Model):
         p_b = rows[0][0]
         rows = await cls.filter(key="formkey").values_list("value")
         formkey = rows[0][0]
-        rows = await cls.filter(key="formkey").values_list("value")
+        rows = await cls.filter(key="proxy").values_list("value")
         proxy = rows[0][0]
         return p_b, formkey, proxy
 
