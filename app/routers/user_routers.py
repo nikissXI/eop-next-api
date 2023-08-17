@@ -12,10 +12,10 @@ router = APIRouter()
 def handle_exception(err_msg: str) -> JSONResponse:
     """处理poe请求错误"""
     if "The bot doesn't exist or isn't accessible" in err_msg:
-        return JSONResponse({"code": 6000, "msg": "该会话已失效，请创建新会话"}, 500)
+        return JSONResponse({"code": 6000, "message": "该会话已失效，请创建新会话"}, 500)
 
     logger.error(err_msg)
-    return JSONResponse({"code": 6000, "msg": err_msg}, 500)
+    return JSONResponse({"code": 6000, "message": err_msg}, 500)
 
 
 @router.post("/login", summary="登陆接口", response_model=LoginResp)
@@ -24,7 +24,7 @@ async def _(
         example={"user": "username", "passwd": "hashed_password"}),
 ):
     if not await User.check_user(body.user, body.passwd):
-        return JSONResponse({"code": 2000, "msg": "Authentication failed"}, 401)
+        return JSONResponse({"code": 2000, "message": "Authentication failed"}, 401)
 
     token = create_token({"user": body.user})
     return JSONResponse(
@@ -54,7 +54,7 @@ async def _(
         return JSONResponse(
             {
                 "code": 2000,
-                "msg": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
+                "message": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
             },
             402,
         )
@@ -109,7 +109,7 @@ async def _(
     try:
         await poe.client.delete_bot(url_botname=bot_id)
         await User.del_user_botId(user, bot_id)
-        return JSONResponse({"code": 2000, "msg": "success"}, 200)
+        return JSONResponse(status_code=204)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -123,7 +123,7 @@ async def _(
     try:
         await poe.client.delete_bot_conversation(url_botname=bot_id, del_all=True)
         await poe.client.send_chat_break(url_botname=bot_id)
-        return JSONResponse({"code": 2000, "msg": "success"}, 200)
+        return JSONResponse(status_code=204)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -151,7 +151,7 @@ async def _(
 ):
     try:
         data = await poe.client.get_botdata(url_botname=bot_id)
-        return JSONResponse({"code": 2000, "data": data}, 200)
+        return JSONResponse(data, 200)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -184,7 +184,7 @@ async def _(
         return JSONResponse(
             {
                 "code": 2000,
-                "msg": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
+                "message": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
             },
             402,
         )
@@ -196,7 +196,7 @@ async def _(
             url_botname=bot_id,
             base_model=body.model if body.model else None,
             prompt=body.prompt if body.prompt else None)
-        return JSONResponse({"code": 2000, "msg": "success"}, 200)
+        return JSONResponse(status_code=204)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -211,10 +211,10 @@ async def _(
 ):
     user = user_data["user"]
     if not await User.check_user(user, body.old_passwd):
-        return JSONResponse({"code": 2000, "msg": "Wrong password"}, 401)
+        return JSONResponse({"code": 2000, "message": "Wrong password"}, 401)
 
     await User.update_passwd(user, body.new_passwd)
-    return JSONResponse({"code": 2000, "msg": "success"}, 200)
+    return JSONResponse(status_code=204)
 
 
 @router.get("/getPasswd", summary="生成密码哈希（临时）")
