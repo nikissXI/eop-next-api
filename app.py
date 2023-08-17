@@ -1,5 +1,6 @@
 from io import BytesIO
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Query
+from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from lib.data_handle import var, generate_random_string, login_poe, logger
@@ -74,7 +75,7 @@ def handle_exception(err_msg: str) -> JSONResponse:
 
 
 @app.post(f"{API_PATH}/login")
-async def _(
+async def login(
     user: str,
     passwd: str,
 ):
@@ -91,14 +92,14 @@ async def _(
     if await User.check_user(user, passwd):
         token = create_token({"user": user})
         return JSONResponse(
-            {"code": 2000, "accessToken": token, "token_type": "Bearer"}, 200
+            {"access_token": token, "token_type": "Bearer"}, 200
         )
 
     return JSONResponse({"code": 2000, "message": "Authentication failed"}, 401)
 
 
-@app.post(f"{API_PATH}/create")
-async def _(
+@app.post(f"{API_PATH}/bot")
+async def create_bot(
     model: str,
     prompt: str = "You are a large language model. Follow the user's instructions carefully.",
     botNick: str = "新会话",
@@ -137,14 +138,39 @@ async def _(
                 suggested_replies=False,
             )
             await User.add_user_botId(user, bot_id, botNick)
-            return JSONResponse({"code": 2000, "bot_id": bot_id}, 200)
+            return JSONResponse({"bot_id": bot_id}, 200)
 
         except Exception as e:
             return handle_exception(str(e))
 
 
+@app.delete(f"{API_PATH}/bot/{bot_id}")
+async def delete_bot(
+    bot_id: str,
+    user_data: dict = Depends(get_current_user),
+):
+    """
+    删除对话
+
+    参数：
+    bot_id: 会话id
+
+    返回值：
+    结果
+    """
+    user = user_data["user"]
+
+    try:
+        await var.poe.delete_bot(url_botname=bot_id)
+        await User.del_user_botId(user, bot_id)
+        return JSONResponse({"code": 2000, "message": "success"}, 200)
+
+    except Exception as e:
+        return handle_exception(str(e))
+
+
 @app.post(f"{API_PATH}/talk")
-async def _(
+async def ask_question(
     bot_id: str,
     q: str,
     user_data: dict = Depends(get_current_user),
@@ -175,8 +201,8 @@ async def _(
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/model")
-async def _(
+@app.put(f"{API_PATH}/{bot_id}/model")
+async def modify_model(
     bot_id: str,
     model: str,
     user_data: dict = Depends(get_current_user),
@@ -199,8 +225,8 @@ async def _(
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/prompt")
-async def _(
+@app.put(f"{API_PATH}/{bot_id}/prompt")
+async def modify_prompt(
     bot_id: str,
     prompt: str,
     user_data: dict = Depends(get_current_user),
@@ -223,33 +249,8 @@ async def _(
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/del")
-async def _(
-    bot_id: str,
-    user_data: dict = Depends(get_current_user),
-):
-    """
-    删除对话
-
-    参数：
-    bot_id: 会话id
-
-    返回值：
-    结果
-    """
-    user = user_data["user"]
-
-    try:
-        await var.poe.delete_bot(url_botname=bot_id)
-        await User.del_user_botId(user, bot_id)
-        return JSONResponse({"code": 2000, "message": "success"}, 200)
-
-    except Exception as e:
-        return handle_exception(str(e))
-
-
-@app.get(f"{API_PATH}/clear")
-async def _(
+@app.put(f"{API_PATH}/bot/{bot_id}/clear_msg")
+async def clear_bot_msg(
     bot_id: str,
     user_data: dict = Depends(get_current_user),
 ):
@@ -271,9 +272,12 @@ async def _(
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/history")
-async def _(
+@app.get(f"{API_PATH}/bot/{bot_id}/history")
+async def get_bot_msg(
     bot_id: str,
+    limit: int = Query(default=50, description="Number of messages to retrieve"),
+    before_msg_id: Optional[str] = Query(None, description="Retrieve messages before this message ID"),
+    after_msg_id: Optional[str] = Query(None, description="Retrieve messages after this message ID"),
     user_data: dict = Depends(get_current_user),
 ):
     """
@@ -293,7 +297,7 @@ async def _(
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/botInfo")
+@app.get(f"{API_PATH}/bot/{bot_id}/info")
 async def _(
     bot_id: str,
     user_data: dict = Depends(get_current_user),
@@ -309,13 +313,13 @@ async def _(
     """
     try:
         data = await var.poe.get_botdata(url_botname=bot_id)
-        return JSONResponse({"code": 2000, "data": data}, 200)
+        return JSONResponse({"data": data}, 200)
 
     except Exception as e:
         return handle_exception(str(e))
 
 
-@app.get(f"{API_PATH}/getBotList")
+@app.get(f"{API_PATH}/user/bots")
 async def _(user_data: dict = Depends(get_current_user)):
     """
     拉取用户可用bot
@@ -332,7 +336,7 @@ async def _(user_data: dict = Depends(get_current_user)):
     return JSONResponse({"code": 2000, "data": botList}, 200)
 
 
-@app.post(f"{API_PATH}/updatePasswd")
+@app.put(f"{API_PATH}/user/password")
 async def _(
     old_passwd: str,
     new_passwd: str,
