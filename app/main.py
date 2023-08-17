@@ -1,0 +1,123 @@
+from database import *
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from routers import *
+from services import *
+from utils import *
+from utils.config import *
+from uvicorn import run
+
+################
+### 后端定义
+################
+app = FastAPI()
+# HTTPS重定向
+app.add_middleware(HTTPSRedirectMiddleware)
+
+# 跨域
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+async def _():
+    await db_init()
+    await User.init_data()
+    await Config.init_data()
+    await login_poe()
+
+
+@app.on_event("shutdown")
+async def _():
+    await db_disconnect()
+
+
+################
+### 错误处理
+################
+@app.exception_handler(RequestValidationError)
+async def _(request: Request, exc: RequestValidationError):
+    """参数缺失统一响应"""
+    if isinstance(exc.errors(), list):
+        if (
+            exc.errors()[0]["type"] == "missing"
+            and exc.errors()[0]["msg"] == "Field required"
+        ):
+            return JSONResponse({"code": 2001, "msg": "请求参数有误"}, 400)
+
+    return JSONResponse({"code": 2099, "msg": exc.errors()}, 400)
+
+
+@app.exception_handler(AuthFailed)
+async def _(request: Request, exc: AuthFailed):
+    return JSONResponse({"code": 1001, "msg": exc.error_type})
+
+
+################
+### 添加路由
+################
+app.include_router(user_routers.router, prefix=f"{API_PATH}", tags=["用户模块"])
+app.include_router(admin_routers.router, prefix=f"{API_PATH}/admin", tags=["管理员模块"])
+
+################
+### 日志配置
+################
+custom_logging_config = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "use_colors": None,
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO"},
+        "uvicorn.error": {"level": "INFO"},
+        "uvicorn.access": {
+            "handlers": ["access"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+################
+### 启动进程
+################
+if __name__ == "__main__":
+    run(
+        app,
+        host=HOST,
+        port=PORT,
+        ssl_keyfile=SSL_KEYFILE_PATH,
+        ssl_certfile=SSL_CERTFILE_PATH,
+        log_config=custom_logging_config,
+        headers=[("server", "huaQ")],  # 修改响应头里的默认server字段
+    )

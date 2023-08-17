@@ -6,3 +6,4 @@ passlib==1.7.4
 PyJWT==2.8.0
 tortoise-orm[asyncpg]==0.20.0
 uvicorn==0.23.2
+python-dotenv==1.0.0
