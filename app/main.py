@@ -63,7 +63,8 @@ async def _(request: Request, exc: AuthFailed):
 ################
 ### 添加路由
 ################
-app.include_router(user_routers.router, prefix=f"{API_PATH}", tags=["用户模块"])
+app.include_router(user_routers.router, prefix=f"{API_PATH}/user", tags=["用户模块"])
+app.include_router(bot_routers.router, prefix=f"{API_PATH}/bot", tags=["会话模块"])
 app.include_router(admin_routers.router, prefix=f"{API_PATH}/admin", tags=["管理员模块"])
 
 ################
