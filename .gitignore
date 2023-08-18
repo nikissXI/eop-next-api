@@ -1,5 +1,6 @@
 __pycache__
 dist
 venv
+data
 .vscode
 .env
