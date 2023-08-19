@@ -43,10 +43,12 @@ async def _(
             "description": "会话列表",
             "content": {
                 "application/json": {
-                    "example": [
-                        {"bot_id": "bot_A_id", "alias": "AAA"},
-                        {"bot_id": "bot_B_id", "alias": "BBB"},
-                    ]
+                    "example": {
+                        "bots": [
+                            {"bot_id": "bot_A_id", "model": "ChatGPT", "alias": "AAA"},
+                            {"bot_id": "bot_B_id", "model": "ChatGPT4", "alias": "BBB"},
+                        ]
+                    }
                 }
             },
         },
@@ -55,10 +57,10 @@ async def _(
 async def _(user_data: dict = Depends(verify_token)):
     user = user_data["user"]
     botList = await User.get_user_botIdList(user)
-    resp_list = []
-    for bot_id, alias in botList:
-        resp_list.append({"bot_id": bot_id, "alias": alias})
-    return JSONResponse(resp_list, 200)
+    bot_list = []
+    for bot_id, ab in botList.items():
+        bot_list.append({"bot_id": bot_id, "model": ab[0], "alias": ab[1]})
+    return JSONResponse({"bots": bot_list}, 200)
 
 
 @router.get(

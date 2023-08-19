@@ -9,8 +9,10 @@ from typing import List, Union, AsyncGenerator, Optional, Tuple
 
 import aiohttp
 from aiohttp_socks import ProxyConnector
-from loguru import logger
+# from loguru import logger
+from logging import getLogger
 
+logger = getLogger("uvicorn.error")
 from .type import Text, ChatTiTleUpdate, SuggestRely, ChatCodeUpdate
 from .util import (
     HOME_URL,
@@ -612,7 +614,7 @@ class Poe_Client:
             self,
             url_botname: str,
             question: str,
-            chat_code: str = None,
+            chat_code: str | None = None,
             with_chat_break: bool = False,
             suggest_able: bool = True,
     ) -> AsyncGenerator:
@@ -660,12 +662,12 @@ class Poe_Client:
 
         async with aiohttp.ClientSession(**self.session_args) as client:
             self.bots[url_botname]["Suggestion"] = []
-            retry = 15
+            retry = 30
             last_text = ""
             got_suggest_replys = []
             got_titles = []
             text_finished = False
-            suggest_lost_times = 5
+            suggest_lost_times = 10
             while retry >= 0 and suggest_lost_times >= 0:
                 response = await client.get(self.channel_url)
                 data = await response.json()

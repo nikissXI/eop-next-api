@@ -66,15 +66,15 @@ class User(Model):
 
     # 获取用户的botIdList
     @classmethod
-    async def get_user_botIdList(cls, user: str) -> dict[str, str]:
+    async def get_user_botIdList(cls, user: str) -> dict[str, tuple[str, str]]:
         rows = await cls.filter(user=user).values_list("botIdList")
         return eval(rows[0][0])
 
     # 增加用户的botIdList
     @classmethod
-    async def add_user_botId(cls, user: str, botId: str, alias: str):
+    async def update_user_botIdList(cls, user: str, botId: str, model: str, alias: str):
         botIdList = await cls.get_user_botIdList(user)
-        botIdList[botId] = alias
+        botIdList[botId] = (model, alias)
         await cls.filter(user=user).update(botIdList=str(botIdList))
 
     # 删除用户的botIdList

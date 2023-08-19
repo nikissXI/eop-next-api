@@ -59,7 +59,7 @@ async def _(
         return JSONResponse(
             {
                 "code": 2002,
-                "msg": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
+                "msg": "可用模型：ChatGPT, Claude, ChatGPT4, Claude-2-100k。",
             },
             402,
         )
@@ -76,7 +76,7 @@ async def _(
                 suggested_replies=False,
             )
             poe.client.bot_code_dict
-            await User.add_user_botId(user, bot_id, body.alias)
+            await User.update_user_botIdList(user, bot_id, body.model, body.alias)
             return JSONResponse({"bot_id": bot_id}, 200)
 
         except Exception as e:
@@ -104,9 +104,7 @@ async def _(
             chat_code = _[0]
     except KeyError:
         raise BotIdNotFound()
-
     try:
-
         # async def generate():
         #     async for resp in poe.client.ask_stream(
         #         url_botname=bot_id,
@@ -115,17 +113,19 @@ async def _(
         #         suggest_able=False,
         #     ):
         #         yield BytesIO(resp.encode("utf-8")).read()
+        async def generate():
+            async for data in poe.client.ask_stream_raw(
+                    url_botname=bot_id,
+                    chat_code=chat_code,
+                    question=body.q,
+                    suggest_able=False,
+                ):
+                    if isinstance(data, Text):
+                        # print(str(data), end="")
+                        yield BytesIO(str(data).encode("utf-8")).read()
 
-        async for message in poe.client.ask_stream_raw(
-            url_botname=bot_id,
-            chat_code=chat_code,
-            question=body.q,
-            suggest_able=False,
-        ):
-            print(message, end="")
-
-        # return StreamingResponse(generate(), media_type="text/plain")
-        return {}
+        return StreamingResponse(generate(), media_type="text/plain")
+        # return {}
 
     except Exception as e:
         return handle_exception(str(e))
@@ -248,7 +248,7 @@ async def _(
         data = await poe.client.get_botdata(url_botname=bot_id)
         model = data["bot"]["baseModelDisplayName"]
         history = []
-        for _ in data["chats"]["2i6nb85beiu3y9zml7m"]["messagesConnection"]["edges"]:
+        for _ in data["chats"][poe.client.bot_code_dict[bot_id][0]]["messagesConnection"]["edges"]:
             sender = "user" if _["node"]["author"] == "human" else "bot"
             msg = _["node"]["text"]
             id = _["node"]["id"]
@@ -262,7 +262,7 @@ async def _(
 
 @router.patch(
     "/{bot_id}",
-    summary="修改bot信息",
+    summary="修改bot信息，不改的就不提交",
     responses={
         200: {
             "description": "无相关响应",
@@ -284,27 +284,34 @@ async def _(
     except KeyError:
         raise BotIdNotFound()
 
-    user = user_data["user"]
-
     if body.model and body.model not in model_dict:
         return JSONResponse(
             {
                 "code": 2002,
-                "msg": "Available model: ChatGPT, Claude, ChatGPT4, Claude-2-100k.",
+                "msg": "可用模型：ChatGPT, Claude, ChatGPT4, Claude-2-100k。",
             },
             402,
         )
 
-    try:
-        # 更新会话别名
-        await User.add_user_botId(user, bot_id, body.alias)
-        # 更新bot设置
-        await poe.client.edit_bot(
-            url_botname=bot_id,
-            base_model=model_dict[body.model],
-            prompt=body.prompt,
-        )
-        return Response(status_code=204)
+    user = user_data["user"]
+    botIdList = await User.get_user_botIdList(user)
+    _model, _alias = botIdList[bot_id]
+    model = body.model if body.model else _model
 
-    except Exception as e:
-        return handle_exception(str(e))
+    # 更新会话别名和模型
+    if body.model or body.alias:
+        alias = body.alias if body.alias else _alias
+        await User.update_user_botIdList(user, bot_id, model, alias)
+
+    # 更新模型和预设
+    if body.model or body.prompt:
+        try:
+            await poe.client.edit_bot(
+                url_botname=bot_id,
+                base_model=model_dict[model],
+                prompt=body.prompt,
+            )
+        except Exception as e:
+            return handle_exception(str(e))
+
+    return Response(status_code=204)

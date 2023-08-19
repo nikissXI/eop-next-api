@@ -22,12 +22,15 @@ class TalkBody(BaseModel):
 
 
 class ModifyBotBody(BaseModel):
-    alias: str = Field(
+    alias: str | None = Field(
+        default=None,
         description="会话名",
     )
-    model: str = Field(
+    model: str | None = Field(
+        default=None,
         description="模型，无次数限制模型：ChatGPT、Claude； 有次数限制模型：ChatGPT4、Claude-2-100k",
     )
-    prompt: str = Field(
+    prompt: str | None = Field(
+        default=None,
         description="预设内容",
     )

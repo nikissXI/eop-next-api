@@ -1,4 +1,4 @@
-from .poe_lib import Poe_Client
+from .poe_lib import Poe_Client, Text
 from database import Config
 from utils import *
 
