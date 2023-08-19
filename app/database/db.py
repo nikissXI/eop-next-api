@@ -1,6 +1,7 @@
 from tortoise import Tortoise
 from tortoise.connection import connections
 from tortoise.models import Model as Model_
+from os import path, mkdir
 
 MODELS: list[str] = []
 
@@ -18,6 +19,8 @@ class Model(Model_):
 
 async def db_init():
     try:
+        if not path.exists("data"):
+            mkdir("data")
         await Tortoise.init(db_url=f"sqlite://data/data.db", modules={"models": MODELS})
         await Tortoise.generate_schemas()
     except Exception as e:

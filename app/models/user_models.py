@@ -6,11 +6,10 @@ class LoginBody(BaseModel):
     passwd: str = Field(description="登陆密码")
 
 
-class Resp(BaseModel):
+
+
+class LoginResp(BaseModel):
     code: int = 0
-
-
-class LoginResp(Resp):
     access_token: str = "eyJhbxxxxxxxxxxxxxxxxxxxxxxxx"
     token_type: str = "Bearer"
 

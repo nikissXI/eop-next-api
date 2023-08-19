@@ -1,8 +1,9 @@
 from database import *
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from models import *
 from routers import *
 from services import *
 from utils import *
@@ -12,9 +13,16 @@ from uvicorn import run
 ################
 ### 后端定义
 ################
-app = FastAPI()
+app = FastAPI(
+    responses={
+        422: {
+            "description": "请求错误",
+            "model": Response422,
+        },
+    },
+)
 # HTTPS重定向
-app.add_middleware(HTTPSRedirectMiddleware)
+# app.add_middleware(HTTPSRedirectMiddleware)
 
 # 跨域
 app.add_middleware(
@@ -44,20 +52,23 @@ async def _():
 ################
 @app.exception_handler(RequestValidationError)
 async def _(request: Request, exc: RequestValidationError):
-    """参数缺失统一响应"""
-    if isinstance(exc.errors(), list):
-        if (
-            exc.errors()[0]["type"] == "missing"
-            and exc.errors()[0]["msg"] == "Field required"
-        ):
-            return JSONResponse({"code": 2001, "msg": "请求参数有误"}, 400)
-
-    return JSONResponse({"code": 2099, "msg": exc.errors()}, 400)
+    return JSONResponse({"code": 2001, "msg": str(exc)}, 422)
 
 
 @app.exception_handler(AuthFailed)
 async def _(request: Request, exc: AuthFailed):
-    return JSONResponse({"code": 1001, "msg": exc.error_type})
+    return JSONResponse({"code": 1001, "msg": exc.error_type}, 403)
+
+
+@app.exception_handler(BotIdNotFound)
+async def _(request: Request, exc: BotIdNotFound):
+    return JSONResponse(
+        {
+            "code": 2005,
+            "msg": "会话id不存在",
+        },
+        402,
+    )
 
 
 ################

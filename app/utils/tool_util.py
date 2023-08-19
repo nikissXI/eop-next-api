@@ -12,9 +12,9 @@ def generate_random_bot_id() -> str:
     return "".join(choice(letters) for _ in range(20))
 
 
-def generate_random_password(length=8) -> str:
+def generate_random_password(length=8) -> tuple[str, str]:
     characters = ascii_letters + digits
     passwd = "".join(choice(characters) for _ in range(length))
     hash_object = sha256()
     hash_object.update(passwd.encode("utf-8"))
-    return hash_object.hexdigest()
+    return passwd, hash_object.hexdigest()

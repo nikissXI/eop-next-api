@@ -4,3 +4,4 @@ venv
 data
 .vscode
 .env
+test.py

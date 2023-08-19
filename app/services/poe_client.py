@@ -10,7 +10,7 @@ class Poe:
 poe = Poe()
 
 
-async def login_poe() -> JSONResponse:
+async def login_poe() -> JSONResponse | Response:
     p_b, formkey, proxy = await Config.get_setting()
     if proxy:
         logger.info(f"使用代理连接Poe {proxy}")
@@ -18,8 +18,8 @@ async def login_poe() -> JSONResponse:
         proxy = None
     try:
         poe.client = await Poe_Client(p_b, formkey, proxy).create()
-        return JSONResponse({"code": 2000, "msg": "success"}, 200)
+        return Response(status_code=204)
     except Exception as e:
         msg = "poe ai 登陆失败。" + str(e)
         logger.error(msg)
-        return JSONResponse({"code": 2000, "msg": msg}, 500)
+        return JSONResponse({"code": 3008, "msg": msg}, 500)
