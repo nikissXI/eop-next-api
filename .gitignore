@@ -5,3 +5,4 @@ data
 .vscode
 .env
 test.py
+test.json
