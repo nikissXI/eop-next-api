@@ -7,7 +7,7 @@ load_dotenv()
 if _ := getenv("API_PATH"):
     API_PATH = _
 else:
-    API_PATH = "/api"
+    API_PATH = ""
 
 if _ := getenv("HOST"):
     HOST = _

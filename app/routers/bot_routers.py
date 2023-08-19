@@ -107,16 +107,25 @@ async def _(
 
     try:
 
-        async def generate():
-            async for resp in poe.client.ask_stream(
-                url_botname=bot_id,
-                chat_code=chat_code,
-                question=body.q,
-                suggest_able=False,
-            ):
-                yield BytesIO(resp.encode("utf-8")).read()
+        # async def generate():
+        #     async for resp in poe.client.ask_stream(
+        #         url_botname=bot_id,
+        #         chat_code=chat_code,
+        #         question=body.q,
+        #         suggest_able=False,
+        #     ):
+        #         yield BytesIO(resp.encode("utf-8")).read()
 
-        return StreamingResponse(generate(), media_type="text/plain")
+        async for message in poe.client.ask_stream(
+            url_botname=bot_id,
+            chat_code=chat_code,
+            question=body.q,
+            suggest_able=False,
+        ):
+            print(message, end="")
+
+        # return StreamingResponse(generate(), media_type="text/plain")
+        return {}
 
     except Exception as e:
         return handle_exception(str(e))
@@ -190,6 +199,7 @@ async def _(
                 "application/json": {
                     "example": {
                         "model": "ChatGPT",
+                        "prompt": "Your honey~",
                         "history": [
                             {
                                 "sender": "bot",
@@ -233,6 +243,8 @@ async def _(
         raise BotIdNotFound()
 
     try:
+        data = await poe.client.get_bot_info(url_botname=bot_id)
+        prompt = data["promptPlaintext"]
         data = await poe.client.get_botdata(url_botname=bot_id)
         model = data["bot"]["baseModelDisplayName"]
         history = []
@@ -242,7 +254,7 @@ async def _(
             id = _["node"]["id"]
             history.append({"sender": sender, "msg": msg, "id": id})
 
-        return JSONResponse({"model": model, "history": history}, 200)
+        return JSONResponse({"model": model, "prompt": prompt, "history": history}, 200)
 
     except Exception as e:
         return handle_exception(str(e))
