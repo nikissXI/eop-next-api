@@ -44,8 +44,8 @@ async def _(
             "content": {
                 "application/json": {
                     "example": [
-                        {"bot_id_A": "alias_A"},
-                        {"bot_id_B": "alias_B"},
+                        {"bot_id": "bot_A_id", "alias": "AAA"},
+                        {"bot_id": "bot_B_id", "alias": "BBB"},
                     ]
                 }
             },
@@ -55,7 +55,10 @@ async def _(
 async def _(user_data: dict = Depends(verify_token)):
     user = user_data["user"]
     botList = await User.get_user_botIdList(user)
-    return JSONResponse({"code": 2000, "data": [botList]}, 200)
+    resp_list = []
+    for bot_id, alias in botList:
+        resp_list.append({"bot_id": bot_id, "alias": alias})
+    return JSONResponse(resp_list, 200)
 
 
 @router.get(

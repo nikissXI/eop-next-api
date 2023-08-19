@@ -5,6 +5,7 @@ from jwt import decode as jwtDecode
 from jwt import encode as jwtEncode
 from passlib.context import CryptContext
 from utils.config import *
+from database import *
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
@@ -39,7 +40,7 @@ async def verify_admin(
     token = credentials.credentials
     try:
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if jwt_data["user"] != ADMIN_USERNAME:
+        if not await User.is_admin(jwt_data["user"]):
             raise AuthFailed("权限不足")
             # raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Not administrator")
         return jwt_data

@@ -21,7 +21,6 @@ else:
 
 SSL_KEYFILE_PATH = getenv("SSL_KEYFILE_PATH")
 SSL_CERTFILE_PATH = getenv("SSL_CERTFILE_PATH")
-ADMIN_USERNAME = getenv("ADMIN_USERNAME")
 
 if _ := getenv("SECRET_KEY"):
     SECRET_KEY = _

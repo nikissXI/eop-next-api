@@ -1,11 +1,11 @@
 from tortoise import fields
 from .db import Model
-from hashlib import sha256
 
 
 class User(Model):
     user = fields.TextField(pk=True)
     passwd = fields.TextField()
+    admin = fields.BooleanField()
     botIdList = fields.TextField()
 
     @classmethod
@@ -14,15 +14,15 @@ class User(Model):
             await cls.create(
                 user="nikiss",
                 passwd="200dac0c612e70b573dee52f7bb5732a4294ebda540f6d8979cffe267d6f5cb7",
+                admin=True,
                 botIdList="{}",
             )
 
     # 创建用户
     @classmethod
-    async def create_user(cls, user: str, passwd: str) -> str:
+    async def create_user(cls, user: str, passwd: str, admin: bool) -> str:
         try:
-            sec_passwd = sha256(passwd.encode("utf-8")).hexdigest()
-            await cls.create(user=user, passwd=sec_passwd, botIdList="{}")
+            await cls.create(user=user, passwd=passwd, admin=admin, botIdList="{}")
             return "success"
         except Exception as e:
             return f"failed, reason: {repr(e)}"
@@ -51,9 +51,18 @@ class User(Model):
 
     # 列出所有用户名
     @classmethod
-    async def list_user(cls) -> list[str]:
-        rows = await cls.filter().values_list("user")
-        return [row[0] for row in rows]
+    async def list_user(cls) -> dict[str, bool]:
+        rows = await cls.filter().values_list("user", "admin")
+        dd = {}
+        for user, admin in rows:
+            dd[user] = admin
+        return dd
+
+    # 判断是否为管理员
+    @classmethod
+    async def is_admin(cls, user: str) -> bool:
+        rows = await cls.filter(user=user).values_list("admin")
+        return rows[0][0]
 
     # 获取用户的botIdList
     @classmethod

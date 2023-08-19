@@ -116,7 +116,7 @@ async def _(
         #     ):
         #         yield BytesIO(resp.encode("utf-8")).read()
 
-        async for message in poe.client.ask_stream(
+        async for message in poe.client.ask_stream_raw(
             url_botname=bot_id,
             chat_code=chat_code,
             question=body.q,

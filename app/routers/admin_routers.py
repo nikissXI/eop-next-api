@@ -22,9 +22,7 @@ router = APIRouter()
 )
 async def _(
     body: AddUserBody = Body(
-        example=[
-            {"user": "username", "passwd": "password"},
-        ]
+        example={"user": "username", "passwd": "hashed_password", "admin": False},
     ),
     _: dict = Depends(verify_admin),
 ):
@@ -32,7 +30,7 @@ async def _(
     if body.user in user_list:
         return JSONResponse({"code": 2004, "msg": f"User {body.user} is exist"}, 500)
 
-    msg = await User.create_user(body.user, body.passwd)
+    msg = await User.create_user(body.user, body.passwd, body.admin)
     if msg == "success":
         return Response(status_code=204)
 
@@ -113,17 +111,27 @@ async def _(_: dict = Depends(verify_admin)):
 
 @router.get(
     "/listUser",
-    summary="列出所有用户名",
+    summary="列出所有用户",
     responses={
         200: {
             "description": "用户名列表",
-            "content": {"application/json": {"example": {"data": ["user_A, user_B"]}}},
+            "content": {
+                "application/json": {
+                    "example": [
+                        {"user": "user_A", "admin": True},
+                        {"user": "user_B", "admin": False},
+                    ]
+                }
+            },
         },
     },
 )
 async def _(_: dict = Depends(verify_admin)):
     data = await User.list_user()
-    return JSONResponse({"data": data}, 200)
+    resp_list = []
+    for user, admin in data.items():
+        resp_list.append({"user": user, "admin": admin})
+    return JSONResponse(resp_list, 200)
 
 
 @router.get(
@@ -161,18 +169,11 @@ async def _(_: dict = Depends(verify_admin)):
 )
 async def _(
     body: UpdateSettingBody = Body(
-        examples=[
-            {
-                "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
-                "formkey": "2cf072difnsie23f7892divd0380e3f7",
-                "proxy": "http://127.0.0.1:7890",
-            },
-            {
-                "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
-                "formkey": "2cf072difnsie23f7892divd0380e3f7",
-                "proxy": "",
-            },
-        ]
+        example={
+            "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
+            "formkey": "2cf072difnsie23f7892divd0380e3f7",
+            "proxy": "",
+        }
     ),
     _: dict = Depends(verify_admin),
 ):

@@ -23,3 +23,4 @@ class AddUserBody(BaseModel):
     passwd: str = Field(
         description="密码",
     )
+    admin: bool = Field(description="是否为管理员")
