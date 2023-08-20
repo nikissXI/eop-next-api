@@ -1103,3 +1103,45 @@ class Poe_Client:
             return messages[-count:]
         else:
             return messages
+
+    async def get_chat_history_advance(
+        self, url_botname: str, chat_code: str, count: int = 25, cursor: str = None
+    ):
+        if url_botname not in self.bots.keys():
+            await self.get_botdata(url_botname)
+        messages = self.bots[url_botname]["chats"][chat_code]["messagesConnection"]["edges"]
+        if len(messages) == 0:
+            logger.error(
+                f"Failed to get message history of {url_botname}: No messages found with {url_botname}"
+            )
+            return []
+
+        if cursor is None:
+            cursor = messages[0]["cursor"]
+
+        if not cursor and count <= len(messages):
+            return messages[-count:]
+
+        while cursor or (count > len(messages)):
+            result = await self.send_query(
+                "ChatListPaginationQuery",
+                {
+                    "count": (len(messages) - count) % 50,
+                    "cursor": cursor,
+                    "id": self.bots[url_botname]["chats"][chat_code]["id"],
+                },
+            )
+            previous_messages = result["data"]["node"]["messagesConnection"]["edges"]
+            messages = previous_messages + messages
+            cursor = messages[0]["cursor"]
+            if len(previous_messages) == 0:
+                if not cursor:
+                    logger.warning(
+                        f"Only {str(len(messages))} history messages found with {url_botname}"
+                    )
+                break
+        logger.info(f"Succeed to get messages from {url_botname}")
+        if not cursor:
+            return messages[-count:]
+        else:
+            return messages, cursor
