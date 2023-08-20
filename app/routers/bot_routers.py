@@ -75,7 +75,6 @@ async def _(
                 base_model=model_dict[body.model],
                 suggested_replies=False,
             )
-            poe.client.bot_code_dict
             await User.update_user_botIdList(user, bot_id, body.model, body.alias)
             return JSONResponse({"bot_id": bot_id}, 200)
 
