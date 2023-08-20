@@ -105,24 +105,26 @@ async def _(
     except KeyError:
         raise BotIdNotFound()
     try:
-        # async def generate():
-        #     async for resp in poe.client.ask_stream(
-        #         url_botname=bot_id,
-        #         chat_code=chat_code,
-        #         question=body.q,
-        #         suggest_able=False,
-        #     ):
-        #         yield BytesIO(resp.encode("utf-8")).read()
+
         async def generate():
-            async for data in poe.client.ask_stream_raw(
-                    url_botname=bot_id,
-                    chat_code=chat_code,
-                    question=body.q,
-                    suggest_able=False,
-                ):
-                    if isinstance(data, Text):
-                        # print(str(data), end="")
-                        yield BytesIO(str(data).encode("utf-8")).read()
+            async for resp in poe.client.ask_stream(
+                url_botname=bot_id,
+                chat_code=chat_code,
+                question=body.q,
+                suggest_able=False,
+            ):
+                yield BytesIO(resp.encode("utf-8")).read()
+
+        # async def generate():
+        #     async for data in poe.client.ask_stream_raw(
+        #             url_botname=bot_id,
+        #             chat_code=chat_code,
+        #             question=body.q,
+        #             suggest_able=False,
+        #         ):
+        #             if isinstance(data, Text):
+        #                 # print(str(data), end="")
+        #                 yield BytesIO(str(data).encode("utf-8")).read()
 
         return StreamingResponse(generate(), media_type="text/plain")
         # return {}
@@ -248,7 +250,9 @@ async def _(
         data = await poe.client.get_botdata(url_botname=bot_id)
         model = data["bot"]["baseModelDisplayName"]
         history = []
-        for _ in data["chats"][poe.client.bot_code_dict[bot_id][0]]["messagesConnection"]["edges"]:
+        for _ in data["chats"][poe.client.bot_code_dict[bot_id][0]][
+            "messagesConnection"
+        ]["edges"]:
             sender = "user" if _["node"]["author"] == "human" else "bot"
             msg = _["node"]["text"]
             id = _["node"]["id"]

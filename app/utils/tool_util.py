@@ -1,7 +1,7 @@
 from random import choice
 from string import ascii_letters, digits
-from logging import getLogger
 from hashlib import sha256
+from logging import getLogger
 
 logger = getLogger("uvicorn.error")
 
