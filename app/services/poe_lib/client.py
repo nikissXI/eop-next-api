@@ -1,34 +1,34 @@
-import asyncio
-import hashlib
-import json
-import random
-import re
-import time
-import uuid
-from typing import List, Union, AsyncGenerator, Optional, Tuple
+from asyncio import create_task, ensure_future, gather, sleep
+from hashlib import md5
+from ujson import loads
 
-import aiohttp
-from aiohttp_socks import ProxyConnector
 # from loguru import logger
 from logging import getLogger
-
-logger = getLogger("uvicorn.error")
-from .type import Text, ChatTiTleUpdate, SuggestRely, ChatCodeUpdate
+from random import randint
+from re import search
+from time import time
+from typing import AsyncGenerator, List, Optional, Tuple, Union, Any
+from uuid import uuid5
+from aiohttp import ClientSession
+from aiohttp_socks import ProxyConnector
+from .type import ChatCodeUpdate, ChatTiTleUpdate, SuggestRely, Text
 from .util import (
-    HOME_URL,
-    GQL_URL,
-    SETTING_URL,
     CONST_NAMESPACE,
+    GQL_URL,
+    HOME_URL,
+    SETTING_URL,
     generate_data,
     generate_nonce,
 )
 
+logger = getLogger("uvicorn.error")
+
 
 class Poe_Client:
-    def __init__(self, p_b: str, formkey: str, proxy: Optional[str] = ""):
+    def __init__(self, p_b: str, formkey: str, proxy: str | None = ""):
         self.channel_url: str = ""
         self.channel_use_time = 0
-        self.channel_last_use_time = time.time()
+        self.channel_last_use_time = time()
         self.bots: dict = {}
         self.formkey: str = formkey
         self.next_data: dict = {}
@@ -38,34 +38,36 @@ class Poe_Client:
         self.tchannel_data: dict = {}
         self.user_id: str = ""
         self.viewer: dict = {}
-        self.ws_domain = f"tch{random.randint(1, int(1e6))}"[:8]
+        self.ws_domain = f"tch{randint(1, int(1e6))}"[:8]
         self.proxy = proxy
         self.salt = "4LxgHM6KpFqokX0Ox"
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
+            "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
             "Cookie": f"p-b={self.p_b}",
-            "poe-formkey": self.formkey,
-            "Sec-Ch-Ua": '"Not.A/Brand";v="8", "Chromium";v="112"',
+            "Poe-Formkey": self.formkey,
+            "Sec-Ch-Ua": '"Not/A)Brand";v="99", "Microsoft Edge";v="115", "Chromium";v="115"',
             "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Linux"',
+            "Sec-Ch-Ua-Platform": '"Windows"',
             "Upgrade-Insecure-Requests": "1",
         }
 
     @property
-    def bot_code_dict(self):
+    def bot_code_dict(self) -> dict[str, list[str]]:
+        """bots以及所属对话chatcode"""
         result = {}
         for bot, data in self.bots.items():
             result[bot] = []
-            for chat in data["chats"]:
-                result[bot].append(chat)
+            for chat_code in data["chats"]:
+                result[bot].append(chat_code)
         return result
 
     @property
     def session_args(self):
-        args = {
+        """请求时带上的参数"""
+        args: dict[str, Any] = {
             "headers": self.headers,
             "cookies": {"p-b": self.p_b},
         }
@@ -79,27 +81,29 @@ class Poe_Client:
         This function fetches the basic data from the HOME_URL and sets various attributes of the object.
 
         Raises:
-            Raises an Exception if it fails to get the base data.
-            Raises a ValueError if it fails to extract 'next_data', 'viewer', 'user_id', or 'formkey' from the response.
+            - Raises an Exception if it fails to get the base data.
+            - Raises a ValueError if it fails to extract 'next_data', 'viewer', 'user_id', or 'formkey' from the response.
         """
         try:
-            async with aiohttp.ClientSession(**self.session_args) as client:
+            async with ClientSession(**self.session_args) as client:
                 response = await client.get(HOME_URL, timeout=8)
                 text = await response.text()
         except Exception as e:
-            raise Exception("Failed to get basedata from home.") from e
-        """extract next_data from html"""
+            raise Exception("获取基础数据失败") from e
+
+        """获取next_data"""
         try:
-            """get next_data"""
             json_regex = (
                 r'<script id="__NEXT_DATA__" type="application\/json">(.+?)</script>'
             )
-            json_text = re.search(json_regex, text).group(1)
-            self.next_data = json.loads(json_text)
+            json_data = search(json_regex, text)
+            if json_data is None:
+                raise
+            self.next_data = loads(json_data.group(1))
         except Exception as e:
-            raise ValueError("Failed to extract 'next_data' from the response.") from e
+            raise ValueError("获取next_data失败。") from e
 
-        """extract data from next_data"""
+        """从next_data中获取数据"""
         try:
             self.viewer = self.next_data["props"]["initialData"]["data"]["pageQuery"][
                 "viewer"
@@ -109,24 +113,22 @@ class Poe_Client:
             bot_list = self.viewer["availableBotsConnection"]["edges"]
             for bot in bot_list:
                 self.bots[bot["node"]["handle"]] = {}
-            self.sdid = str(uuid.uuid5(CONST_NAMESPACE, self.viewer["poeUser"]["id"]))
+            self.sdid = str(uuid5(CONST_NAMESPACE, self.viewer["poeUser"]["id"]))
         except KeyError as e:
-            raise ValueError(
-                "Failed to extract 'viewer' or 'user_id' from 'next_data'."
-            ) from e
+            raise ValueError("从next_data中获取数据失败") from e
 
     async def get_channel_data(self) -> None:
         """
         This function fetches the channel data from the SETTING_URL and sets the 'tchanneldata' attribute of the object.
 
         Raises:
-            Raises a ValueError if it fails to extract the channel data from the response.
+            - Raises a ValueError if it fails to extract the channel data from the response.
         """
         try:
-            async with aiohttp.ClientSession(**self.session_args) as client:
+            async with ClientSession(**self.session_args) as client:
                 response = await client.get(SETTING_URL)
                 data = await response.text()
-                json_data = json.loads(data)
+                json_data = loads(data)
                 self.tchannel_data = json_data["tchannelData"]
                 self.headers["Poe-Tchannel"] = self.tchannel_data["channel"]
                 self.channel_url = f'https://{self.ws_domain}.tch.{self.tchannel_data["baseHost"]}/up/{self.tchannel_data["boxName"]}/updates?min_seq={self.tchannel_data["minSeq"]}&channel={self.tchannel_data["channel"]}&hash={self.tchannel_data["channelHash"]}'
@@ -180,14 +182,14 @@ class Poe_Client:
         error = Exception("Unknown error")
         while retry > 0:
             try:
-                bot_task = asyncio.ensure_future(
+                bot_task = ensure_future(
                     (
                         lambda: self.send_query(
                             "BotLandingPageQuery", {"botHandle": url_botname}
                         )
                     )()
                 )
-                chats_task = asyncio.ensure_future(
+                chats_task = ensure_future(
                     (
                         lambda: self.send_query(
                             "chatsHistoryPageQuery",
@@ -195,7 +197,7 @@ class Poe_Client:
                         )
                     )()
                 )
-                await asyncio.gather(bot_task, chats_task)
+                await gather(bot_task, chats_task)
 
                 bot = bot_task.result()["data"]["bot"]
                 chats = {
@@ -243,10 +245,10 @@ class Poe_Client:
 
         tasks = []
         for bot in list(self.bots.keys()):
-            task = asyncio.create_task(self.get_botdata(bot))
+            task = create_task(self.get_botdata(bot))
             tasks.append(task)
 
-        await asyncio.gather(*tasks)
+        await gather(*tasks)
 
     async def send_query(self, query_name: str, variables: dict) -> Union[dict, None]:
         """
@@ -268,18 +270,18 @@ class Poe_Client:
         query_headers = {
             **self.headers,
             "content-type": "application/json",
-            "poe-tag-id": hashlib.md5(base_string.encode()).hexdigest(),
+            "poe-tag-id": md5(base_string.encode()).hexdigest(),
         }
         retry = 5
         detail_error = Exception("unknown error")
         while retry:
             try:
-                async with aiohttp.ClientSession(**self.session_args) as client:
+                async with ClientSession(**self.session_args) as client:
                     response = await client.post(
                         GQL_URL, data=data, headers=query_headers
                     )
                     resp = await response.text()
-                    json_data = json.loads(resp)
+                    json_data = loads(resp)
                     if (
                         "success" in json_data.keys()
                         and not json_data["success"]
@@ -659,7 +661,7 @@ class Poe_Client:
         self,
         url_botname: str,
         question: str,
-        chat_code: str | None = None,
+        chat_code: str,
         with_chat_break: bool = False,
         suggest_able: bool = True,
     ) -> AsyncGenerator:
@@ -685,20 +687,18 @@ class Poe_Client:
             suggest_able and self.bots[url_botname]["bot"]["hasSuggestedReplies"]
         )
         if (
-            self.channel_use_time % 3 == 0
-            or time.time() - self.channel_last_use_time >= 360
+            self.channel_use_time % 3 == 0 or time() - self.channel_last_use_time >= 360
         ):  # noqa: E501
             await self.get_channel_data()
             await self.subscribe()
 
         self.channel_use_time += 1
-        self.channel_last_use_time = time.time()
+        self.channel_last_use_time = time()
 
         retry = 3
-        error = "Unknown error"
         while retry >= 0:
             if retry == 0:
-                raise error
+                raise Exception("Unknown error")
             try:
                 if not chat_code:
                     human_message_id, chat_code = await self.create_new_chat(
@@ -715,7 +715,7 @@ class Poe_Client:
                 error = e
                 pass
 
-        async with aiohttp.ClientSession(**self.session_args) as client:
+        async with ClientSession(**self.session_args) as client:
             self.bots[url_botname]["Suggestion"] = []
             retry = 15
             last_text = ""
@@ -727,9 +727,7 @@ class Poe_Client:
             while retry >= 0 and suggest_lost_times >= 0:
                 response = await client.get(self.channel_url)
                 data = await response.json()
-                messages = [
-                    json.loads(msg_str) for msg_str in data.get("messages", "{}")
-                ]
+                messages = [loads(msg_str) for msg_str in data.get("messages", "{}")]
                 got_new_text = False
                 for message in messages:
                     payload = message.get("payload", {})
@@ -780,7 +778,7 @@ class Poe_Client:
                                 )
                                 return
                             if not got_new_reply:
-                                await asyncio.sleep(1)
+                                await sleep(1)
                                 suggest_lost_times -= 1
                     elif payload.get("subscription_name") == "chatTitleUpdated":
                         title = (
@@ -793,7 +791,7 @@ class Poe_Client:
                             yield ChatTiTleUpdate(content=title)
                 if not got_new_text:
                     retry -= 1
-                    await asyncio.sleep(1)
+                    await sleep(1)
             raise Exception("Failed to get message from poe in time.")
 
     async def ask_stream(
@@ -971,10 +969,8 @@ class Poe_Client:
             chats = list(self.bots[url_botname]["chats"].values())
         tasks = []
         for chat in chats:
-            tasks.append(
-                asyncio.create_task(self.delete_chat_by_chat_id(chat["chatId"]))
-            )
-        await asyncio.gather(*tasks)
+            tasks.append(create_task(self.delete_chat_by_chat_id(chat["chatId"])))
+        await gather(*tasks)
 
     async def delete_bot(self, url_botname: str) -> None:
         """
@@ -1058,10 +1054,10 @@ class Poe_Client:
         tasks = []
         for bot, data in self.bots.items():
             if not data["bot"]["isSystemBot"]:
-                tasks.append(asyncio.create_task(del_bot(bot)))
+                tasks.append(create_task(del_bot(bot)))
             else:
                 logger.info("Can't delete SystemBot, skipped")
-        await asyncio.gather(*tasks)
+        await gather(*tasks)
         logger.info("Succeed to delete bots")
 
     async def get_chat_history(

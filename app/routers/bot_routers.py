@@ -20,6 +20,15 @@ def handle_exception(err_msg: str) -> JSONResponse:
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
 
+def get_chat_code(bot_id: str) -> str:
+    try:
+        if chat_code_list := poe.client.bot_code_dict[bot_id]:
+            return chat_code_list[0]
+        return ""
+    except KeyError:
+        raise BotIdNotFound()
+
+
 model_dict = {
     "ChatGPT": "chinchilla",
     "Claude": "a2",
@@ -97,12 +106,7 @@ async def _(
     body: TalkBody = Body(example={"q": "你好啊"}),
     _: dict = Depends(verify_token),
 ):
-    chat_code = None
-    try:
-        if _ := poe.client.bot_code_dict[bot_id]:
-            chat_code = _[0]
-    except KeyError:
-        raise BotIdNotFound()
+    chat_code = get_chat_code(bot_id)
     try:
         # async def generate():
         #     async for resp in poe.client.ask_stream(
@@ -121,9 +125,11 @@ async def _(
                 suggest_able=False,
             ):
                 if isinstance(data, Text):
+                    # print(str(data), end="")
                     yield BytesIO(str(data).encode("utf-8")).read()
 
         return StreamingResponse(generate(), media_type="text/plain")
+        # return {}
 
     except Exception as e:
         return handle_exception(str(e))
@@ -172,13 +178,7 @@ async def _(
     bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
     _: dict = Depends(verify_token),
 ):
-    try:
-        chat_code = ""
-        if _ := poe.client.bot_code_dict[bot_id]:
-            chat_code = _[0]
-    except KeyError:
-        raise BotIdNotFound()
-
+    chat_code = get_chat_code(bot_id)
     try:
         await poe.client.send_chat_break(url_botname=bot_id, chat_code=chat_code)
         return Response(status_code=204)
@@ -203,12 +203,7 @@ async def _(
     bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
     _: dict = Depends(verify_token),
 ):
-    try:
-        chat_code = ""
-        if _ := poe.client.bot_code_dict[bot_id]:
-            chat_code = _[0]
-    except KeyError:
-        raise BotIdNotFound()
+    chat_code = get_chat_code(bot_id)
 
     try:
         await poe.client.delete_chat_by_chat_code(chat_code=chat_code)
@@ -249,17 +244,13 @@ async def _(
     bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
     _: dict = Depends(verify_token),
 ):
-    try:
-        chat_code = ""
-        if _ := poe.client.bot_code_dict[bot_id]:
-            chat_code = _[0]
-    except KeyError:
-        raise BotIdNotFound()
+    chat_code = get_chat_code(bot_id)
 
     try:
         data = await poe.client.get_chat_history(
             url_botname=bot_id, chat_code=chat_code, get_all=True
         )
+        # return JSONResponse(data)
         history = []
         for _ in data:
             sender = _["node"]["author"]
