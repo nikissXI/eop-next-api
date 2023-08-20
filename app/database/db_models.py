@@ -13,7 +13,7 @@ class User(Model):
         if not await cls.filter(user="nikiss").exists():
             await cls.create(
                 user="nikiss",
-                passwd="200dac0c612e70b573dee52f7bb5732a4294ebda540f6d8979cffe267d6f5cb7",
+                passwd="f06cd6267f9d3abdce623f435daf4abe8ae755c9d6fd5732c90c30f5e2b2f4dd",
                 admin=True,
                 botIdList="{}",
             )
