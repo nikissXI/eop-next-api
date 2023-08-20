@@ -107,7 +107,6 @@ async def _(
 
 @router.get("/getPasswd", summary="生成密码哈希（临时）")
 async def _(passwd: str = Query(description="明文密码", example="this_is_a_password")):
-    print(poe.client.bot_code_dict["UKySMepFDsZCtm54vClK"])
     hash_object = sha256()
     hash_object.update(passwd.encode("utf-8"))
     hash_value = hash_object.hexdigest()

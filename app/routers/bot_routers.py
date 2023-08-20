@@ -122,11 +122,9 @@ async def _(
                 suggest_able=False,
             ):
                 if isinstance(data, Text):
-                    # print(str(data), end="")
                     yield BytesIO(str(data).encode("utf-8")).read()
 
         return StreamingResponse(generate(), media_type="text/plain")
-        # return {}
 
     except Exception as e:
         return handle_exception(str(e))
