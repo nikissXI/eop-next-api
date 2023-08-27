@@ -53,13 +53,20 @@ async def _(
     user_list = await User.list_user()
     if user not in user_list:
         return JSONResponse({"code": 2003, "msg": f"User {user} not found"}, 500)
-
-    await User.remove_user(user)
+    # 先把用户相关bot信息拉取并删除poe上的数据
     rows = await Bot.pre_remove_user_bots(user)
-    for eop_id, bot_id, chat_id in rows:
-        pass
-        # todo
+    for eop_id, diy, bot_id, chat_id in rows:
+        if diy:
+            handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
+            await poe.client.delete_bot(handle, bot_id)
+
+        else:
+            handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+            await poe.client.delete_chat_by_chat_id(handle, chat_id)
+    # 把数据库的相关bot信息删掉
     await Bot.remove_user_bots(user)
+    # 把用户删掉
+    await User.remove_user(user)
     return Response(status_code=204)
 
 

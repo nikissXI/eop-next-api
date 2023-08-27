@@ -88,7 +88,7 @@ class Bot(Model):
     @classmethod
     async def pre_remove_user_bots(cls, user: str) -> list[tuple[int, bool, int, int]]:
         return await cls.filter(user=user).values_list(
-            "eop_id", "bool", "bot_id", "chat_id"
+            "eop_id", "diy", "bot_id", "chat_id"
         )
 
     # 删除某个用户相关bot
@@ -131,8 +131,12 @@ class Bot(Model):
 
     # 获取某个bot信息
     @classmethod
-    async def get_bot_handle_botId_model_prompt(cls, eop_id: int) -> tuple[str, int, str, str]:
-        rows = await cls.filter(eop_id=eop_id).values_list("handle", "bot_id", "model", "prompt")
+    async def get_bot_handle_botId_model_prompt(
+        cls, eop_id: int
+    ) -> tuple[str, int, str, str]:
+        rows = await cls.filter(eop_id=eop_id).values_list(
+            "handle", "bot_id", "model", "prompt"
+        )
         return rows[0]
 
     # 获取某个bot的bot id
