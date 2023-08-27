@@ -190,9 +190,6 @@ class Poe_Client:
         for msg in msg_list:
             payload = msg.get("payload", {})
 
-            with open("resp.json", "a") as a:
-                dump(payload, a, ensure_ascii=False)
-
             if payload.get("subscription_name") not in [
                 "messageAdded",
                 "messageCancelled",
@@ -244,7 +241,8 @@ class Poe_Client:
                 },
             )
             json_data = loads(resp.text)
-            print(json_data)
+            with open("resp.json", "a") as a:
+                dump(json_data, a, ensure_ascii=False)  # type:ignore
             if (
                 "success" in json_data.keys()
                 and not json_data["success"]
