@@ -15,6 +15,4 @@ require Python environment >= 3.10
   
 30XX 服务器处理错误
 - 3001    服务器出错
-- 3002    会话失效
 - 3008    Poe登陆失败
-- 3009    Poe登陆凭证失效
