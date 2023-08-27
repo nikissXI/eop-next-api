@@ -70,7 +70,7 @@ class Bot(Model):
             "eop_id", "alias", "model", "prompt", "create_time", "last_talk_time"
         )
         data = []
-        for eop_id, diy, alias, model, prompt, create_time, last_talk_time in rows:
+        for eop_id, alias, model, prompt, create_time, last_talk_time in rows:
             data.append(
                 {
                     "eop_id": eop_id,
