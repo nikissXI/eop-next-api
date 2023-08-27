@@ -69,13 +69,16 @@ async def _(
     # 先把用户相关bot信息拉取并删除poe上的数据
     rows = await Bot.pre_remove_user_bots(user)
     for eop_id, diy, bot_id, chat_id in rows:
-        if diy:
-            handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
-            await poe.client.delete_bot(handle, bot_id)
+        try:
+            if diy:
+                handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
+                await poe.client.delete_bot(handle, bot_id)
 
-        else:
-            handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
-            await poe.client.delete_chat_by_chat_id(handle, chat_id)
+            else:
+                handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+                await poe.client.delete_chat_by_chat_id(handle, chat_id)
+        except Exception as e:
+            logger.error(f"删除相关bot时出错，错误信息：{e}")
     # 把数据库的相关bot信息删掉
     await Bot.remove_user_bots(user)
     # 把用户删掉

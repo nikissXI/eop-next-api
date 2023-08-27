@@ -14,6 +14,25 @@ from uvicorn import run
 ### 后端定义
 ################
 app = FastAPI(
+    description="""require Python environment >= 3.10
+
+10XX 常规或网络问题  
+- 1001    认证失败：密码错误、权限不足等  
+  
+20XX 请求错误
+- 2001    请求错误
+- 2002    模型不存在
+- 2003    用户不存在
+- 2004    用户已存在
+- 2005    会话不存在
+- 2006    尚未发起对话
+- 2009    用户过期，无法创建和对话
+- 2099    其他请求错误
+  
+30XX 服务器处理错误
+- 3001    服务器出错
+- 3008    Poe登陆失败
+""",
     responses={
         422: {
             "description": "请求错误",
@@ -76,7 +95,7 @@ async def _(request: Request, exc: BotNotFound):
     return JSONResponse(
         {
             "code": 2005,
-            "msg": "会话句柄不存在",
+            "msg": "会话不存在",
         },
         402,
     )
@@ -108,8 +127,8 @@ async def _(request: Request, exc: UserNotExist):
 async def _(request: Request, exc: UserOutdate):
     return JSONResponse(
         {
-            "code": 2003,
-            "msg": f"你的账号已过期，有效期至【{exc.date}】",
+            "code": 2009,
+            "msg": f"你的账号已过期，有效期至【{exc.date}】，无法创建和对话",
         },
         402,
     )

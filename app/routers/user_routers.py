@@ -57,7 +57,7 @@ async def _(
                                 "eop_id": "bot_B_eop_id",
                                 "alias": "BBB",
                                 "model": "ChatGPT4",
-                                "prompt": "prompt_B",
+                                "prompt": "",
                                 "create_time": 1692695313,
                                 "last_talk_time": 1692695313,
                             },

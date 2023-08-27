@@ -61,18 +61,6 @@ class Poe_Client:
         self.refresh_channel_lock = False
         self.cache_answer_msg_id = {}
 
-    @property
-    def bot_code_dict(self) -> dict[str, list[str]]:
-        """bots以及所属对话chatcode"""
-        result = {}
-        for bot, data in self.bots.items():
-            result[bot] = []
-            if "chats" not in data:
-                continue
-            for chat_code in data["chats"]:
-                result[bot].append(chat_code)
-        return result
-
     async def login(self):
         """
         创建poe请求实例，可用于验证凭证是否有效。预加载可获取所有bot的基础数据
@@ -211,7 +199,14 @@ class Poe_Client:
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
         """
-        发起请求
+        Send a query request.
+
+        Args:
+        - query_name (str): The name of the query.
+        - variables (dict): The variables for the query.
+
+        Returns:
+        - dict: The response data.
         """
         data = generate_data(query_name, variables)
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
@@ -240,31 +235,17 @@ class Poe_Client:
                 dump(json_data, a, ensure_ascii=False)  # type:ignore
             raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
 
-    async def create_bot(
-        self,
-        base_model: str,
-        prompt: str,
-    ) -> tuple[str, int]:
+    async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
         """
-        该函数用于使用指定的配置创建一个新的机器人。
+        Create a new bot using the specified configuration.
 
-        参数:
-        - handle (str): 新机器人的唯一标识符。
-        - prompt (str): 新机器人的提示语。
-        - display_name (str, 可选): 新机器人的显示名称。如果未提供，则设置为 None。
-        - base_model (str, 可选): 新机器人的基础模型。默认为 "chinchilla"。
-        - description (str, 可选): 新机器人的描述。如果未提供，则设置为空字符串。
-        - intro_message (str, 可选): 新机器人的介绍消息。如果未提供，则设置为空字符串。
-        - api_key (str, 可选): 新机器人的 API 密钥。如果未提供，则设置为 None。
-        - api_bot (bool, 可选): 新机器人是否为 API 机器人。默认为 False。
-        - api_url (str, 可选): 新机器人的 API URL。如果未提供，则设置为 None。
-        - prompt_public (bool, 可选): 是否将机器人的提示设置为公开。默认为 True。
-        - profile_picture_url (str, 可选): 新机器人的个人资料图片 URL。如果未提供，则设置为 None。
-        - linkification (bool, 可选): 是否启用链接转换。默认为 False。
-        - markdown_rendering (bool, 可选): 是否启用 Markdown 渲染。默认为 True。
-        - suggested_replies (bool, 可选): 是否启用建议回复。默认为 False。
-        - private (bool, 可选): 是否将机器人设置为私有。默认为 False。
-        - temperature (int, 可选): 新机器人的温度设置。如果未提供，则设置为 None。
+        Args:
+        - model: The base model for the new bot.
+        - prompt: The prompt for the new bot.
+
+        Returns:
+        - handle: The handle of the new bot.
+        - bot_id: The ID of the new bot.
         """
         while True:
             handle = generate_random_handle()
@@ -273,7 +254,7 @@ class Poe_Client:
                 {
                     "handle": handle,
                     "prompt": prompt,
-                    "model": available_models[base_model][0],
+                    "model": available_models[model][0],
                     "hasSuggestedReplies": False,
                     "displayName": None,
                     "isPromptPublic": True,
@@ -295,7 +276,7 @@ class Poe_Client:
                 if status == "handle_already_taken":
                     continue
 
-                raise RuntimeError(f"创建bot失败，错误信息：{status}")
+                raise Exception(f"创建bot失败，错误信息：{status}")
 
             bot_id_b64 = json_data["bot"]["id"]
             bot_id = int(base64_decode(bot_id_b64)[4:])
@@ -306,6 +287,10 @@ class Poe_Client:
     ) -> Tuple[int, int, str, int]:
         """
         发消息给一个新会话
+
+        参数：
+        - handle 要发送消息的机器人的唯一标识符。
+        - question 要发送给机器人的消息。
         """
         message_data = await self.send_query(
             "chatHelpersSendNewChatMessageMutation",
@@ -330,18 +315,15 @@ class Poe_Client:
         return message_id, create_time, chat_code, chat_id
 
     async def send_msg_to_old_chat(
-        self,
-        handle: str,
-        chat_id: int,
-        question: str,
+        self, handle: str, chat_id: int, question: str
     ) -> tuple[int, int]:
         """
         发消息给一个旧会话
 
         参数：
-        - handle(str)：要发送消息的机器人的唯一标识符。
-        - chat_id(int)：要发送消息的机器人的唯一标识符。
-        - question(str)：要发送给机器人的消息。
+        - handle 要发送消息的机器人的唯一标识符。
+        - chat_id 要发送消息的机器人的唯一标识符。
+        - question 要发送给机器人的消息。
         """
         message_data = await self.send_query(
             "chatHelpers_sendMessageMutation_Mutation",
@@ -368,18 +350,15 @@ class Poe_Client:
         return message_id, create_time
 
     async def talk_to_bot(
-        self,
-        handle: str,
-        chat_id: int,
-        question: str,
+        self, handle: str, chat_id: int, question: str
     ) -> AsyncGenerator:
         """
         向指定的机器人发送问题
 
         参数：
-        - handle(str)：要发送问题的机器人的唯一标识符。
-        - chat_id(int)：与机器人的对话的唯一标识符。如果未提供，则会自动生成一个新的对话。
-        - question(str)：要发送给机器人的问题。
+        - handle 要发送消息的机器人的唯一标识符。
+        - chat_id 要发送消息的机器人的唯一标识符。
+        - question 要发送给机器人的消息。
         """
         # channel地址刷新中
         if self.refresh_channel_lock:
@@ -479,15 +458,12 @@ class Poe_Client:
         yield TalkError(content=err_msg)
         return
 
-    async def talk_stop(
-        self,
-        handle: str,
-    ):
+    async def talk_stop(self, handle: str):
         """
-        向指定的机器人发送问题
+        停止生成回复
 
         参数：
-        - handle(str)：要发送问题的机器人的唯一标识符。
+        - handle 要发送消息的机器人的唯一标识符。
         """
         msg_id = self.cache_answer_msg_id[handle]
         try:
@@ -495,46 +471,28 @@ class Poe_Client:
                 "chatHelpers_messageCancel_Mutation",
                 {
                     "linkifiedTextLength": 1,
-                    "messageId": msg_id,  # 回复的消息id  "subscription_name":"messageCancelled"
+                    "messageId": msg_id,
                     "textLength": 1,
                 },
             )
         except Exception as e:
             raise Exception(f"停止bot【{handle}】生成回答失败，错误信息：{e}")
 
-    async def edit_bot(
-        self,
-        handle: str,
-        bot_id: int,
-        base_model: str,
-        prompt: str,
-    ):
+    async def edit_bot(self, handle: str, bot_id: int, model: str, prompt: str):
         """
         这个函数用于编辑现有机器人的配置。
 
         参数：
-        - handle（字符串）：要编辑的机器人的URL名称。
-        - handle（字符串，可选）：机器人的新句柄。如果未提供，则保持不变。
-        - prompt（字符串，可选）：机器人的新提示。如果未提供，则保持不变。
-        - display_name（字符串，可选）：机器人的新显示名称。如果未提供，则保持不变。
-        - base_model（字符串，可选）：机器人的新基础模型。如果未提供，则保持不变。
-        - description（字符串，可选）：机器人的新描述。如果未提供，则保持不变。
-        - intro_message（字符串，可选）：机器人的新介绍信息。如果未提供，则保持不变。
-        - api_key（字符串，可选）：机器人的新API密钥。如果未提供，则保持不变。
-        - api_url（字符串，可选）：机器人的新API URL。如果未提供，则保持不变。
-        - is_private_bot（布尔值，可选）：是否将机器人设置为私有。如果未提供，则保持不变。
-        - prompt_public（布尔值，可选）：是否将机器人的提示设置为公开。如果未提供，则保持不变。
-        - profile_picture_url（字符串，可选）：机器人的新个人资料图片URL。如果未提供，则保持不变。
-        - linkification（布尔值，可选）：是否启用链接转换。如果未提供，则保持不变。
-        - markdown_rendering（布尔值，可选）：是否启用Markdown渲染。如果未提供，则保持不变。
-        - suggested_replies（布尔值，可选）：是否启用建议回复。如果未提供，则保持不变。
-        - temperature（浮点数，可选）：机器人的新温度设置。如果未提供，则保持不变。
+        - handle 要编辑的机器人的URL名称。
+        - bot_id 要发送消息的机器人的唯一标识符。
+        - prompt 机器人的新提示。
+        - model 机器人的新基础模型。
         """
         result = await self.send_query(
             "EditBotMain_poeBotEdit_Mutation",
             {
                 "prompt": prompt,
-                "baseBot": available_models[base_model][0],
+                "baseBot": available_models[model][0],
                 "botId": bot_id,
                 "handle": handle,
                 "displayName": handle,
@@ -561,8 +519,8 @@ class Poe_Client:
         重置对话，仅清除会话记忆，不会删除聊天记录。
 
         参数:
-        - handle (str): 要发送聊天终止信号的机器人的唯一标识符。
-        - chat_id (int): 与机器人的聊天的唯一标识符。
+        - handle 要发送聊天终止信号的机器人的唯一标识符。
+        - chat_id 与机器人的聊天的唯一标识符。
         """
         try:
             chat_id_b64 = base64_encode(f"Chat:{chat_id}")
@@ -583,7 +541,8 @@ class Poe_Client:
         删除某个bot下的会话
 
         参数:
-        - chat_id (int)
+        - handle 要发送聊天终止信号的机器人的唯一标识符。
+        - chat_id 与机器人的聊天的唯一标识符。
         """
         try:
             await self.send_query(
@@ -595,6 +554,10 @@ class Poe_Client:
     async def delete_bot(self, handle: str, bot_id: int):
         """
         删除某个bot
+
+        参数:
+        - handle 要发送聊天终止信号的机器人的唯一标识符。
+        - bot_id 与机器人的聊天的唯一标识符。
         """
         try:
             resp = await self.send_query(
@@ -604,13 +567,18 @@ class Poe_Client:
             raise Exception(f"删除bot【{handle}】失败，错误信息：{e}")
 
         if resp["data"] is None and resp["errors"]:
-            raise Exception(f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['msg']}")
+            raise Exception(f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['message']}")
 
     async def get_chat_history(
         self, handle: str, chat_id: int, cursor: str
     ) -> tuple[list[dict], str]:
         """
-        删除某个某个会话的历史记录
+        获取某个会话的历史记录
+
+        参数:
+        - handle 要发送聊天终止信号的机器人的唯一标识符。
+        - chat_id 与机器人的聊天的唯一标识符。
+        - cursor 坐标，用于翻页
         """
         try:
             result = await self.send_query(

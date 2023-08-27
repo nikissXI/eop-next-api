@@ -408,7 +408,7 @@ async def _(
 
 @router.patch(
     "/{eop_id}",
-    summary="修改bot信息，不改的就不提交。不支持diy的会话只能修改alias",
+    summary="修改bot信息，不改的就不提交，prompt如果为空的会话只能修改alias",
     responses={
         200: {
             "description": "无相关响应",
