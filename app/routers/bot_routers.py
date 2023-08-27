@@ -5,13 +5,18 @@ from services import *
 from utils import *
 from utils.config import *
 
+try:
+    from ujson import dumps
+except:
+    from json import dumps
+
 
 class BotNotFound(Exception):
     def __init__(self):
         pass
 
 
-class NoChatCode(Exception):
+class NoChat(Exception):
     def __init__(self):
         pass
 
@@ -30,20 +35,72 @@ def handle_exception(err_msg: str) -> JSONResponse:
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
 
-available_model = set(poe.client.model_dict.keys())
+async def check_bot_hoster(user: str, eop_id: int):
+    if not await Bot.check_bot_user(eop_id, user):
+        raise BotNotFound()
+
+
+async def check_chat_exist(id: int):
+    if not id:
+        raise NoChat()
+
 
 router = APIRouter()
 
 
+@router.get(
+    "/models",
+    summary="获取可用模型",
+    responses={
+        200: {
+            "description": "diy指是否可以设置prompt，limited指是否有使用次数限制",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "available_models": [
+                            {
+                                "model": "ChatGPT",
+                                "description": "由gpt-3.5-turbo驱动。",
+                                "diy": True,
+                                "limited": False,
+                            },
+                            {
+                                "model": "GPT-4",
+                                "description": "OpenAI最强大的模型。在定量问题（数学和物理）、创造性写作和许多其他具有挑战性的任务方面比ChatGPT更强大。",
+                                "diy": True,
+                                "limited": True,
+                            },
+                            {
+                                "model": "Google-PaLM",
+                                "description": "由Google的PaLM 2 chat-bison-001模型驱动。",
+                                "diy": False,
+                                "limited": False,
+                            },
+                        ]
+                    },
+                }
+            },
+        },
+    },
+)
+async def _(
+    _: dict = Depends(verify_token),
+):
+    data = []
+    for k, v in available_models.items():
+        data.append({"model": k, "description": v[1], "diy": v[2], "limited": v[3]})
+    return JSONResponse({"available_models": data}, 200)
+
+
 @router.post(
     "/create",
-    summary="创建会话",
+    summary="创建会话，prompt仅支持diy的模型可用",
     responses={
         200: {
             "description": "创建成功",
             "content": {
                 "application/json": {
-                    "example": {"handle": "会话句柄"},
+                    "example": {"eop_id": "6位数的eop id"},
                 }
             },
         },
@@ -59,77 +116,85 @@ async def _(
     ),
     user_data: dict = Depends(verify_token),
 ):
-    if body.model not in available_model:
+    if body.model not in available_models:
         raise ModelNotFound(body.model)
 
     user = user_data["user"]
+    can_diy = available_models[body.model][2]
 
     try:
-        handle, bot_id = await poe.client.create_bot(
-            body.model,
-            body.prompt,
+        # 如果是自定义prompt需要创建新的bot
+        if can_diy:
+            handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
+        else:
+            handle, bot_id = (
+                available_models[body.model][0],
+                available_models[body.model][4],
+            )
+
+        eop_id = await Bot.create_bot(
+            can_diy, handle, bot_id, user, body.model, body.alias, body.prompt
         )
-        await Bot.create_bot(
-            handle,
-            bot_id,
-            user,
-            body.model,
-            body.alias,
-            body.prompt,
-        )
-        return JSONResponse({"handle": handle}, 200)
+        return JSONResponse({"eop_id": eop_id}, 200)
 
     except Exception as e:
         return handle_exception(str(e))
 
 
 @router.post(
-    "/{handle}/talk",
+    "/{eop_id}/talk",
     summary="对话（提问）",
     responses={
         200: {
-            "description": "回复内容",
-            "content": {"text/plain": {"example": "你寄吧谁啊"}},
+            "description": "回复内容，完毕type为end，出错type为error",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "type": "response",
+                        "data": "回答内容",
+                    }
+                }
+            },
         }
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     body: TalkBody = Body(example={"q": "你好啊"}),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    chat_id = await Bot.get_bot_chat_id(handle)
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
 
     async def ai_reply():
-        async for data in poe.client.talk_to_bot(
-            handle,
-            chat_id,
-            body.q,
-        ):
+        async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
                 await Bot.update_bot_chat_code_and_chat_id(
-                    handle, data.chat_code, data.chat_id
+                    eop_id, data.chat_code, data.chat_id
                 )
             # ai的回答
             if isinstance(data, Text):
-                yield BytesIO(data.content.encode("utf-8")).read()
+                yield BytesIO(
+                    dumps({"type": "response", "data": data.content}).encode("utf-8")
+                ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
-                await Bot.update_bot_last_talk_time(handle)
+                await Bot.update_bot_last_talk_time(eop_id)
+                yield BytesIO(dumps({"type": "end"}).encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
-                yield BytesIO(data.content.encode("utf-8")).read()
+                yield BytesIO(
+                    dumps({"type": "error", "data": data.content}).encode("utf-8")
+                ).read()
 
     return StreamingResponse(ai_reply(), media_type="text/plain")
 
 
 @router.get(
-    "/{handle}/stop",
+    "/{eop_id}/stop",
     summary="停止生成回答",
     responses={
         200: {
@@ -141,17 +206,14 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    chat_id = await Bot.get_bot_chat_id(handle)
-
-    if not chat_id:
-        raise NoChatCode()
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    await check_chat_exist(chat_id)
 
     try:
         await poe.client.talk_stop(handle)
@@ -162,7 +224,7 @@ async def _(
 
 
 @router.delete(
-    "/{handle}",
+    "/{eop_id}",
     summary="删除会话",
     responses={
         200: {
@@ -174,26 +236,30 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
-
-    bot_id = await Bot.get_bot_id(handle)
+    await check_bot_hoster(user, eop_id)
 
     try:
-        await poe.client.delete_bot(handle, bot_id)
-        await Bot.delete_bot(handle)
-        return Response(status_code=204)
+        if await Bot.bot_can_diy(eop_id):
+            handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
+            await poe.client.delete_bot(handle, bot_id)
+
+        else:
+            handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+            await poe.client.delete_chat_by_chat_id(handle, chat_id)
 
     except Exception as e:
         return handle_exception(str(e))
 
+    await Bot.delete_bot(eop_id)
+    return Response(status_code=204)
+
 
 @router.delete(
-    "/{handle}/reset",
+    "/{eop_id}/reset",
     summary="重置对话，仅清除bot记忆，不会删除聊天记录",
     responses={
         200: {
@@ -205,17 +271,14 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    chat_id = await Bot.get_bot_chat_id(handle)
-
-    if not chat_id:
-        raise NoChatCode()
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    await check_chat_exist(chat_id)
 
     try:
         await poe.client.send_chat_break(handle, chat_id)
@@ -226,7 +289,7 @@ async def _(
 
 
 @router.delete(
-    "/{handle}/clear",
+    "/{eop_id}/clear",
     summary="重置对话并删除聊天记录",
     responses={
         200: {
@@ -238,21 +301,18 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    chat_id = await Bot.get_bot_chat_id(handle)
-
-    if not chat_id:
-        raise NoChatCode()
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    await check_chat_exist(chat_id)
 
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
-        await Bot.update_bot_chat_code_and_chat_id(handle)
+        await Bot.update_bot_chat_code_and_chat_id(eop_id)
         return Response(status_code=204)
 
     except Exception as e:
@@ -260,7 +320,7 @@ async def _(
 
 
 @router.get(
-    "/{handle}/history/{cursor}",
+    "/{eop_id}/history/{cursor}",
     summary="拉取聊天记录",
     responses={
         200: {
@@ -290,17 +350,15 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    chat_id = await Bot.get_bot_chat_id(handle)
-    if not chat_id:
-        raise NoChatCode()
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    await check_chat_exist(chat_id)
 
     try:
         result_list, next_cursor = await poe.client.get_chat_history(
@@ -320,8 +378,8 @@ async def _(
 
 
 @router.patch(
-    "/{handle}",
-    summary="修改bot信息，不改的就不提交",
+    "/{eop_id}",
+    summary="修改bot信息，不改的就不提交。不支持diy的会话只能修改alias",
     responses={
         200: {
             "description": "无相关响应",
@@ -332,7 +390,7 @@ async def _(
     },
 )
 async def _(
-    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    eop_id: int = Path(description="会话唯一标识", example="114514"),
     body: ModifyBotBody = Body(
         example={
             "alias": "智能傻逼",
@@ -343,17 +401,21 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    if not await Bot.verify_bot(user, handle):
-        raise BotNotFound()
+    await check_bot_hoster(user, eop_id)
 
-    if body.model and body.model not in available_model:
+    if body.model and body.model not in available_models:
         raise ModelNotFound(body.model)
 
     # 更新缓存
-    await Bot.modify_bot(handle, body.model, body.alias, body.prompt)
-    # 更新模型和预设
-    if body.model or body.prompt:
-        bot_id, _model, _prompt = await Bot.get_bot_botId_model_prompt(handle)
+    await Bot.modify_bot(eop_id, None, body.alias, None)
+
+    # 只有支持diy的可以更新模型和预设
+    if await Bot.bot_can_diy(eop_id) and (body.model or body.prompt):
+        # 更新缓存
+        await Bot.modify_bot(eop_id, body.model, None, body.prompt)
+        handle, bot_id, _model, _prompt = await Bot.get_bot_handle_botId_model_prompt(
+            eop_id
+        )
         try:
             await poe.client.edit_bot(
                 handle,

@@ -25,6 +25,7 @@ from .util import (
     generate_random_handle,
     base64_encode,
     base64_decode,
+    available_models,
 )
 
 try:
@@ -53,23 +54,6 @@ class Poe_Client:
             "Upgrade-Insecure-Requests": "1",
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
-        self.model_dict = {
-            "Assistant": "capybara",
-            "ChatGPT": "chinchilla",
-            "ChatGPT-16k": "agouti",
-            "GPT-4": "beaver",
-            "GPT-4-32k": "vizcacha",
-            "Claude-instant": "a2",
-            "Claude-instant-100k": "a2_100k",
-            "Claude-2-100k": "a2_2",
-            "Google-PaLM": "acouchy",
-            "Llama-2-7b": "llama_2_7b_chat",
-            "Llama-2-13b": "llama_2_13b_chat",
-            "Llama-2-70b": "llama_2_70b_chat",
-        }
-        self.model_dict_reverse = {}
-        for k, v in self.model_dict.items():
-            self.model_dict_reverse[v] = k
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
         self.talking = False
@@ -282,7 +266,6 @@ class Poe_Client:
         - private (bool, 可选): 是否将机器人设置为私有。默认为 False。
         - temperature (int, 可选): 新机器人的温度设置。如果未提供，则设置为 None。
         """
-        model = self.model_dict[base_model]
         while True:
             handle = generate_random_handle()
             result = await self.send_query(
@@ -290,12 +273,12 @@ class Poe_Client:
                 {
                     "handle": handle,
                     "prompt": prompt,
-                    "model": model,
+                    "model": available_models[base_model][0],
                     "hasSuggestedReplies": False,
                     "displayName": None,
                     "isPromptPublic": True,
                     "introduction": "",
-                    "description": prompt,
+                    "description": "",
                     "profilePictureUrl": "",
                     "apiUrl": None,
                     "apiKey": None,
@@ -432,7 +415,7 @@ class Poe_Client:
                 q_msg_id = await self.send_msg_to_old_chat(handle, chat_id, question)
         except Exception as e:
             self.talking = False
-            err_msg = f"\n\n获取bot【{handle}】的message id出错，错误信息：{e}"
+            err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
             return
@@ -474,7 +457,7 @@ class Poe_Client:
             await sleep(1)
 
         self.talking = False
-        err_msg = "\n\n获取回答超时"
+        err_msg = "获取回答超时"
         logger.error(err_msg)
         yield TalkError(content=err_msg)
         return
@@ -530,18 +513,17 @@ class Poe_Client:
         - suggested_replies（布尔值，可选）：是否启用建议回复。如果未提供，则保持不变。
         - temperature（浮点数，可选）：机器人的新温度设置。如果未提供，则保持不变。
         """
-        model = self.model_dict[base_model]
         result = await self.send_query(
             "EditBotMain_poeBotEdit_Mutation",
             {
                 "prompt": prompt,
-                "baseBot": model,
+                "baseBot": available_models[base_model][0],
                 "botId": bot_id,
                 "handle": handle,
                 "displayName": handle,
                 "isPromptPublic": True,
                 "introduction": "",
-                "description": prompt,
+                "description": "",
                 "profilePictureUrl": "",
                 "apiUrl": None,
                 "apiKey": None,

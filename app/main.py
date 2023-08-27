@@ -81,8 +81,8 @@ async def _(request: Request, exc: BotNotFound):
     )
 
 
-@app.exception_handler(NoChatCode)
-async def _(request: Request, exc: NoChatCode):
+@app.exception_handler(NoChat)
+async def _(request: Request, exc: NoChat):
     return JSONResponse(
         {
             "code": 2006,

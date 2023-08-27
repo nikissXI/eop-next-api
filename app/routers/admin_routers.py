@@ -55,6 +55,11 @@ async def _(
         return JSONResponse({"code": 2003, "msg": f"User {user} not found"}, 500)
 
     await User.remove_user(user)
+    rows = await Bot.pre_remove_user_bots(user)
+    for eop_id, bot_id, chat_id in rows:
+        pass
+        # todo
+    await Bot.remove_user_bots(user)
     return Response(status_code=204)
 
 

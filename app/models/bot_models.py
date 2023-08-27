@@ -3,10 +3,10 @@ from pydantic import BaseModel, Field
 
 class CreateBody(BaseModel):
     model: str = Field(
-        description="模型，无次数限制模型：ChatGPT、Claude； 有次数限制模型：ChatGPT4、Claude-2-100k",
+        description="模型名称",
     )
     prompt: str = Field(
-        default="You are a large language model. Follow the user's instructions carefully.",
+        default="",
         description="预设内容",
     )
     alias: str = Field(
@@ -28,7 +28,7 @@ class ModifyBotBody(BaseModel):
     )
     model: str | None = Field(
         default=None,
-        description="模型，无次数限制模型：ChatGPT、Claude； 有次数限制模型：ChatGPT4、Claude-2-100k",
+        description="模型名称",
     )
     prompt: str | None = Field(
         default=None,
