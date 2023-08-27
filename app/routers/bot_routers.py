@@ -153,12 +153,12 @@ async def _(
     if not chat_id:
         raise NoChatCode()
 
-    # try:
-    await poe.client.talk_stop(handle)
-    return Response(status_code=204)
+    try:
+        await poe.client.talk_stop(handle)
+        return Response(status_code=204)
 
-    # except Exception as e:
-    #     return handle_exception(str(e))
+    except Exception as e:
+        return handle_exception(str(e))
 
 
 @router.delete(
