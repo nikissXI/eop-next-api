@@ -5,6 +5,16 @@ from utils.config import *
 from models import *
 
 
+class UserNotExist(Exception):
+    def __init__(self, user: str):
+        self.user = user
+
+
+async def check_user_exist(user: str):
+    if not await User.user_exist(user):
+        raise UserNotExist(user)
+
+
 router = APIRouter()
 
 
@@ -22,15 +32,19 @@ router = APIRouter()
 )
 async def _(
     body: AddUserBody = Body(
-        example={"user": "username", "passwd": "hashed_password", "admin": False},
+        example={
+            "user": "username",
+            "passwd": "hashed_password",
+            "expire_date": "2023-10-01",
+            "admin": False,
+        },
     ),
     _: dict = Depends(verify_admin),
 ):
-    user_list = await User.list_user()
-    if body.user in user_list:
-        return JSONResponse({"code": 2004, "msg": f"User {body.user} is exist"}, 500)
+    if await User.user_exist(body.user):
+        return JSONResponse({"code": 2004, "msg": f"用户【{body.user}】已存在"}, 402)
 
-    await User.create_user(body.user, body.passwd, body.admin)
+    await User.create_user(body.user, body.passwd, body.expire_date, body.admin)
     return Response(status_code=204)
 
 
@@ -50,9 +64,8 @@ async def _(
     user: str = Path(description="用户名", example="username"),
     _: dict = Depends(verify_admin),
 ):
-    user_list = await User.list_user()
-    if user not in user_list:
-        return JSONResponse({"code": 2003, "msg": f"User {user} not found"}, 500)
+    await check_user_exist(user)
+
     # 先把用户相关bot信息拉取并删除poe上的数据
     rows = await Bot.pre_remove_user_bots(user)
     for eop_id, diy, bot_id, chat_id in rows:
@@ -67,6 +80,34 @@ async def _(
     await Bot.remove_user_bots(user)
     # 把用户删掉
     await User.remove_user(user)
+    return Response(status_code=204)
+
+
+@router.patch(
+    "/{user}/renew",
+    summary="更新用户的过期日期",
+    responses={
+        200: {
+            "description": "无相关响应",
+        },
+        204: {
+            "description": "成修改功",
+        },
+    },
+)
+async def _(
+    user: str = Path(description="用户名", example="username"),
+    body: RenewUserBody = Body(
+        example={
+            "expire_date": "2023-10-01",
+        }
+    ),
+    _: dict = Depends(verify_admin),
+):
+    await check_user_exist(user)
+
+    await User.update_expire_date(user, body.expire_date)
+
     return Response(status_code=204)
 
 
@@ -90,9 +131,7 @@ async def _(
     user: str = Path(description="用户名", example="username"),
     _: dict = Depends(verify_admin),
 ):
-    user_list = await User.list_user()
-    if user not in user_list:
-        return JSONResponse({"code": 2003, "msg": f"User {user} not found"}, 500)
+    await check_user_exist(user)
 
     passwd, hashed_passwd = generate_random_password()
     await User.update_passwd(user, hashed_passwd)
@@ -123,21 +162,31 @@ async def _(_: dict = Depends(verify_admin)):
             "description": "用户名列表",
             "content": {
                 "application/json": {
-                    "example": [
-                        {"user": "user_A", "admin": True},
-                        {"user": "user_B", "admin": False},
-                    ]
+                    "example": {
+                        "users": [
+                            {
+                                "user": "user_A",
+                                "expire_date": "2023-01-01",
+                                "admin": True,
+                            },
+                            {
+                                "user": "user_B",
+                                "expire_date": "2023-01-01",
+                                "admin": False,
+                            },
+                        ]
+                    }
                 }
             },
         },
     },
 )
 async def _(_: dict = Depends(verify_admin)):
-    data = await User.list_user()
-    resp_list = []
-    for user, admin in data.items():
-        resp_list.append({"user": user, "admin": admin})
-    return JSONResponse(resp_list, 200)
+    rows = await User.list_user()
+    data = []
+    for user, expire_date, admin in rows:
+        data.append({"user": user, "expire_date": expire_date, "admin": admin})
+    return JSONResponse({"users": data}, 200)
 
 
 @router.get(

@@ -26,6 +26,11 @@ class ModelNotFound(Exception):
         self.model = model
 
 
+class UserOutdate(Exception):
+    def __init__(self, date: str):
+        self.date = date
+
+
 def handle_exception(err_msg: str) -> JSONResponse:
     """处理poe请求错误"""
     if "The bot doesn't exist or isn't accessible" in err_msg:
@@ -94,7 +99,7 @@ async def _(
 
 @router.post(
     "/create",
-    summary="创建会话，prompt仅支持diy的模型可用",
+    summary="创建会话，prompt选填（不填留空），prompt仅支持diy的模型可用",
     responses={
         200: {
             "description": "创建成功",
@@ -110,21 +115,26 @@ async def _(
     body: CreateBody = Body(
         example={
             "model": "ChatGPT",
-            "prompt": "You are a large language model. Follow the user's instructions carefully.",
+            "prompt": "",
             "alias": "新会话",
         }
     ),
     user_data: dict = Depends(verify_token),
 ):
+    user = user_data["user"]
+
+    if await User.is_outdate(user):
+        expire_date = await User.get_expire_date(user)
+        raise UserOutdate(expire_date)
+
     if body.model not in available_models:
         raise ModelNotFound(body.model)
 
-    user = user_data["user"]
     can_diy = available_models[body.model][2]
 
     try:
         # 如果是自定义prompt需要创建新的bot
-        if can_diy:
+        if can_diy and body.prompt:
             handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
         else:
             handle, bot_id = (
@@ -164,6 +174,10 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
+    if await User.is_outdate(user):
+        expire_date = await User.get_expire_date(user)
+        raise UserOutdate(expire_date)
+
     await check_bot_hoster(user, eop_id)
 
     handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
@@ -175,6 +189,21 @@ async def _(
                 await Bot.update_bot_chat_code_and_chat_id(
                     eop_id, data.chat_code, data.chat_id
                 )
+            # 对话消息id和创建时间，用于同步
+            if isinstance(data, MsgId):
+                yield BytesIO(
+                    dumps(
+                        {
+                            "type": "start",
+                            "data": {
+                                "question_msg_id": data.question_msg_id,
+                                "question_create_time": data.question_create_time,
+                                "answer_msg_id": data.answer_msg_id,
+                                "answer_create_time": data.answer_create_time,
+                            },
+                        }
+                    ).encode("utf-8")
+                ).read()
             # ai的回答
             if isinstance(data, Text):
                 yield BytesIO(

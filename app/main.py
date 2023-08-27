@@ -46,6 +46,7 @@ async def _():
 async def _():
     await db_close()
 
+
 ################
 ### 错误处理
 ################
@@ -87,6 +88,28 @@ async def _(request: Request, exc: NoChat):
         {
             "code": 2006,
             "msg": "尚未发起对话",
+        },
+        402,
+    )
+
+
+@app.exception_handler(UserNotExist)
+async def _(request: Request, exc: UserNotExist):
+    return JSONResponse(
+        {
+            "code": 2003,
+            "msg": f"用户【{exc.user}】不存在",
+        },
+        402,
+    )
+
+
+@app.exception_handler(UserOutdate)
+async def _(request: Request, exc: UserOutdate):
+    return JSONResponse(
+        {
+            "code": 2003,
+            "msg": f"你的账号已过期，有效期至【{exc.date}】",
         },
         402,
     )

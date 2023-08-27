@@ -75,19 +75,31 @@ async def _(user_data: dict = Depends(verify_token)):
 
 
 @router.get(
-    "/verifyAdmin",
-    summary="判断是否为管理员",
+    "/info",
+    summary="获取用户信息，包含是否为管理员以及过期日期",
     responses={
         200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "是管理员",
+            "description": "用户信息",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "is_admin": False,
+                        "expire_date": "2099-01-01",
+                    }
+                }
+            },
         },
     },
 )
-async def _(_: dict = Depends(verify_admin)):
-    return Response(status_code=204)
+async def _(user_data: dict = Depends(verify_token)):
+    user = user_data["user"]
+    is_admin = False
+    if await User.is_admin(user):
+        is_admin = True
+
+    expire_date = await User.get_expire_date(user)
+
+    return JSONResponse({"is_admin": is_admin, "expire_date": expire_date}, 200)
 
 
 @router.put(

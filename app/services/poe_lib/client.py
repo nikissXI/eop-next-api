@@ -303,7 +303,7 @@ class Poe_Client:
 
     async def send_msg_to_new_chat(
         self, handle: str, question: str
-    ) -> Tuple[int, str, int]:
+    ) -> Tuple[int, int, str, int]:
         """
         发消息给一个新会话
         """
@@ -322,16 +322,19 @@ class Poe_Client:
         )
         data = message_data["data"]["messageEdgeCreate"]["chat"]
         message_id: int = data["messagesConnection"]["edges"][0]["node"]["messageId"]
+        create_time: int = data["messagesConnection"]["edges"][0]["node"][
+            "creationTime"
+        ]
         chat_code: str = data["chatCode"]
         chat_id: int = data["chatId"]
-        return message_id, chat_code, chat_id
+        return message_id, create_time, chat_code, chat_id
 
     async def send_msg_to_old_chat(
         self,
         handle: str,
         chat_id: int,
         question: str,
-    ) -> int:
+    ) -> tuple[int, int]:
         """
         发消息给一个旧会话
 
@@ -359,7 +362,10 @@ class Poe_Client:
         message_id: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
             "messageId"
         ]
-        return message_id
+        create_time: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
+            "creationTime"
+        ]
+        return message_id, create_time
 
     async def talk_to_bot(
         self,
@@ -401,24 +407,29 @@ class Poe_Client:
 
         self.talking = True
 
-        # 创建答案生成队列
-        if chat_id not in self.answer_queue:
-            self.answer_queue[chat_id] = Queue()
-
         try:
             if not chat_id:
-                q_msg_id, chat_code, chat_id = await self.send_msg_to_new_chat(
-                    handle, question
-                )
+                (
+                    question_msg_id,
+                    question_create_time,
+                    chat_code,
+                    chat_id,
+                ) = await self.send_msg_to_new_chat(handle, question)
                 yield NewChat(chat_code=chat_code, chat_id=chat_id)
             else:
-                q_msg_id = await self.send_msg_to_old_chat(handle, chat_id, question)
+                question_msg_id, question_create_time = await self.send_msg_to_old_chat(
+                    handle, chat_id, question
+                )
         except Exception as e:
             self.talking = False
             err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
             return
+
+        # 创建答案生成队列
+        if chat_id not in self.answer_queue:
+            self.answer_queue[chat_id] = Queue()
 
         retry = 3
         last_text_len = 0
@@ -428,6 +439,12 @@ class Poe_Client:
 
             if get_answer_msg_id == False:
                 self.cache_answer_msg_id[handle] = answer_data.get("messageId")
+                yield MsgId(
+                    question_msg_id=question_msg_id,
+                    question_create_time=question_create_time,
+                    answer_msg_id=answer_data.get("messageId"),
+                    answer_create_time=answer_data.get("creationTime"),
+                )
 
             if answer_data.get("state") == "cancelled":
                 yield End()

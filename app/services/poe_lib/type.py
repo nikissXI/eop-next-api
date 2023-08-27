@@ -11,7 +11,9 @@ class MsgId(BaseModel):
     """消息id"""
 
     question_msg_id: int
+    question_create_time: int
     answer_msg_id: int
+    answer_create_time: int
 
 
 class End(BaseModel):
