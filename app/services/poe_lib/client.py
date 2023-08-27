@@ -241,8 +241,7 @@ class Poe_Client:
                 },
             )
             json_data = loads(resp.text)
-            with open("resp.json", "a") as a:
-                dump(json_data, a, ensure_ascii=False)  # type:ignore
+
             if (
                 "success" in json_data.keys()
                 and not json_data["success"]
