@@ -356,7 +356,6 @@ class Poe_Client:
         - handle(str)：要发送消息的机器人的唯一标识符。
         - chat_id(int)：要发送消息的机器人的唯一标识符。
         - question(str)：要发送给机器人的消息。
-        - with_chat_break(bool)：在询问后发送对话中断。
         """
         message_data = await self.send_query(
             "chatHelpers_sendMessageMutation_Mutation",
@@ -392,7 +391,6 @@ class Poe_Client:
         - handle(str)：要发送问题的机器人的唯一标识符。
         - chat_id(int)：与机器人的对话的唯一标识符。如果未提供，则会自动生成一个新的对话。
         - question(str)：要发送给机器人的问题。
-        - with_chat_break(布尔值，可选)：如果设置为True，则在问题之前发送一个对话中断，清除机器人的对话记忆。默认为False。
         """
         # channel地址刷新中
         if self.refresh_channel_lock:
@@ -490,7 +488,6 @@ class Poe_Client:
 
         参数：
         - handle(str)：要发送问题的机器人的唯一标识符。
-        - chat_id(int)：与机器人的对话的唯一标识符。如果未提供，则会自动生成一个新的对话。
         """
         msg_id = self.cache_answer_msg_id[handle]
         try:
