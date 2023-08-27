@@ -30,11 +30,8 @@ async def _(
     if body.user in user_list:
         return JSONResponse({"code": 2004, "msg": f"User {body.user} is exist"}, 500)
 
-    msg = await User.create_user(body.user, body.passwd, body.admin)
-    if msg == "success":
-        return Response(status_code=204)
-
-    return JSONResponse({"code": 3001, "msg": msg}, 500)
+    await User.create_user(body.user, body.passwd, body.admin)
+    return Response(status_code=204)
 
 
 @router.delete(
@@ -57,11 +54,8 @@ async def _(
     if user not in user_list:
         return JSONResponse({"code": 2003, "msg": f"User {user} not found"}, 500)
 
-    msg = await User.remove_user(user)
-    if msg == "success":
-        return Response(status_code=204)
-
-    return JSONResponse({"code": 3001, "msg": msg}, 500)
+    await User.remove_user(user)
+    return Response(status_code=204)
 
 
 @router.get(

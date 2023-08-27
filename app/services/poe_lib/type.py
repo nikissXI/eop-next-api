@@ -2,46 +2,32 @@ from pydantic import BaseModel
 
 
 class Text(BaseModel):
-    """普通文本信息,可以实现加法"""
+    """文本信息"""
 
     content: str
-    type: str = "Text"
-
-    def __add__(self, other):
-        if isinstance(other, Text):
-            return Text(content=self.content + other.content)
-        else:
-            return NotImplemented
-
-    def __str__(self):
-        return self.content
 
 
-class SuggestRely(BaseModel):
-    """建议回复信息"""
+class MsgId(BaseModel):
+    """消息id"""
 
-    content: str
-    type: str = "SuggestRely"
-
-    def __str__(self):
-        return self.content
+    question_msg_id: int
+    answer_msg_id: int
 
 
-class ChatTiTleUpdate(BaseModel):
-    """聊天窗口标题变更信息"""
+class End(BaseModel):
+    """回答完毕"""
 
-    content: str
-    type: str = "ChatTiTleUpdate"
-
-    def __str__(self):
-        return self.content
+    pass
 
 
-class ChatCodeUpdate(BaseModel):
-    """新生成的chat的chat code"""
+class NewChat(BaseModel):
+    """新会话"""
+
+    chat_code: str
+    chat_id: int
+
+
+class TalkError(BaseModel):
+    """错误"""
 
     content: str
-    type: str = "ChatCodeUpdate"
-
-    def __str__(self):
-        return str(self.content)

@@ -1,4 +1,4 @@
-from .poe_lib import Poe_Client, Text
+from .poe_lib import Poe_Client
 from database import Config
 from utils import *
 
@@ -17,7 +17,7 @@ async def login_poe() -> JSONResponse | Response:
     else:
         proxy = None
     try:
-        poe.client = await Poe_Client(p_b, formkey, proxy).create()
+        poe.client = await Poe_Client(p_b, formkey, proxy).login()
         return Response(status_code=204)
     except Exception as e:
         msg = "poe ai 登陆失败。" + str(e)

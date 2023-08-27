@@ -44,8 +44,7 @@ async def _():
 
 @app.on_event("shutdown")
 async def _():
-    await db_disconnect()
-
+    await db_close()
 
 ################
 ### 错误处理
@@ -60,12 +59,34 @@ async def _(request: Request, exc: AuthFailed):
     return JSONResponse({"code": 1001, "msg": exc.error_type}, 403)
 
 
-@app.exception_handler(BotIdNotFound)
-async def _(request: Request, exc: BotIdNotFound):
+@app.exception_handler(ModelNotFound)
+async def _(request: Request, exc: ModelNotFound):
+    return JSONResponse(
+        {
+            "code": 2002,
+            "msg": f"模型【{exc.model}】不存在，可用模型：ChatGPT, Claude, ChatGPT4, Claude-2-100k。",
+        },
+        402,
+    )
+
+
+@app.exception_handler(BotNotFound)
+async def _(request: Request, exc: BotNotFound):
     return JSONResponse(
         {
             "code": 2005,
-            "msg": "会话id不存在",
+            "msg": "会话句柄不存在",
+        },
+        402,
+    )
+
+
+@app.exception_handler(NoChatCode)
+async def _(request: Request, exc: NoChatCode):
+    return JSONResponse(
+        {
+            "code": 2006,
+            "msg": "尚未发起对话",
         },
         402,
     )
@@ -108,6 +129,16 @@ custom_logging_config = {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
         },
+        # "file_default": {
+        #     "formatter": "default",
+        #     "class": "logging.handlers.TimedRotatingFileHandler",
+        #     "filename": "./server.log",
+        # },
+        # "file_access": {
+        #     "formatter": "access",
+        #     "class": "logging.handlers.TimedRotatingFileHandler",
+        #     "filename": "./server.log",
+        # },
     },
     "loggers": {
         "uvicorn": {"handlers": ["default"], "level": "INFO"},

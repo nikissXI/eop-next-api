@@ -1,6 +1,13 @@
-import json
-import secrets
+try:
+    from ujson import dumps
+except:
+    from json import dumps
 import uuid
+from random import choice
+from string import ascii_letters, digits
+from base64 import b64encode, b64decode
+
+
 
 CONST_NAMESPACE = uuid.UUID("12345678123456781234567812345678")
 
@@ -21,6 +28,7 @@ QUERIES = {
     "BotInfoCardActionBar_poeRemoveBotFromUserList_Mutation": "94f91aa5973c4eb74b9565a2695e422a2ff2afd334c7979fe6da655f4a430d85",
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",
     "ChatListPaginationQuery": "dc3f4d34f13ed0a22b0dbfa6a1924a18922f7fe3a392b059b0c8c2134ce4ec8a",
+    "chatHelpers_messageCancel_Mutation":"59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 HOME_URL = "https://poe.com"
@@ -33,8 +41,18 @@ def generate_data(query_name, variables) -> str:
         "variables": variables,
         "extensions": {"hash": QUERIES[query_name]},
     }
-    return json.dumps(data, separators=(",", ":"))
+    return dumps(data, separators=(",", ":"))
 
 
-def generate_nonce(length: int = 16):
-    return secrets.token_hex(length // 2)
+def generate_random_handle() -> str:
+    """生成随机handle"""
+    letters = ascii_letters + digits
+    return "".join(choice(letters) for _ in range(20))
+
+
+def base64_encode(text: str) -> str:
+    return b64encode(text.encode("utf-8")).decode("utf-8")
+
+
+def base64_decode(text: str) -> str:
+    return b64decode(text).decode("utf-8")

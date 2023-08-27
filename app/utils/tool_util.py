@@ -6,10 +6,6 @@ from logging import getLogger
 logger = getLogger("uvicorn.error")
 
 
-def generate_random_bot_id() -> str:
-    """生成随机字符串"""
-    letters = ascii_letters + digits
-    return "".join(choice(letters) for _ in range(20))
 
 
 def generate_random_password(length=8) -> tuple[str, str]:

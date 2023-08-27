@@ -1,47 +1,46 @@
-from asyncio import create_task, ensure_future, gather, sleep
+from asyncio import create_task, sleep, Queue
 from hashlib import md5
-from ujson import loads
+from secrets import token_hex
+from httpx import AsyncClient
+from traceback import format_exc
 
-# from loguru import logger
-from logging import getLogger
+try:
+    from ujson import loads, dump
+except:
+    from json import loads, dump
+from websockets.client import connect as ws_connect
+from websockets.exceptions import ConnectionClosed as ws_ConnectionClosed
 from random import randint
 from re import search
 from time import time
-from typing import AsyncGenerator, List, Optional, Tuple, Union, Any
+from typing import AsyncGenerator, Tuple
 from uuid import uuid5
-from aiohttp import ClientSession
-from aiohttp_socks import ProxyConnector
-from .type import ChatCodeUpdate, ChatTiTleUpdate, SuggestRely, Text
+from .type import *
 from .util import (
     CONST_NAMESPACE,
     GQL_URL,
     HOME_URL,
     SETTING_URL,
     generate_data,
-    generate_nonce,
+    generate_random_handle,
+    base64_encode,
+    base64_decode,
 )
 
-logger = getLogger("uvicorn.error")
+try:
+    from utils import logger
+except:
+    from loguru import logger
 
 
 class Poe_Client:
-    def __init__(self, p_b: str, formkey: str, proxy: str | None = ""):
+    def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
         self.channel_url: str = ""
-        self.channel_use_time = 0
-        self.channel_last_use_time = time()
         self.bots: dict = {}
         self.formkey: str = formkey
-        self.next_data: dict = {}
         self.p_b: str = p_b
         self.sdid: str = ""
-        self.subscription: dict = {}
-        self.tchannel_data: dict = {}
-        self.user_id: str = ""
-        self.viewer: dict = {}
-        self.ws_domain = f"tch{randint(1, int(1e6))}"[:8]
-        self.proxy = proxy
-        self.salt = "4LxgHM6KpFqokX0Ox"
-        self.headers = {
+        headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
@@ -53,6 +52,30 @@ class Poe_Client:
             "Sec-Ch-Ua-Platform": '"Windows"',
             "Upgrade-Insecure-Requests": "1",
         }
+        self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
+        self.model_dict = {
+            "Assistant": "capybara",
+            "ChatGPT": "chinchilla",
+            "ChatGPT-16k": "agouti",
+            "GPT-4": "beaver",
+            "GPT-4-32k": "vizcacha",
+            "Claude-instant": "a2",
+            "Claude-instant-100k": "a2_100k",
+            "Claude-2-100k": "a2_2",
+            "Google-PaLM": "acouchy",
+            "Llama-2-7b": "llama_2_7b_chat",
+            "Llama-2-13b": "llama_2_13b_chat",
+            "Llama-2-70b": "llama_2_70b_chat",
+        }
+        self.model_dict_reverse = {}
+        for k, v in self.model_dict.items():
+            self.model_dict_reverse[v] = k
+        self.ws_client_task = None
+        self.answer_queue: dict[int, Queue] = {}
+        self.talking = False
+        self.refresh_channel_time = time()
+        self.refresh_channel_lock = False
+        self.cache_answer_msg_id = {}
 
     @property
     def bot_code_dict(self) -> dict[str, list[str]]:
@@ -60,253 +83,65 @@ class Poe_Client:
         result = {}
         for bot, data in self.bots.items():
             result[bot] = []
+            if "chats" not in data:
+                continue
             for chat_code in data["chats"]:
                 result[bot].append(chat_code)
         return result
 
-    @property
-    def session_args(self):
-        """请求时带上的参数"""
-        args: dict[str, Any] = {
-            "headers": self.headers,
-            "cookies": {"p-b": self.p_b},
-        }
-        if self.proxy:
-            connector = ProxyConnector.from_url(self.proxy)
-            args["connector"] = connector
-        return args
-
-    async def get_basedata(self) -> None:
+    async def login(self):
         """
-        This function fetches the basic data from the HOME_URL and sets various attributes of the object.
-
-        Raises:
-            - Raises an Exception if it fails to get the base data.
-            - Raises a ValueError if it fails to extract 'next_data', 'viewer', 'user_id', or 'formkey' from the response.
+        创建poe请求实例，可用于验证凭证是否有效。预加载可获取所有bot的基础数据
         """
-        try:
-            async with ClientSession(**self.session_args) as client:
-                response = await client.get(HOME_URL, timeout=8)
-                text = await response.text()
-        except Exception as e:
-            raise Exception("获取基础数据失败") from e
+        if not (self.p_b and self.formkey):
+            raise Exception(f"p_b和formkey未正确填写，不登陆")
 
-        """获取next_data"""
+        logger.info("Poe登陆中。。。。。。")
         try:
-            json_regex = (
-                r'<script id="__NEXT_DATA__" type="application\/json">(.+?)</script>'
+            resp = await self.httpx_client.get(HOME_URL, timeout=3)
+
+            json_data = search(
+                r'<script id="__NEXT_DATA__" type="application\/json">(.+?)</script>',
+                resp.text,
             )
-            json_data = search(json_regex, text)
             if json_data is None:
-                raise
-            self.next_data = loads(json_data.group(1))
+                raise Exception("__NEXT_DATA__搜索结果为空")
+
+            next_data = loads(json_data.group(1))
+
+            self.sdid = str(
+                uuid5(
+                    CONST_NAMESPACE,
+                    next_data["props"]["initialData"]["data"]["pageQuery"]["viewer"][
+                        "poeUser"
+                    ]["id"],
+                )
+            )
         except Exception as e:
-            raise ValueError("获取next_data失败。") from e
+            raise Exception(f"登陆失败，错误信息：{e}")
 
-        """从next_data中获取数据"""
-        try:
-            self.viewer = self.next_data["props"]["initialData"]["data"]["pageQuery"][
-                "viewer"
-            ]
-            self.user_id = self.viewer["poeUser"]["id"]
-            self.subscription = self.viewer["subscription"]
-            bot_list = self.viewer["availableBotsConnection"]["edges"]
-            for bot in bot_list:
-                self.bots[bot["node"]["handle"]] = {}
-            self.sdid = str(uuid5(CONST_NAMESPACE, self.viewer["poeUser"]["id"]))
-        except KeyError as e:
-            raise ValueError("从next_data中获取数据失败") from e
+        self.ws_client_task = create_task(self.connect_to_channel())
 
-    async def get_channel_data(self) -> None:
-        """
-        This function fetches the channel data from the SETTING_URL and sets the 'tchanneldata' attribute of the object.
-
-        Raises:
-            - Raises a ValueError if it fails to extract the channel data from the response.
-        """
-        try:
-            async with ClientSession(**self.session_args) as client:
-                response = await client.get(SETTING_URL)
-                data = await response.text()
-                json_data = loads(data)
-                self.tchannel_data = json_data["tchannelData"]
-                self.headers["Poe-Tchannel"] = self.tchannel_data["channel"]
-                self.channel_url = f'https://{self.ws_domain}.tch.{self.tchannel_data["baseHost"]}/up/{self.tchannel_data["boxName"]}/updates?min_seq={self.tchannel_data["minSeq"]}&channel={self.tchannel_data["channel"]}&hash={self.tchannel_data["channelHash"]}'
-                logger.info("succeed to get channel data")
-        except Exception as e:
-            raise ValueError("Failed to extract tchannel from response.") from e
-
-    async def create(self, pre_load: bool = True):
-        """
-        :param pre_load: whether to pre_load all the available bots and their data
-        This function initializes the Async_Poe_Client instance by fetching the base data, channel data, and bot data,
-        and then subscribing to the channel.
-
-        Returns:
-            Returns the initialized instance of the Async_Poe_Client.
-
-        Note:
-            This function should be called after creating a new Async_Poe_Client instance to ensure that all necessary data is fetched and set up.
-        """
-        logger.info("Creating client -----")
-        retry = 3
-        while retry >= 0:
-            try:
-                await self.get_basedata()
-                break
-            except Exception as e:
-                retry -= 1
-                if retry == 0:
-                    raise e
-        if pre_load:
-            await self.get_available_bots(get_all=True)
-            await self.load_all_bots()
-        logger.info("Succeed to create async_poe_client instance")
+        logger.info("Poe登陆成功！")
         return self
 
-    async def get_botdata(self, url_botname: str) -> dict:
+    async def refresh_channel_data(self):
         """
-        This function gets the chat data of the bot include chat history.
-
-        Args:
-            url_botname (str): The name of the bot used in the URL to fetch the bot's chat data.
-
-        Returns:
-            Returns the chat data of the bot.
-
-        Raises:
-            Raises a ValueError exception if it fails to get the chat data.
-        """
-
-        retry = 3
-        error = Exception("Unknown error")
-        while retry > 0:
-            try:
-                bot_task = ensure_future(
-                    (
-                        lambda: self.send_query(
-                            "BotLandingPageQuery", {"botHandle": url_botname}
-                        )
-                    )()
-                )
-                chats_task = ensure_future(
-                    (
-                        lambda: self.send_query(
-                            "chatsHistoryPageQuery",
-                            {"handle": url_botname, "useBot": True},
-                        )
-                    )()
-                )
-                await gather(bot_task, chats_task)
-
-                bot = bot_task.result()["data"]["bot"]
-                chats = {
-                    str(chat["node"]["chatCode"]): chat["node"]
-                    for chat in chats_task.result()["data"]["filteredChats"]["edges"]
-                }
-
-                self.bots[url_botname] = {"bot": bot, "chats": chats}
-                return self.bots[url_botname]
-            except Exception as e:
-                error = e
-                retry -= 1
-        raise ValueError(f"Failed to get bot chat_data of {url_botname}") from error
-
-    async def get_bot_info(self, url_botname: str) -> dict:
-        """
-        This function gets the bot's setting information.
-
-        Args:
-            url_botname (str): The name of the bot used in the URL to fetch the bot's information.
-
-        Returns:
-            Returns a dictionary containing the bot's information.
-
-        Raises:
-            Raises a ValueError exception if it fails to get the bot's info.
+        此函数从设置_URL获取通道数据，获取tchannel_data，对话用的
         """
         try:
-            data = await self.send_query(
-                "editBotIndexPageQuery", {"botName": url_botname}
-            )
-            return data["data"]["bot"]
+            resp = await self.httpx_client.get(SETTING_URL)
+            json_data = loads(resp.text)
+
+            tchannel_data = json_data["tchannelData"]
+            self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
+            ws_domain = f"tch{randint(1, int(1e6))}"[:8]
+            self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
         except Exception as e:
-            raise ValueError(
-                f"Failed to get bot info from {url_botname}. Make sure the bot is not deleted"
-            ) from e
+            err_msg = f"获取channel data失败，错误信息：{e}"
+            logger.error(err_msg)
+            raise Exception(err_msg)
 
-    async def load_all_bots(self) -> None:
-        """
-        This function fetches and saves the chat data of all bots in client.bots.
-
-        Raises:
-            Raises a RuntimeError exception if it fails to get any bots, or if the token is invalid.
-        """
-
-        tasks = []
-        for bot in list(self.bots.keys()):
-            task = create_task(self.get_botdata(bot))
-            tasks.append(task)
-
-        await gather(*tasks)
-
-    async def send_query(self, query_name: str, variables: dict) -> Union[dict, None]:
-        """
-        A general-purpose function used to send queries to a server. This function is primarily used by other functions in the program.
-
-        Args:
-            query_name (str): The name of the query that should be sent.
-            variables (dict): A dictionary of the variables that should be included in the message.
-
-        Returns:
-            Returns the JSON response data from the server if the query is successful.
-
-        Raises:
-            Raises an Exception if the query fails after 5 retries.
-        """
-
-        data = generate_data(query_name, variables)
-        base_string = data + self.formkey + self.salt
-        query_headers = {
-            **self.headers,
-            "content-type": "application/json",
-            "poe-tag-id": md5(base_string.encode()).hexdigest(),
-        }
-        retry = 5
-        detail_error = Exception("unknown error")
-        while retry:
-            try:
-                async with ClientSession(**self.session_args) as client:
-                    response = await client.post(
-                        GQL_URL, data=data, headers=query_headers
-                    )
-                    resp = await response.text()
-                    json_data = loads(resp)
-                    if (
-                        "success" in json_data.keys()
-                        and not json_data["success"]
-                        or json_data["data"] is None
-                    ):
-                        detail_error = Exception(json_data["errors"][0]["message"])
-                        raise detail_error
-                    return json_data
-            except Exception as e:
-                detail_error = e
-                logger.error(
-                    f"Failed to sending query:{query_name},error:{detail_error}. (retry: {retry}/5)"
-                )
-                retry -= 1
-        raise Exception(
-            f"Too much error when sending query:{query_name},error:{detail_error}"
-        ) from detail_error
-
-    async def subscribe(self):
-        """
-        This function is used to simulate a human user opening the website by subscribing to certain mutations.
-
-        Raises:
-            Raises an Exception if it encounters a failure while sending the SubscriptionsMutation.
-        """
         try:
             await self.send_query(
                 "subscriptionsMutation",
@@ -345,232 +180,153 @@ class Poe_Client:
                     ]
                 },
             )
-            logger.info("Succeed to subscribe")
         except Exception as e:
-            raise Exception(
-                "Failed to subscribe by sending SubscriptionsMutation"
-            ) from e
+            raise Exception(f"subscribe执行失败，错误信息：{e}")
+
+    async def get_answer(self, data: dict):
+        msg_list: list[dict] = [
+            loads(msg_str) for msg_str in data.get("messages", "{}")
+        ]
+        for msg in msg_list:
+            payload = msg.get("payload", {})
+
+            with open("resp.json", "a") as a:
+                dump(payload, a, ensure_ascii=False)
+
+            if payload.get("subscription_name") not in [
+                "messageAdded",
+                "messageCancelled",
+            ]:
+                continue
+
+            msg = (payload.get("data", {})).get("messageAdded", {})
+            if not msg:
+                continue
+
+            if msg.get("author") == "human":
+                continue
+
+            chat_id: int = int(payload.get("unique_id")[13:])  # messageAdded:66642643
+
+            await self.answer_queue[chat_id].put(msg)
+
+    async def connect_to_channel(self):
+        """连接到poe的websocket，用于拉取回答"""
+        while True:
+            # 获取ws地址
+            await self.refresh_channel_data()
+            async with ws_connect(self.channel_url) as ws:
+                logger.info("已连接至ws channel")
+                while True:
+                    try:
+                        data = await ws.recv()
+                        await self.get_answer(loads(data))
+                    except ws_ConnectionClosed:
+                        logger.error("ws连接断开")
+                        break
+                    except Exception as e:
+                        logger.error(f"ws连接出错：{repr(e)}")
+                        break
+
+    async def send_query(self, query_name: str, variables: dict) -> dict:
+        """
+        发起请求
+        """
+        data = generate_data(query_name, variables)
+        base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
+        try:
+            resp = await self.httpx_client.post(
+                GQL_URL,
+                content=data,
+                headers={
+                    "content-type": "application/json",
+                    "poe-tag-id": md5(base_string.encode()).hexdigest(),
+                },
+            )
+            json_data = loads(resp.text)
+            print(json_data)
+            if (
+                "success" in json_data.keys()
+                and not json_data["success"]
+                or json_data["data"] is None
+            ):
+                err_msg: str = json_data["errors"][0]["message"]
+                raise Exception(err_msg)
+
+            return json_data
+        except Exception as e:
+            with open("error.json", "a") as a:
+                dump(json_data, a, ensure_ascii=False)  # type:ignore
+            raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
 
     async def create_bot(
         self,
-        handle: str,
+        base_model: str,
         prompt: str,
-        display_name: Optional[str] = None,
-        base_model: str = "chinchilla",
-        description: Optional[str] = "",
-        intro_message: Optional[str] = "",
-        api_key: Optional[str] = None,
-        api_bot: Optional[bool] = False,
-        api_url: Optional[str] = None,
-        prompt_public: Optional[bool] = True,
-        profile_picture_url: Optional[str] = None,
-        linkification: Optional[bool] = False,
-        markdown_rendering: Optional[bool] = True,
-        suggested_replies: Optional[bool] = True,
-        private: Optional[bool] = False,
-        temperature: Optional[int] = None,
-    ) -> None:
+    ) -> tuple[str, int]:
         """
-        This function is used to create a new bot with the specified configuration.
+        该函数用于使用指定的配置创建一个新的机器人。
 
-        Args:
-            handle (str): The handle for the new bot which should be unique.
-            prompt (str): The prompt for the new bot.
-            display_name (str, optional): The display name for the new bot. If not provided, it will be set to None.
-            base_model (str, optional): The base model for the new bot. Default is "chinchilla".
-            description (str, optional): The description for the new bot. If not provided, it will be set to an empty string.
-            intro_message (str, optional): The introduction message for the new bot. If not provided, it will be set to an empty string.
-            api_key (str, optional): The API key for the new bot. If not provided, it will be set to None.
-            api_bot (bool, optional): Whether the new bot is an API bot. Default is False.
-            api_url (str, optional): The API URL for the new bot. If not provided, it will be set to None.
-            prompt_public (bool, optional): Whether to set the bot's prompt to public. Default is True.
-            profile_picture_url (str, optional): The profile picture URL for the new bot. If not provided, it will be set to None.
-            linkification (bool, optional): Whether to enable linkification. Default is False.
-            markdown_rendering (bool, optional): Whether to enable markdown rendering. Default is True.
-            suggested_replies (bool, optional): Whether to enable suggested replies. Default is False.
-            private (bool, optional): Whether to set the bot as private. Default is False.
-            temperature (int, optional): The temperature setting for the new bot. If not provided, it will be set to None.
-
-        Returns:
-            Returns a dictionary containing information about the creation result.
-
-        Raises:
-            Raises a RuntimeError exception if the creation fails.
-
-        Note:
-            When creating a new bot, you only need to provide the `handle` and `prompt`. All other parameters are optional and will be set to their default values if not provided.
-            Please ensure that the `handle` is unique and does not conflict with the handles of existing bots.
+        参数:
+        - handle (str): 新机器人的唯一标识符。
+        - prompt (str): 新机器人的提示语。
+        - display_name (str, 可选): 新机器人的显示名称。如果未提供，则设置为 None。
+        - base_model (str, 可选): 新机器人的基础模型。默认为 "chinchilla"。
+        - description (str, 可选): 新机器人的描述。如果未提供，则设置为空字符串。
+        - intro_message (str, 可选): 新机器人的介绍消息。如果未提供，则设置为空字符串。
+        - api_key (str, 可选): 新机器人的 API 密钥。如果未提供，则设置为 None。
+        - api_bot (bool, 可选): 新机器人是否为 API 机器人。默认为 False。
+        - api_url (str, 可选): 新机器人的 API URL。如果未提供，则设置为 None。
+        - prompt_public (bool, 可选): 是否将机器人的提示设置为公开。默认为 True。
+        - profile_picture_url (str, 可选): 新机器人的个人资料图片 URL。如果未提供，则设置为 None。
+        - linkification (bool, 可选): 是否启用链接转换。默认为 False。
+        - markdown_rendering (bool, 可选): 是否启用 Markdown 渲染。默认为 True。
+        - suggested_replies (bool, 可选): 是否启用建议回复。默认为 False。
+        - private (bool, 可选): 是否将机器人设置为私有。默认为 False。
+        - temperature (int, 可选): 新机器人的温度设置。如果未提供，则设置为 None。
         """
-        result = await self.send_query(
-            "CreateBotMain_poeBotCreate_Mutation",
-            {
-                "model": base_model,
-                "displayName": display_name,
-                "handle": handle,
-                "prompt": prompt,
-                "isPromptPublic": prompt_public,
-                "introduction": intro_message,
-                "description": description,
-                "profilePictureUrl": profile_picture_url,
-                "apiUrl": api_url,
-                "apiKey": api_key,
-                "isApiBot": api_bot,
-                "hasLinkification": linkification,
-                "hasMarkdownRendering": markdown_rendering,
-                "hasSuggestedReplies": suggested_replies,
-                "isPrivateBot": private,
-                "temperature": temperature,
-            },
-        )
-
-        data = result["data"]["poeBotCreate"]
-        if data["status"] != "success":
-            raise RuntimeError(f"Failed to create a bot with error: {data['status']}")
-        # after creating, get the chatId (bot chat_data contains chatId) for using
-        # when creating bot,the url_botname equals handle
-        logger.info(f"Succeed to create a bot:{handle}")
-        await self.get_botdata(url_botname=handle)
-        return
-
-    async def edit_bot(
-        self,
-        url_botname: str,
-        handle: str = None,
-        prompt: Optional[str] = None,
-        display_name=None,
-        base_model="chinchilla",
-        description="",
-        intro_message="",
-        api_key=None,
-        api_url=None,
-        is_private_bot=None,
-        prompt_public=None,
-        profile_picture_url=None,
-        linkification=None,
-        markdown_rendering=None,
-        suggested_replies=None,
-        temperature=None,
-    ) -> None:
-        """
-        This function is used to edit the configuration of an existing bot.
-
-        Args:
-            url_botname (str): The URL name of the bot to be edited.
-            handle (str, optional): The new handle for the bot. If not provided, it will remain unchanged.
-            prompt (str, optional): The new prompt for the bot. If not provided, it will remain unchanged.
-            display_name (str, optional): The new display name for the bot. If not provided, it will remain unchanged.
-            base_model (str, optional): The new base model for the bot. If not provided, it will remain unchanged.
-            description (str, optional): The new description for the bot. If not provided, it will remain unchanged.
-            intro_message (str, optional): The new introduction message for the bot. If not provided, it will remain unchanged.
-            api_key (str, optional): The new API key for the bot. If not provided, it will remain unchanged.
-            api_url (str, optional): The new API URL for the bot. If not provided, it will remain unchanged.
-            is_private_bot (bool, optional): Whether to set the bot to private. If not provided, it will remain unchanged.
-            prompt_public (bool, optional): Whether to set the bot's prompt to public. If not provided, it will remain unchanged.
-            profile_picture_url (str, optional): The new profile picture URL for the bot. If not provided, it will remain unchanged.
-            linkification (bool, optional): Whether to enable linkification. If not provided, it will remain unchanged.
-            markdown_rendering (bool, optional): Whether to enable markdown rendering. If not provided, it will remain unchanged.
-            suggested_replies (bool, optional): Whether to enable suggested replies. If not provided, it will remain unchanged.
-            temperature (float, optional): The new temperature setting for the bot. If not provided, it will remain unchanged.
-
-        Returns:
-            Returns a dictionary containing information about the edit result.
-
-        Raises:
-            Raises a RuntimeError exception if the edit fails.
-
-        Note:
-            The `url_botname` parameter is the original URL name of the bot that you want to edit. This is required to identify which bot's configuration you are targeting to change.
-            All other parameters represent the new values you want to set for the bot's configuration. If a parameter is not provided, the corresponding configuration of the bot will remain unchanged.
-        """
-        botinfo = await self.get_bot_info(url_botname)
-
-        result = await self.send_query(
-            "EditBotMain_poeBotEdit_Mutation",
-            {
-                "baseBot": base_model or botinfo["model"],
-                "botId": botinfo["botId"],
-                "handle": handle or botinfo["handle"],
-                "displayName": display_name or botinfo["displayName"],
-                "prompt": prompt or botinfo["promptPlaintext"],
-                "isPromptPublic": prompt_public or botinfo["isPromptPublic"],
-                "introduction": intro_message or botinfo["introduction"],
-                "description": description or botinfo["description"],
-                "profilePictureUrl": profile_picture_url or botinfo["profilePicture"],
-                "apiUrl": api_url or botinfo["apiUrl"],
-                "apiKey": api_key or botinfo["apiKey"],
-                "hasLinkification": linkification or botinfo["hasLinkification"],
-                "hasMarkdownRendering": markdown_rendering
-                or botinfo["hasMarkdownRendering"],
-                "hasSuggestedReplies": suggested_replies
-                or botinfo["hasSuggestedReplies"],
-                "isPrivateBot": is_private_bot or botinfo["isPrivateBot"],
-                "temperature": temperature or botinfo["temperature"],
-            },
-        )
-
-        data = result["data"]["poeBotEdit"]
-        if data["status"] != "success":
-            raise RuntimeError(f"Failed to create a bot: {data['status']}")
-        logger.info(f"Succeed to edit {url_botname}")
-        return data
-
-    async def explore_bots(
-        self, count: int = 50, explore_all: bool = False
-    ) -> List[dict]:
-        """
-        Asynchronously explore and fetch a specified number of third party bots.
-
-        Args:
-            count (int, optional): The number of bots to explore. Defaults to 50.
-            explore_all (bool, optional): Whether to explore all third party bots. Defaults to False
-        Returns:
-            List[dict]: A list of dictionaries representing the explored bots.
-                        Each dictionary represents a bot and includes details
-                        about the bot. If fewer bots are found than requested,
-                        the function will return a list of the found bots.
-
-        Raises:
-            Any exceptions raised by `self.send_query()` will be propagated.
-        """
-        bots = []
-        result = await self.send_query(
-            "ExploreBotsListPaginationQuery",
-            {
-                "count": count,
-            },
-        )
-        new_cursor = result["data"]["exploreBotsConnection"]["edges"][-1]["cursor"]
-        bots += [
-            each["node"] for each in result["data"]["exploreBotsConnection"]["edges"]
-        ]
-        if len(bots) >= count and not explore_all:
-            return bots[:count]
-        while len(bots) < count or explore_all:
+        model = self.model_dict[base_model]
+        while True:
+            handle = generate_random_handle()
             result = await self.send_query(
-                "ExploreBotsListPaginationQuery", {"count": count, "cursor": new_cursor}
+                "CreateBotMain_poeBotCreate_Mutation",
+                {
+                    "handle": handle,
+                    "prompt": prompt,
+                    "model": model,
+                    "hasSuggestedReplies": False,
+                    "displayName": None,
+                    "isPromptPublic": True,
+                    "introduction": "",
+                    "description": prompt,
+                    "profilePictureUrl": "",
+                    "apiUrl": None,
+                    "apiKey": None,
+                    "isApiBot": False,
+                    "hasLinkification": False,
+                    "hasMarkdownRendering": True,
+                    "isPrivateBot": False,
+                    "temperature": None,
+                },
             )
-            if len(result["data"]["exploreBotsConnection"]["edges"]) == 0:
-                if not explore_all:
-                    logger.error(
-                        f"No more bots could be explored,only {len(bots)} bots found."
-                    )
-                return bots
-            new_cursor = result["data"]["exploreBotsConnection"]["edges"][-1]["cursor"]
-            new_bots = [
-                each["node"]
-                for each in result["data"]["exploreBotsConnection"]["edges"]
-            ]
-            bots += new_bots
-        logger.info("Succeed to explore bots")
-        return bots[:count]
+            json_data = result["data"]["poeBotCreate"]
+            status = json_data["status"]
+            if status != "success":
+                if status == "handle_already_taken":
+                    continue
 
-    async def create_new_chat(self, url_botname: str, question: str) -> Tuple[int, int]:
+                raise RuntimeError(f"创建bot失败，错误信息：{status}")
+
+            bot_id_b64 = json_data["bot"]["id"]
+            bot_id = int(base64_decode(bot_id_b64)[4:])
+            return handle, bot_id
+
+    async def send_msg_to_new_chat(
+        self, handle: str, question: str
+    ) -> Tuple[int, str, int]:
         """
-        创建一个bot的新的对话,返回human_msg_id和chat_code
+        发消息给一个新会话
         """
-        if url_botname not in self.bots.keys():
-            self.bots[url_botname] = await self.get_botdata(url_botname)
-        handle = self.bots[url_botname]["bot"]["nickname"]
         message_data = await self.send_query(
             "chatHelpersSendNewChatMessageMutation",
             {
@@ -585,521 +341,314 @@ class Poe_Client:
             },
         )
         data = message_data["data"]["messageEdgeCreate"]["chat"]
-        self.bots[url_botname]["chats"] = {
-            data["chatCode"]: data,
-            **self.bots[url_botname]["chats"],
-        }
-        logger.info(f"Succeed to send message to {url_botname}")
+        message_id: int = data["messagesConnection"]["edges"][0]["node"]["messageId"]
+        chat_code: str = data["chatCode"]
+        chat_id: int = data["chatId"]
+        return message_id, chat_code, chat_id
 
-        return [
-            a["node"]
-            for a in data["messagesConnection"]["edges"]
-            if a["node"]["author"] == "human"
-        ][0]["messageId"], data["chatCode"]
-
-    async def send_message_to_chat(
+    async def send_msg_to_old_chat(
         self,
-        chat_code: str,
-        url_botname: str,
+        handle: str,
+        chat_id: int,
         question: str,
-        with_chat_break: bool = False,  # noqa: E501
     ) -> int:
         """
-        Sends a message to a specified bot and retrieves the message ID of the sent message.
+        发消息给一个旧会话
 
-        Parameters:
-            chat_code (str): The unique identifier of a conservation with certain bot
-            url_botname (str): The unique identifier of the bot to which the message is to be sent.
-            question (str): The message to be sent to the bot.
-            with_chat_break: send chat break after ask
-        Returns:
-            int: The message ID of the sent message.
-
-        Raises:
-            Exception: If the daily limit for messages to the bot has been reached.
-            RuntimeError: If there is an error in extracting the message ID from the response.
-
-        Note:
-            This function sends a message to the bot but does not retrieve the bot's response. The 'ask_stream_raw' or 'ask_stream' function should be used to send and retrieve the bot's response.
-
+        参数：
+        - handle(str)：要发送消息的机器人的唯一标识符。
+        - chat_id(int)：要发送消息的机器人的唯一标识符。
+        - question(str)：要发送给机器人的消息。
+        - with_chat_break(bool)：在询问后发送对话中断。
         """
-        if url_botname not in self.bots.keys():
-            self.bots[url_botname] = await self.get_botdata(url_botname)
-        bot = self.bots[url_botname]["bot"]["nickname"]
         message_data = await self.send_query(
             "chatHelpers_sendMessageMutation_Mutation",
             {
-                "chatId": self.bots[url_botname]["chats"][chat_code]["chatId"],
-                "bot": bot,
+                "chatId": chat_id,
+                "bot": handle.lower(),
                 "query": question,
                 "source": {
                     "sourceType": "chat_input",
                     "chatInputMetadata": {"useVoiceRecord": False},
                 },
-                "withChatBreak": with_chat_break,
-                "clientNonce": generate_nonce(),
+                "withChatBreak": False,
+                "clientNonce": token_hex(8),
                 "sdid": self.sdid,
                 "attachments": [],
             },
         )
-        if not message_data["data"]["messageEdgeCreate"]["message"]:
-            if message_data["data"]["messageEdgeCreate"]["status"] == "no_access":
-                raise Exception("The bot doesn't exist or isn't accessible")
-            else:
-                raise Exception(f"Daily limit reached for {url_botname}.")
-        try:
-            logger.info(f"Succeed to send message to {url_botname}")
-            human_message = message_data["data"]["messageEdgeCreate"]["message"]
-            human_message_id = human_message["node"]["messageId"]
-            return human_message_id
-        except TypeError:
-            raise RuntimeError(
-                "Failed to extract human_message and human_message_id from response when asking: Unknown Error"
-            )
+        message_id: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
+            "messageId"
+        ]
+        return message_id
 
-    async def ask_stream_raw(
+    async def talk_to_bot(
         self,
-        url_botname: str,
+        handle: str,
+        chat_id: int,
         question: str,
-        chat_code: str,
-        with_chat_break: bool = False,
-        suggest_able: bool = True,
     ) -> AsyncGenerator:
         """
-        Asynchronously sends a question to a specified bot and yields the bot's responses as they arrive.
+        向指定的机器人发送问题
 
-        Args:
-            url_botname (str): The unique identifier of the bot to which the question is to be sent.
-            chat_code (str): The unique identifier of the conservation with the bot. If not provided, it will generate a new chat automatically.
-            question (str): The question to be sent to the bot.
-            with_chat_break (bool, optional): If set to True, a chat break will be sent before the question, clearing the bot's conversation memory. Default is False.
-            suggest_able (bool, optional): If set to True, suggested replies from the bot will be included in the responses. Default is False.
-
-        Returns:
-            AsyncGenerator[Any]: An asynchronous generator that yields the bot's raw responses as they arrive.
-
-        Raises:
-            Exception: If there is a failure in receiving messages from the bots.
+        参数：
+        - handle(str)：要发送问题的机器人的唯一标识符。
+        - chat_id(int)：与机器人的对话的唯一标识符。如果未提供，则会自动生成一个新的对话。
+        - question(str)：要发送给机器人的问题。
+        - with_chat_break(布尔值，可选)：如果设置为True，则在问题之前发送一个对话中断，清除机器人的对话记忆。默认为False。
         """
-        if url_botname not in self.bots.keys():
-            await self.get_botdata(url_botname)
-        suggest_able = (
-            suggest_able and self.bots[url_botname]["bot"]["hasSuggestedReplies"]
-        )
-        if (
-            self.channel_use_time % 3 == 0 or time() - self.channel_last_use_time >= 360
-        ):  # noqa: E501
-            await self.get_channel_data()
-            await self.subscribe()
+        # channel地址刷新中
+        if self.refresh_channel_lock:
+            while True:
+                await sleep(1)
+                if self.refresh_channel_lock == False:
+                    break
 
-        self.channel_use_time += 1
-        self.channel_last_use_time = time()
+        # 半小时刷新一次channel地址
+        if time() - self.refresh_channel_time >= 1800:
+            if self.ws_client_task:
+                self.refresh_channel_lock = True
+                self.refresh_channel_time = time()
+                # 等待当前回答生成完毕
+                while self.talking:
+                    await sleep(1)
+                    if self.talking == False:
+                        break
+                self.ws_client_task.cancel()
+                self.answer_queue.clear()
+                self.cache_answer_msg_id.clear()
+                self.ws_client_task = create_task(self.connect_to_channel())
+                logger.info("已刷新ws channel地址")
+                self.refresh_channel_lock = False
+
+        self.talking = True
+
+        # 创建答案生成队列
+        if chat_id not in self.answer_queue:
+            self.answer_queue[chat_id] = Queue()
+
+        try:
+            if not chat_id:
+                q_msg_id, chat_code, chat_id = await self.send_msg_to_new_chat(
+                    handle, question
+                )
+                yield NewChat(chat_code=chat_code, chat_id=chat_id)
+            else:
+                q_msg_id = await self.send_msg_to_old_chat(handle, chat_id, question)
+        except Exception as e:
+            self.talking = False
+            err_msg = f"\n\n获取bot【{handle}】的message id出错，错误信息：{e}"
+            logger.error(err_msg)
+            yield TalkError(content=err_msg)
+            return
 
         retry = 3
+        last_text_len = 0
+        get_answer_msg_id = False
         while retry >= 0:
-            if retry == 0:
-                raise Exception("Unknown error")
-            try:
-                if not chat_code:
-                    human_message_id, chat_code = await self.create_new_chat(
-                        url_botname, question
-                    )
-                    yield ChatCodeUpdate(content=chat_code)
-                else:
-                    human_message_id = await self.send_message_to_chat(
-                        chat_code, url_botname, question, with_chat_break
-                    )
-                break
-            except Exception as e:
-                retry -= 1
-                error = e
-                pass
+            answer_data = await self.answer_queue[chat_id].get()
 
-        async with ClientSession(**self.session_args) as client:
-            self.bots[url_botname]["Suggestion"] = []
-            retry = 15
-            last_text = ""
-            got_suggest_replys = []
-            got_titles = []
-            text_finished = False
-            target_message_id = None
-            suggest_lost_times = 10
-            while retry >= 0 and suggest_lost_times >= 0:
-                response = await client.get(self.channel_url)
-                data = await response.json()
-                messages = [loads(msg_str) for msg_str in data.get("messages", "{}")]
-                got_new_text = False
-                for message in messages:
-                    payload = message.get("payload", {})
-                    if payload.get("subscription_name") == "messageAdded":
-                        message = (payload.get("data", {})).get("messageAdded", {})
-                        plain_text = message.get("text")
-                        if plain_text == question:
-                            continue
-                        if message and message.get("state") == "incomplete":
-                            if (
-                                message.get("messageId") < human_message_id
-                                or plain_text == last_text
-                                or (
-                                    target_message_id is not None
-                                    and message.get("messageId") != target_message_id
-                                )
-                            ):
-                                continue
-                            else:
-                                target_message_id = message.get("messageId")
-                                got_new_text = True
-                                retry = 15
-                                yield Text(content=plain_text[len(last_text) :])
-                                last_text = plain_text
-                        else:
-                            if not text_finished:
-                                text_finished = Text
-                                yield Text(
-                                    content=message.get("text")[len(last_text) :]
-                                )
+            if get_answer_msg_id == False:
+                self.cache_answer_msg_id[handle] = answer_data.get("messageId")
 
-                            if not suggest_able:
-                                return
+            if answer_data.get("state") == "cancelled":
+                yield End()
+                return
 
-                            suggest_replys = message.get("suggestedReplies", [])
-                            got_new_reply = False
-                            for suggest_reply in suggest_replys:
-                                if suggest_reply not in got_suggest_replys:
-                                    suggest_lost_times = 10
-                                    got_suggest_replys.append(suggest_reply)
-                                    got_new_reply = True
-                                    yield SuggestRely(content=suggest_reply)
-                            if len(suggest_replys) >= 3:
-                                return
-                            if suggest_lost_times <= 0:
-                                logger.error(
-                                    "Poe didn't send enough Suggest Reply in time. Early Returned."
-                                )
-                                return
-                            if not got_new_reply:
-                                await sleep(1)
-                                suggest_lost_times -= 1
-                    elif payload.get("subscription_name") == "chatTitleUpdated":
-                        title = (
-                            (payload.get("data", {})).get("chatTitleUpdated", {})
-                        ).get(
-                            "title", ""
-                        )  # noqa: E501
-                        if title and title not in got_titles:
-                            got_titles.append(title)
-                            yield ChatTiTleUpdate(content=title)
-                if not got_new_text:
-                    retry -= 1
-                    await sleep(1)
-            raise Exception("Failed to get message from poe in time.")
+            plain_text = answer_data.get("text")
 
-    async def ask_stream(
-        self,
-        url_botname: str,
-        question: str,
-        chat_code: str | None = None,
-        with_chat_break: bool = False,
-        suggest_able: bool = True,
-    ) -> AsyncGenerator:
-        suggest_replys = []
+            if answer_data.get("state") == "incomplete":
+                new_text_len = len(plain_text)
+                # 没有新的内容，略过
+                if new_text_len == last_text_len:
+                    continue
 
-        async for data in self.ask_stream_raw(
-            url_botname=url_botname,
-            question=question,
-            chat_code=chat_code,
-            with_chat_break=with_chat_break,
-            suggest_able=suggest_able,
-        ):
-            if isinstance(data, Text):
-                yield str(data)
-            elif isinstance(data, SuggestRely):
-                suggest_replys.append(str(data))
-                if len(suggest_replys) == 1:
-                    yield "\nSuggest Replys:\n"
-                yield f"{len(suggest_replys)}: {data}\n"
-            elif isinstance(data, ChatCodeUpdate):
-                yield "\nNew ChatCode: " + str(data)
+                retry = 3
+                yield Text(content=plain_text[last_text_len:])
+                last_text_len = new_text_len
+                continue
 
-    async def send_chat_break(self, url_botname: str, chat_code: str) -> None:
-        """
-        Asynchronously sends a chat break to a specified bot, effectively clearing the bot's conversation memory.
+            # 匹配到已完成
+            if answer_data.get("state") == "complete":
+                self.talking = False
+                yield Text(content=plain_text[last_text_len:])
+                yield End()
+                return
 
-        Parameters:
-            url_botname (str): The unique identifier of the bot to which the chat break is to be sent.
-            chat_code (str): The unique identifier of the chat with the bot
-        Returns:
-            None
+            retry -= 1
+            await sleep(1)
 
-        Note:
-            This function clears the language model's conversation memory for the specified bot, so it should be used with caution.
-
-        """
-        if url_botname not in self.bots.keys():
-            await self.get_botdata(url_botname)
-        if chat_code not in self.bots[url_botname]["chats"].keys():
-            await self.get_botdata(url_botname)
-        await self.send_query(
-            "chatHelpers_addMessageBreakEdgeMutation_Mutation",
-            {
-                "connections": [
-                    f"client:{self.bots[url_botname]['chats'][chat_code]['id']}:__ChatMessagesView_chat_messagesConnection_connection"
-                ],
-                "chatId": self.bots[url_botname]["chats"][chat_code]["chatId"],
-            },
-        )
-        logger.info(f"Succeed to chat break to {url_botname}")
+        self.talking = False
+        err_msg = "\n\n获取回答超时"
+        logger.error(err_msg)
+        yield TalkError(content=err_msg)
         return
 
-    async def get_available_bots(
-        self, count: Optional[int] = 25, get_all: Optional[bool] = False
-    ) -> dict:  # noqa: E501
-        """
-        Get own available bots .
-
-        Args:
-            count (int, optional): The number of bots to get.
-            get_all (bool, optional): Whether to get all bots.
-
-        Raises:
-            TypeError: If neither 'get_all' nor 'count' parameter is provided.
-
-        Returns:
-            None
-        """
-        if not (get_all or count):
-            raise TypeError(
-                "Please provide at least one of the following parameters: get_all=<bool>, count=<int>"
-            )
-        response = await self.send_query(
-            "availableBotsSelectorModalPaginationQuery", {}
-        )  # noqa: E501
-        bots = [
-            each["node"]
-            for each in response["data"]["viewer"]["availableBotsConnection"]["edges"]
-            if each["node"]["deletionState"] == "not_deleted"
-        ]
-        cursor = response["data"]["viewer"]["availableBotsConnection"]["pageInfo"][
-            "endCursor"
-        ]
-        if len(bots) >= count and not get_all:
-            self.bots.update({bot["handle"]: {"bot": bot} for bot in bots})
-            return self.bots
-        while len(bots) < count or get_all:
-            response = await self.send_query(
-                "availableBotsSelectorModalPaginationQuery", {"cursor": cursor}
-            )
-            new_bots = [
-                each["node"]
-                for each in response["data"]["viewer"]["availableBotsConnection"][
-                    "edges"
-                ]
-                if each["node"]["deletionState"] == "not_deleted"
-            ]
-            cursor = response["data"]["viewer"]["availableBotsConnection"]["pageInfo"][
-                "endCursor"
-            ]
-            bots += new_bots
-            if len(new_bots) == 0:
-                if not get_all:
-                    logger.error(f"Only {len(bots)} bots found on this account")
-                else:
-                    logger.info("Succeed to get all available bots")
-                self.bots.update({bot["handle"]: {"bot": bot} for bot in bots})
-                return self.bots
-        logger.info("Succeed to get available bots")
-        self.bots.update({bot["handle"]: {"bot": bot} for bot in bots})
-        return self.bots
-
-    async def delete_chat_by_chat_id(self, chat_id: str):
-        """
-        delete chat by chatId .
-
-        Args:
-            chat_id (int, optional): The chat_id to delete.
-
-        Returns:
-            None
-        """
-        await self.send_query("useDeleteChat_deleteChat_Mutation", {"chatId": chat_id})
-        logger.info(f"succeed to delete chat:{chat_id}")
-
-    async def delete_chat_by_chat_code(self, chat_code: str):
-        """
-        delete chat by chat_code .
-
-        Args:
-            chat_code (int, optional): The chat_code to delete.
-
-        Returns:
-            None
-        """
-        result = {
-            k: v for each in list(self.bots.values()) for k, v in each["chats"].items()
-        }
-        if chat_code not in result.keys():
-            await self.get_available_bots(get_all=True)
-            await self.load_all_bots()
-        result = {
-            k: v for each in list(self.bots.values()) for k, v in each["chats"].items()
-        }
-        await self.delete_chat_by_chat_id(result[chat_code]["chatId"])
-
-    async def delete_chat_by_count(
-        self, url_botname: str, count: int = 20, del_all: bool = False
+    async def talk_stop(
+        self,
+        handle: str,
     ):
         """
-        delete chats by url_botname and count .
+        向指定的机器人发送问题
 
-        Args:
-            url_botname (str): The chats of which bot to delete.
-            count (int, optional): the count of the chats to delete.
-            del_all (bool, optional): whether to delete all the chats with the bot.
-        Returns:
-            None
+        参数：
+        - handle(str)：要发送问题的机器人的唯一标识符。
+        - chat_id(int)：与机器人的对话的唯一标识符。如果未提供，则会自动生成一个新的对话。
         """
-        await self.get_botdata(url_botname)
+        msg_id = self.cache_answer_msg_id[handle]
+        # try:
+        await self.send_query(
+            "chatHelpers_messageCancel_Mutation",
+            {
+                "linkifiedTextLength": 1,
+                "messageId": msg_id,  # 回复的消息id  "subscription_name":"messageCancelled"
+                "textLength": 1,
+            },
+        )
+        # except Exception as e:
+        #     raise Exception(f"停止bot【{handle}】生成回答失败，错误信息：{e}")
 
-        if not del_all:
-            chats = list(self.bots[url_botname]["chats"].values())[:count]
-            true_count = len(self.bots[url_botname]["chats"].keys())
-            if count > true_count:
-                logger.error(f"Only {true_count} chats with {url_botname} found.")
-        else:
-            chats = list(self.bots[url_botname]["chats"].values())
-        tasks = []
-        for chat in chats:
-            tasks.append(create_task(self.delete_chat_by_chat_id(chat["chatId"])))
-        await gather(*tasks)
-
-    async def delete_bot(self, url_botname: str) -> None:
+    async def edit_bot(
+        self,
+        handle: str,
+        bot_id: int,
+        base_model: str,
+        prompt: str,
+    ):
         """
-        This function is used to edit the configuration of an existing bot.
+        这个函数用于编辑现有机器人的配置。
 
-        Args:
-            url_botname (str): The URL name of the bot to be edited.
-
-        Returns:
-            Returns None.
-
-        Raises:
-            Raises a ValueError exception if error occurs when sending query or the status is not 'success'.
-
-        Note:
-            This function will delete the bot permanently, so caution.
+        参数：
+        - handle（字符串）：要编辑的机器人的URL名称。
+        - handle（字符串，可选）：机器人的新句柄。如果未提供，则保持不变。
+        - prompt（字符串，可选）：机器人的新提示。如果未提供，则保持不变。
+        - display_name（字符串，可选）：机器人的新显示名称。如果未提供，则保持不变。
+        - base_model（字符串，可选）：机器人的新基础模型。如果未提供，则保持不变。
+        - description（字符串，可选）：机器人的新描述。如果未提供，则保持不变。
+        - intro_message（字符串，可选）：机器人的新介绍信息。如果未提供，则保持不变。
+        - api_key（字符串，可选）：机器人的新API密钥。如果未提供，则保持不变。
+        - api_url（字符串，可选）：机器人的新API URL。如果未提供，则保持不变。
+        - is_private_bot（布尔值，可选）：是否将机器人设置为私有。如果未提供，则保持不变。
+        - prompt_public（布尔值，可选）：是否将机器人的提示设置为公开。如果未提供，则保持不变。
+        - profile_picture_url（字符串，可选）：机器人的新个人资料图片URL。如果未提供，则保持不变。
+        - linkification（布尔值，可选）：是否启用链接转换。如果未提供，则保持不变。
+        - markdown_rendering（布尔值，可选）：是否启用Markdown渲染。如果未提供，则保持不变。
+        - suggested_replies（布尔值，可选）：是否启用建议回复。如果未提供，则保持不变。
+        - temperature（浮点数，可选）：机器人的新温度设置。如果未提供，则保持不变。
         """
-        if url_botname not in self.bots.keys():
-            self.bots[url_botname] = await self.get_botdata(url_botname)
+        model = self.model_dict[base_model]
+        result = await self.send_query(
+            "EditBotMain_poeBotEdit_Mutation",
+            {
+                "prompt": prompt,
+                "baseBot": model,
+                "botId": bot_id,
+                "handle": handle,
+                "displayName": handle,
+                "isPromptPublic": True,
+                "introduction": "",
+                "description": prompt,
+                "profilePictureUrl": "",
+                "apiUrl": None,
+                "apiKey": None,
+                "hasLinkification": False,
+                "hasMarkdownRendering": True,
+                "hasSuggestedReplies": False,
+                "isPrivateBot": False,
+                "temperature": None,
+            },
+        )
 
-        bot_id = self.bots[url_botname]["bot"]["botId"]
+        data = result["data"]["poeBotEdit"]
+        if data["status"] != "success":
+            raise Exception(f"编辑bot失败，错误信息：{data['status']}")
 
+    async def send_chat_break(self, handle: str, chat_id: int):
+        """
+        重置对话，仅清除会话记忆，不会删除聊天记录。
+
+        参数:
+        - handle (str): 要发送聊天终止信号的机器人的唯一标识符。
+        - chat_id (int): 与机器人的聊天的唯一标识符。
+        """
         try:
-            if self.bots[url_botname]["bot"]["creator"]["id"] == self.user_id:
-                response = await self.send_query(
-                    "BotInfoCardActionBar_poeBotDelete_Mutation", {"botId": bot_id}
-                )
-            else:
-                response = await self.send_query(
-                    "BotInfoCardActionBar_poeRemoveBotFromUserList_Mutation",
-                    {
-                        "connections": [
-                            "client:Vmlld2VyOjA=:__HomeBotSelector_viewer_availableBotsConnection_connection"
-                        ],
-                        "botId": bot_id,
-                    },
-                )
-        except Exception:
-            raise ValueError(
-                f"Failed to delete bot {url_botname}. Make sure the bot exists and belongs to you."
+            chat_id_b64 = base64_encode(f"Chat:{chat_id}")
+            await self.send_query(
+                "chatHelpers_addMessageBreakEdgeMutation_Mutation",
+                {
+                    "connections": [
+                        f"client:{chat_id_b64}:__ChatMessagesView_chat_messagesConnection_connection"
+                    ],
+                    "chatId": chat_id,
+                },
             )
-        if response["data"] is None and response["errors"]:
-            raise ValueError(
-                f"Failed to delete bot {url_botname} :{response['errors'][0]['message']}"  # noqa: E501
-            )
-        logger.info(f"Succeed to delete bot {url_botname}")
-        del self.bots[url_botname]
+        except Exception as e:
+            raise Exception(f"bot【{handle}】重置对话失败，错误信息：{e}")
 
-    async def delete_available_bots(
-        self, count: Optional[int] = 2, del_all: Optional[bool] = False
-    ):
+    async def delete_chat_by_chat_id(self, handle: str, chat_id: int):
         """
-        Asynchronously deletes some or all user available bots.
+        删除某个bot下的会话
 
-        Args:
-            count (int, optional): The number of bots to delete.
-            del_all (bool, optional): Whether to delete all bots.
-        Raises:
-            TypeError: If neither 'del_all' nor 'count' parameter is provided
-
-        Returns:
-            None
-
-        Note:
-            Be careful while using this function as it will permanently remove the bots.
-            Delete all bots may take a long time depends on the num of your bots.
+        参数:
+        - chat_id (int)
         """
-        if not (del_all or count):
-            raise TypeError(
-                "Please provide at least one of the following parameters: del_all=<bool>, count=<int>"
+        try:
+            await self.send_query(
+                "useDeleteChat_deleteChat_Mutation", {"chatId": chat_id}
             )
+        except Exception as e:
+            raise Exception(f"删除bot【{handle}】失败，错误信息：{e}")
 
-        async def del_bot(url_botname):
-            try:
-                await self.delete_bot(url_botname)
-            except Exception as e:
-                logger.error(
-                    f"Failed to delete {url_botname} : {str(e)}. Make sure the bot belong to you."
-                )
+    async def delete_bot(self, handle: str, bot_id: int):
+        """
+        删除某个bot
+        """
+        try:
+            resp = await self.send_query(
+                "BotInfoCardActionBar_poeBotDelete_Mutation", {"botId": bot_id}
+            )
+        except Exception as e:
+            raise Exception(f"删除bot【{handle}】失败，错误信息：{e}")
 
-        tasks = []
-        for bot, data in self.bots.items():
-            if not data["bot"]["isSystemBot"]:
-                tasks.append(create_task(del_bot(bot)))
-            else:
-                logger.info("Can't delete SystemBot, skipped")
-        await gather(*tasks)
-        logger.info("Succeed to delete bots")
+        if resp["data"] is None and resp["errors"]:
+            raise Exception(f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['msg']}")
 
     async def get_chat_history(
-        self, url_botname: str, chat_code: str, count: int = 25, get_all: bool = False
-    ):
-        if url_botname not in self.bots.keys():
-            await self.get_botdata(url_botname)
-        if not (count or get_all):
-            raise TypeError(
-                "Please provide at least one of the following parameters: del_all=<bool>, count=<int>"
-            )
-        messages = self.bots[url_botname]["chats"][chat_code]["messagesConnection"][
-            "edges"
-        ]
-        if len(messages) == 0:
-            logger.error(
-                f"Failed to get message history of {url_botname}: No messages found with {url_botname}"
-            )
-            return []
-        cursor = messages[0]["cursor"]
-        if not get_all and count <= len(messages):
-            return messages[-count:]
-        while get_all or (count > len(messages)):
+        self, handle: str, chat_id: int, cursor: str
+    ) -> tuple[list[dict], str]:
+        """
+        删除某个某个会话的历史记录
+        """
+        try:
             result = await self.send_query(
                 "ChatListPaginationQuery",
                 {
                     "count": 25,
                     "cursor": cursor,
-                    "id": self.bots[url_botname]["chats"][chat_code]["id"],
+                    "id": base64_encode(f"Chat:{chat_id}"),
                 },
             )
-            previous_messages = result["data"]["node"]["messagesConnection"]["edges"]
-            messages = previous_messages + messages
-            cursor = messages[0]["cursor"]
-            if len(previous_messages) == 0:
-                if not get_all:
-                    logger.warning(
-                        f"Only {str(len(messages))} history messages found with {url_botname}"
-                    )
-                break
-        logger.info(f"Succeed to get messages from {url_botname}")
-        if not get_all:
-            return messages[-count:]
-        else:
-            return messages
+            _history = result["data"]["node"]["messagesConnection"]
+
+            nodes: list[dict] = _history["edges"]
+            has_pre_page: bool = _history["pageInfo"]["hasPreviousPage"]
+            if has_pre_page:
+                next_cursor: str = _history["pageInfo"]["startCursor"]
+            else:
+                next_cursor = "-1"
+
+            result_list = []
+            for node in nodes:
+                n = node["node"]
+                result_list.append(
+                    {
+                        "msg_id": n["messageId"],
+                        "create_time": n["creationTime"],
+                        "text": n["text"],
+                        "author": "user" if n["author"] == "human" else "bot",
+                    }
+                )
+        except Exception as e:
+            raise Exception(f"拉取bot【{handle}】历史记录失败，错误信息：{e}")
+
+        return result_list, next_cursor

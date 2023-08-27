@@ -45,8 +45,22 @@ async def _(
                 "application/json": {
                     "example": {
                         "bots": [
-                            {"bot_id": "bot_A_id", "model": "ChatGPT", "alias": "AAA"},
-                            {"bot_id": "bot_B_id", "model": "ChatGPT4", "alias": "BBB"},
+                            {
+                                "handle": "bot_A_handle",
+                                "alias": "AAA",
+                                "model": "ChatGPT",
+                                "prompt": "prompt_A",
+                                "create_time": 1692695313,
+                                "last_talk_time": 1692695313,
+                            },
+                            {
+                                "handle": "bot_B_handle",
+                                "alias": "BBB",
+                                "model": "ChatGPT4",
+                                "prompt": "prompt_B",
+                                "create_time": 1692695313,
+                                "last_talk_time": 1692695313,
+                            },
                         ]
                     }
                 }
@@ -56,11 +70,8 @@ async def _(
 )
 async def _(user_data: dict = Depends(verify_token)):
     user = user_data["user"]
-    botList = await User.get_user_botIdList(user)
-    bot_list = []
-    for bot_id, ab in botList.items():
-        bot_list.append({"bot_id": bot_id, "model": ab[0], "alias": ab[1]})
-    return JSONResponse({"bots": bot_list}, 200)
+    botList = await Bot.get_user_bots(user)
+    return JSONResponse({"bots": botList}, 200)
 
 
 @router.get(

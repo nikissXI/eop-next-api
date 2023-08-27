@@ -6,9 +6,19 @@ from utils import *
 from utils.config import *
 
 
-class BotIdNotFound(Exception):
+class BotNotFound(Exception):
     def __init__(self):
         pass
+
+
+class NoChatCode(Exception):
+    def __init__(self):
+        pass
+
+
+class ModelNotFound(Exception):
+    def __init__(self, model: str):
+        self.model = model
 
 
 def handle_exception(err_msg: str) -> JSONResponse:
@@ -20,22 +30,7 @@ def handle_exception(err_msg: str) -> JSONResponse:
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
 
-def get_chat_code(bot_id: str) -> str:
-    try:
-        if chat_code_list := poe.client.bot_code_dict[bot_id]:
-            return chat_code_list[0]
-        return ""
-    except KeyError:
-        raise BotIdNotFound()
-
-
-model_dict = {
-    "ChatGPT": "chinchilla",
-    "Claude": "a2",
-    "ChatGPT4": "beaver",
-    "Claude-2-100k": "a2_2",
-}
-
+available_model = set(poe.client.model_dict.keys())
 
 router = APIRouter()
 
@@ -48,7 +43,7 @@ router = APIRouter()
             "description": "创建成功",
             "content": {
                 "application/json": {
-                    "example": {"bot_id": "会话id"},
+                    "example": {"handle": "会话句柄"},
                 }
             },
         },
@@ -64,35 +59,32 @@ async def _(
     ),
     user_data: dict = Depends(verify_token),
 ):
-    if body.model not in model_dict:
-        return JSONResponse(
-            {
-                "code": 2002,
-                "msg": "可用模型：ChatGPT, Claude, ChatGPT4, Claude-2-100k。",
-            },
-            402,
-        )
+    if body.model not in available_model:
+        raise ModelNotFound(body.model)
 
     user = user_data["user"]
 
-    while True:
-        try:
-            bot_id = generate_random_bot_id()
-            await poe.client.create_bot(
-                handle=bot_id,
-                prompt=body.prompt,
-                base_model=model_dict[body.model],
-                suggested_replies=False,
-            )
-            await User.update_user_botIdList(user, bot_id, body.model, body.alias)
-            return JSONResponse({"bot_id": bot_id}, 200)
+    try:
+        handle, bot_id = await poe.client.create_bot(
+            body.model,
+            body.prompt,
+        )
+        await Bot.create_bot(
+            handle,
+            bot_id,
+            user,
+            body.model,
+            body.alias,
+            body.prompt,
+        )
+        return JSONResponse({"handle": handle}, 200)
 
-        except Exception as e:
-            return handle_exception(str(e))
+    except Exception as e:
+        return handle_exception(str(e))
 
 
 @router.post(
-    "/{bot_id}/talk",
+    "/{handle}/talk",
     summary="对话（提问）",
     responses={
         200: {
@@ -102,41 +94,75 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
     body: TalkBody = Body(example={"q": "你好啊"}),
-    _: dict = Depends(verify_token),
+    user_data: dict = Depends(verify_token),
 ):
-    chat_code = get_chat_code(bot_id)
-    try:
-        # async def generate():
-        #     async for resp in poe.client.ask_stream(
-        #         url_botname=bot_id,
-        #         chat_code=chat_code,
-        #         question=body.q,
-        #         suggest_able=False,
-        #     ):
-        #         yield BytesIO(resp.encode("utf-8")).read()
+    user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
 
-        async def generate():
-            async for data in poe.client.ask_stream_raw(
-                url_botname=bot_id,
-                chat_code=chat_code,
-                question=body.q,
-                suggest_able=False,
-            ):
-                if isinstance(data, Text):
-                    # print(str(data), end="")
-                    yield BytesIO(str(data).encode("utf-8")).read()
+    chat_id = await Bot.get_bot_chat_id(handle)
 
-        return StreamingResponse(generate(), media_type="text/plain")
-        # return {}
+    async def ai_reply():
+        async for data in poe.client.talk_to_bot(
+            handle,
+            chat_id,
+            body.q,
+        ):
+            # 新的会话，需要保存chat code和chat id
+            if isinstance(data, NewChat):
+                await Bot.update_bot_chat_code_and_chat_id(
+                    handle, data.chat_code, data.chat_id
+                )
+            # ai的回答
+            if isinstance(data, Text):
+                yield BytesIO(data.content.encode("utf-8")).read()
+            # 回答完毕，更新最后对话时间
+            if isinstance(data, End):
+                await Bot.update_bot_last_talk_time(handle)
+            # 出错
+            if isinstance(data, TalkError):
+                yield BytesIO(data.content.encode("utf-8")).read()
 
-    except Exception as e:
-        return handle_exception(str(e))
+    return StreamingResponse(ai_reply(), media_type="text/plain")
+
+
+@router.get(
+    "/{handle}/stop",
+    summary="停止生成回答",
+    responses={
+        200: {
+            "description": "无相关响应",
+        },
+        204: {
+            "description": "停止成功",
+        },
+    },
+)
+async def _(
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    user_data: dict = Depends(verify_token),
+):
+    user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
+
+    chat_id = await Bot.get_bot_chat_id(handle)
+
+    if not chat_id:
+        raise NoChatCode()
+
+    # try:
+    await poe.client.talk_stop(handle)
+    return Response(status_code=204)
+
+    # except Exception as e:
+    #     return handle_exception(str(e))
 
 
 @router.delete(
-    "/{bot_id}",
+    "/{handle}",
     summary="删除会话",
     responses={
         200: {
@@ -148,14 +174,18 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
+
+    bot_id = await Bot.get_bot_id(handle)
 
     try:
-        await poe.client.delete_bot(url_botname=bot_id)
-        await User.del_user_botId(user, bot_id)
+        await poe.client.delete_bot(handle, bot_id)
+        await Bot.delete_bot(handle)
         return Response(status_code=204)
 
     except Exception as e:
@@ -163,7 +193,7 @@ async def _(
 
 
 @router.delete(
-    "/{bot_id}/reset",
+    "/{handle}/reset",
     summary="重置对话，仅清除bot记忆，不会删除聊天记录",
     responses={
         200: {
@@ -175,12 +205,20 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
-    _: dict = Depends(verify_token),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    user_data: dict = Depends(verify_token),
 ):
-    chat_code = get_chat_code(bot_id)
+    user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
+
+    chat_id = await Bot.get_bot_chat_id(handle)
+
+    if not chat_id:
+        raise NoChatCode()
+
     try:
-        await poe.client.send_chat_break(url_botname=bot_id, chat_code=chat_code)
+        await poe.client.send_chat_break(handle, chat_id)
         return Response(status_code=204)
 
     except Exception as e:
@@ -188,7 +226,7 @@ async def _(
 
 
 @router.delete(
-    "/{bot_id}/clear",
+    "/{handle}/clear",
     summary="重置对话并删除聊天记录",
     responses={
         200: {
@@ -200,13 +238,21 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
-    _: dict = Depends(verify_token),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    user_data: dict = Depends(verify_token),
 ):
-    chat_code = get_chat_code(bot_id)
+    user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
+
+    chat_id = await Bot.get_bot_chat_id(handle)
+
+    if not chat_id:
+        raise NoChatCode()
 
     try:
-        await poe.client.delete_chat_by_chat_code(chat_code=chat_code)
+        await poe.client.delete_chat_by_chat_id(handle, chat_id)
+        await Bot.update_bot_chat_code_and_chat_id(handle)
         return Response(status_code=204)
 
     except Exception as e:
@@ -214,26 +260,29 @@ async def _(
 
 
 @router.get(
-    "/{bot_id}/history",
+    "/{handle}/history/{cursor}",
     summary="拉取聊天记录",
     responses={
         200: {
-            "description": "无相关响应",
+            "description": "返回历史记录和翻页光标，如果next_cursor为-1，则没有下一页",
             "content": {
                 "application/json": {
                     "example": {
                         "history": [
                             {
-                                "sender": "user",
-                                "msg": "你是傻逼",
-                                "id": "TWVzc2FnZToyNTgzODg1MTU0",
+                                "msg_id": 2692997857,
+                                "create_time": 1692964266475260,
+                                "text": "你好啊",
+                                "author": "user",
                             },
                             {
-                                "sender": "bot",
-                                "msg": "你才是傻逼",
-                                "id": "TWVzc2FnZToyNTgzODg1MTYy",
+                                "msg_id": 2692997880,
+                                "create_time": 1692964266638975,
+                                "text": "你好啊！我是你的智能助手。有什么我可以帮助你的吗？",
+                                "author": "bot",
                             },
                         ],
+                        "next_cursor": "2692997857",
                     }
                 }
             },
@@ -241,94 +290,37 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
-    _: dict = Depends(verify_token),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
+    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
+    user_data: dict = Depends(verify_token),
 ):
-    chat_code = get_chat_code(bot_id)
+    user = user_data["user"]
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
+
+    chat_id = await Bot.get_bot_chat_id(handle)
+    if not chat_id:
+        raise NoChatCode()
 
     try:
-        data = await poe.client.get_chat_history(
-            url_botname=bot_id, chat_code=chat_code, get_all=True
+        result_list, next_cursor = await poe.client.get_chat_history(
+            handle, chat_id, cursor
         )
-        # return JSONResponse(data)
-        history = []
-        for _ in data:
-            sender = _["node"]["author"]
-            if sender == "chat_break":
-                continue
-            sender = "user" if _["node"]["author"] == "human" else "bot"
-            msg = _["node"]["text"]
-            id = _["node"]["id"]
-            history.append({"sender": sender, "msg": msg, "id": id})
-        return JSONResponse({"history": history}, 200)
 
-    except Exception as e:
-        return handle_exception(str(e))
-
-
-@router.get(
-    "/{bot_id}/info",
-    summary="获取会话基础信息",
-    responses={
-        200: {
-            "description": "无相关响应",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "model": "ChatGPT",
-                        "prompt": "Your honey~",
-                        "history": [
-                            {
-                                "sender": "user",
-                                "msg": "你是傻逼",
-                                "id": "TWVzc2FnZToyNTgzODg1MTU0",
-                            },
-                            {
-                                "sender": "bot",
-                                "msg": "你才是傻逼",
-                                "id": "TWVzc2FnZToyNTgzODg1MTYy",
-                            },
-                        ],
-                    }
-                }
+        return JSONResponse(
+            {
+                "history": result_list,
+                "next_cursor": next_cursor,
             },
-        },
-    },
-)
-async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
-    _: dict = Depends(verify_token),
-):
-    try:
-        poe.client.bot_code_dict[bot_id]
-    except KeyError:
-        raise BotIdNotFound()
-
-    try:
-        data = await poe.client.get_bot_info(url_botname=bot_id)
-        prompt = data["promptPlaintext"]
-        data = await poe.client.get_botdata(url_botname=bot_id)
-        model = data["bot"]["baseModelDisplayName"]
-        history = []
-        for _ in data["chats"][poe.client.bot_code_dict[bot_id][0]][
-            "messagesConnection"
-        ]["edges"]:
-            sender = _["node"]["author"]
-            if sender == "chat_break":
-                continue
-            sender = "user" if _["node"]["author"] == "human" else "bot"
-            msg = _["node"]["text"]
-            id = _["node"]["id"]
-            history.append({"sender": sender, "msg": msg, "id": id})
-
-        return JSONResponse({"model": model, "prompt": prompt, "history": history}, 200)
+            200,
+        )
 
     except Exception as e:
         return handle_exception(str(e))
 
 
 @router.patch(
-    "/{bot_id}",
+    "/{handle}",
     summary="修改bot信息，不改的就不提交",
     responses={
         200: {
@@ -340,43 +332,34 @@ async def _(
     },
 )
 async def _(
-    bot_id: str = Path(description="会话id", example="t3JChplM0pgoNuGVEEyC"),
+    handle: str = Path(description="会话句柄", example="t3JChplM0pgoNuGVEEyC"),
     body: ModifyBotBody = Body(
-        example={"model": "ChatGPT", "prompt": "your are dick", "alias": "小芳"}
+        example={
+            "alias": "智能傻逼",
+            "model": "ChatGPT",
+            "prompt": "You are a large language model. Follow the user's instructions carefully.",
+        }
     ),
     user_data: dict = Depends(verify_token),
 ):
-    try:
-        poe.client.bot_code_dict[bot_id]
-    except KeyError:
-        raise BotIdNotFound()
-
-    if body.model and body.model not in model_dict:
-        return JSONResponse(
-            {
-                "code": 2002,
-                "msg": "可用模型：ChatGPT, Claude, ChatGPT4, Claude-2-100k。",
-            },
-            402,
-        )
-
     user = user_data["user"]
-    botIdList = await User.get_user_botIdList(user)
-    _model, _alias = botIdList[bot_id]
-    model = body.model if body.model else _model
+    if not await Bot.verify_bot(user, handle):
+        raise BotNotFound()
 
-    # 更新会话别名和模型
-    if body.model or body.alias:
-        alias = body.alias if body.alias else _alias
-        await User.update_user_botIdList(user, bot_id, model, alias)
+    if body.model and body.model not in available_model:
+        raise ModelNotFound(body.model)
 
+    # 更新缓存
+    await Bot.modify_bot(handle, body.model, body.alias, body.prompt)
     # 更新模型和预设
     if body.model or body.prompt:
+        bot_id, _model, _prompt = await Bot.get_bot_botId_model_prompt(handle)
         try:
             await poe.client.edit_bot(
-                url_botname=bot_id,
-                base_model=model_dict[model],
-                prompt=body.prompt,
+                handle,
+                bot_id,
+                body.model or _model,
+                body.prompt or _prompt,
             )
         except Exception as e:
             return handle_exception(str(e))
