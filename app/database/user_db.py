@@ -15,7 +15,7 @@ class User(Model):
             await cls.create(
                 user="nikiss",
                 passwd="f303aabb3a5bd6a547e3fdbf664bc7e093db187339048c74a0b19f8ebab42d3c",  # 明文nikiss，生产环境记得修改
-                expire_date="4070880000000",
+                expire_date=4070880000000,
                 admin=True,
             )
 

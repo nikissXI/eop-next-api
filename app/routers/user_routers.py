@@ -84,7 +84,7 @@ async def _(user_data: dict = Depends(verify_token)):
                 "application/json": {
                     "example": {
                         "is_admin": False,
-                        "expire_date": "4070880000000",
+                        "expire_date": 4070880000000,
                     }
                 }
             },

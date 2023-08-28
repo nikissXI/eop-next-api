@@ -35,7 +35,7 @@ async def _(
         example={
             "user": "username",
             "passwd": "hashed_password",
-            "expire_date": "1693230928703",
+            "expire_date": 1693230928703,
             "admin": False,
         },
     ),
@@ -102,7 +102,7 @@ async def _(
     user: str = Path(description="用户名", example="username"),
     body: RenewUserBody = Body(
         example={
-            "expire_date": "1693230928703",
+            "expire_date": 1693230928703,
         }
     ),
     _: dict = Depends(verify_admin),
