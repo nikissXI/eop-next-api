@@ -36,8 +36,6 @@ except:
 
 class Poe_Client:
     def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
-        self.channel_url: str = ""
-        self.bots: dict = {}
         self.formkey: str = formkey
         self.p_b: str = p_b
         self.sdid: str = ""
@@ -54,6 +52,7 @@ class Poe_Client:
             "Upgrade-Insecure-Requests": "1",
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
+        self.channel_url: str = ""
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
         self.talking = False
@@ -388,6 +387,7 @@ class Poe_Client:
                 logger.info("已刷新ws channel地址")
                 self.refresh_channel_lock = False
 
+        # 上锁，防止刷新channel把消息断了
         self.talking = True
 
         try:
@@ -410,6 +410,10 @@ class Poe_Client:
             yield TalkError(content=err_msg)
             return
 
+        # 如果不存在则创建答案生成队列
+        if chat_id not in self.answer_queue:
+            self.answer_queue[chat_id] = Queue()
+
         retry = 3
         last_text_len = 0
         get_answer_msg_id = False
@@ -426,6 +430,7 @@ class Poe_Client:
                 )
 
             if answer_data.get("state") == "cancelled":
+                self.talking = False
                 yield End()
                 return
 
