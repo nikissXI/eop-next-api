@@ -177,6 +177,10 @@ class Poe_Client:
 
             chat_id: int = int(payload.get("unique_id")[13:])  # messageAdded:66642643
 
+            # 如果不存在则创建答案生成队列
+            if chat_id not in self.answer_queue:
+                self.answer_queue[chat_id] = Queue()
+
             await self.answer_queue[chat_id].put(msg)
 
     async def connect_to_channel(self):
@@ -405,10 +409,6 @@ class Poe_Client:
             logger.error(err_msg)
             yield TalkError(content=err_msg)
             return
-
-        # 创建答案生成队列
-        if chat_id not in self.answer_queue:
-            self.answer_queue[chat_id] = Queue()
 
         retry = 3
         last_text_len = 0

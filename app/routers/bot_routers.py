@@ -105,7 +105,7 @@ async def _(
             "description": "创建成功",
             "content": {
                 "application/json": {
-                    "example": {"eop_id": "6位数的eop id"},
+                    "example": {"eop_id": "eop id（整型的1到6位数字）"},
                 }
             },
         },
