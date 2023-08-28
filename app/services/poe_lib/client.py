@@ -1,4 +1,4 @@
-from asyncio import create_task, sleep, Queue, wait_for, TimeoutError,Task
+from asyncio import create_task, sleep, Queue, wait_for, TimeoutError, Task
 from hashlib import md5
 from secrets import token_hex
 from httpx import AsyncClient
@@ -445,18 +445,22 @@ class Poe_Client:
                     answer_create_time=answer_create_time,
                 )
                 get_answer_msg_id = True
+
             # 取消回复
             if answer_data.get("state") == "cancelled":
                 yield End()
                 return
 
+            # 获取内容
             plain_text = answer_data.get("text")
+
             # 未完成的回复
             if answer_data.get("state") == "incomplete":
                 retry = 6
                 yield Text(content=plain_text[last_text_len:])
                 last_text_len = len(plain_text)
                 continue
+
             # 完成回复
             if answer_data.get("state") == "complete":
                 yield Text(content=plain_text[last_text_len:])
