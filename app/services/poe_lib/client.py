@@ -1,4 +1,4 @@
-from asyncio import create_task, sleep, Queue
+from asyncio import create_task, sleep, Queue, wait_for, TimeoutError
 from hashlib import md5
 from secrets import token_hex
 from httpx import AsyncClient
@@ -392,6 +392,7 @@ class Poe_Client:
 
         try:
             if not chat_id:
+                logger.info(f"{chat_id} 1")
                 (
                     question_msg_id,
                     question_create_time,
@@ -399,10 +400,14 @@ class Poe_Client:
                     chat_id,
                 ) = await self.send_msg_to_new_chat(handle, question)
                 yield NewChat(chat_code=chat_code, chat_id=chat_id)
+                logger.info(f"{chat_id} 2")
+
             else:
+                logger.info(f"{chat_id} 1")
                 question_msg_id, question_create_time = await self.send_msg_to_old_chat(
                     handle, chat_id, question
                 )
+                logger.info(f"{chat_id} 2")
         except Exception as e:
             self.talking = False
             err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
@@ -411,51 +416,67 @@ class Poe_Client:
             return
 
         # 如果不存在则创建答案生成队列
+        logger.info(f"{chat_id} 3")
         if chat_id not in self.answer_queue:
             self.answer_queue[chat_id] = Queue()
+        logger.info(f"{chat_id} 4")
 
         retry = 3
         last_text_len = 0
         get_answer_msg_id = False
         while retry >= 0:
-            answer_data = await self.answer_queue[chat_id].get()
+            logger.info(f"{chat_id} 5")
+            # 从队列拉取回复
+            try:
+                answer_data = await wait_for(self.answer_queue[chat_id].get(), 1)
+            except TimeoutError:
+                retry -= 1
+                continue
 
+            logger.info(f"{chat_id} 6")
+            # 收到第一条生成的回复
             if get_answer_msg_id == False:
-                self.cache_answer_msg_id[handle] = answer_data.get("messageId")
+                answer_msg_id = answer_data.get("messageId")
+                answer_create_time = answer_data.get("creationTime")
+                # 判断是否为旧回复（有时候会拉取到之前的回复，不知道为啥）
+                if (
+                    chat_id in self.cache_answer_msg_id
+                    and answer_msg_id < self.cache_answer_msg_id[chat_id]
+                ):
+                    continue
+
+                self.cache_answer_msg_id[chat_id] = answer_msg_id
+
                 yield MsgId(
                     question_msg_id=question_msg_id,
                     question_create_time=question_create_time,
-                    answer_msg_id=answer_data.get("messageId"),
-                    answer_create_time=answer_data.get("creationTime"),
+                    answer_msg_id=answer_msg_id,
+                    answer_create_time=answer_create_time,
                 )
-
+                get_answer_msg_id = True
+                logger.info(f"{chat_id} 7")
+            # 取消回复
             if answer_data.get("state") == "cancelled":
                 self.talking = False
                 yield End()
                 return
 
             plain_text = answer_data.get("text")
-
+            # 未完成的回复
             if answer_data.get("state") == "incomplete":
-                new_text_len = len(plain_text)
-                # 没有新的内容，略过
-                if new_text_len == last_text_len:
-                    continue
-
+                logger.info(f"{chat_id} 8")
                 retry = 3
                 yield Text(content=plain_text[last_text_len:])
-                last_text_len = new_text_len
+                last_text_len = len(plain_text)
                 continue
-
-            # 匹配到已完成
+            # 完成回复
             if answer_data.get("state") == "complete":
+                logger.info(f"{chat_id} 9")
                 self.talking = False
                 yield Text(content=plain_text[last_text_len:])
                 yield End()
+                print(plain_text)
                 return
-
-            retry -= 1
-            await sleep(1)
 
         self.talking = False
         err_msg = "获取回答超时"
@@ -463,14 +484,17 @@ class Poe_Client:
         yield TalkError(content=err_msg)
         return
 
-    async def talk_stop(self, handle: str):
+    async def talk_stop(self, handle: str, chat_id: int):
         """
         停止生成回复
 
         参数：
         - handle 要发送消息的机器人的唯一标识符。
         """
-        msg_id = self.cache_answer_msg_id[handle]
+        if chat_id not in self.cache_answer_msg_id:
+            return
+
+        msg_id = self.cache_answer_msg_id[chat_id]
         try:
             await self.send_query(
                 "chatHelpers_messageCancel_Mutation",

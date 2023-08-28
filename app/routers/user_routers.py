@@ -50,16 +50,16 @@ async def _(
                                 "alias": "AAA",
                                 "model": "ChatGPT",
                                 "prompt": "prompt_A",
-                                "create_time": 1692695313,
-                                "last_talk_time": 1692695313,
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
                             },
                             {
                                 "eop_id": "bot_B_eop_id",
                                 "alias": "BBB",
                                 "model": "ChatGPT4",
                                 "prompt": "",
-                                "create_time": 1692695313,
-                                "last_talk_time": 1692695313,
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
                             },
                         ]
                     }
@@ -84,7 +84,7 @@ async def _(user_data: dict = Depends(verify_token)):
                 "application/json": {
                     "example": {
                         "is_admin": False,
-                        "expire_date": "2099-01-01",
+                        "expire_date": "4070880000000",
                     }
                 }
             },

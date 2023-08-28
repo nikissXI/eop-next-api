@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from datetime import date
 
 
 class UpdateSettingBody(BaseModel):
@@ -24,13 +23,13 @@ class AddUserBody(BaseModel):
     passwd: str = Field(
         description="密码",
     )
-    expire_date: date = Field(
-        description="过期日期，格式yyyy-MM-dd",
+    expire_date: int = Field(
+        description="过期日期，格式13位整数时间戳",
     )
     admin: bool = Field(description="是否为管理员")
 
 
 class RenewUserBody(BaseModel):
-    expire_date: date = Field(
-        description="过期日期，格式yyyy-MM-dd",
+    expire_date: int = Field(
+        description="过期日期，格式13位整数时间戳",
     )

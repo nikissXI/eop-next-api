@@ -4,6 +4,7 @@ from models import *
 from services import *
 from utils import *
 from utils.config import *
+from time import strftime, localtime
 
 try:
     from ujson import dumps
@@ -27,8 +28,9 @@ class ModelNotFound(Exception):
 
 
 class UserOutdate(Exception):
-    def __init__(self, date: str):
-        self.date = date
+    def __init__(self, date: int):
+        date_string = strftime("%Y-%m-%d %H:%M:%S", localtime(date / 1000))
+        self.date = date_string
 
 
 def handle_exception(err_msg: str) -> JSONResponse:
@@ -245,7 +247,7 @@ async def _(
     await check_chat_exist(chat_id)
 
     try:
-        await poe.client.talk_stop(handle)
+        await poe.client.talk_stop(handle, chat_id)
         return Response(status_code=204)
 
     except Exception as e:

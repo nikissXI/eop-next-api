@@ -46,7 +46,7 @@ class Bot(Model):
             if not await cls.eop_id_exist(eop_id):
                 break
 
-        current_timestamp = int(time())
+        current_timestamp = int(time() * 1000)
         await cls.create(
             eop_id=eop_id,
             diy=diy,
@@ -108,7 +108,7 @@ class Bot(Model):
     # 更新某个bot的last_talk_time
     @classmethod
     async def update_bot_last_talk_time(cls, eop_id: int):
-        await cls.filter(eop_id=eop_id).update(last_talk_time=int(time()))
+        await cls.filter(eop_id=eop_id).update(last_talk_time=int(time() * 1000))
 
     # 修改某个bot信息
     @classmethod
