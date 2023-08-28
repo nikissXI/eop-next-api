@@ -228,7 +228,7 @@ async def _(
                     dumps({"type": "error", "data": data.content}).encode("utf-8")
                 ).read()
 
-    return StreamingResponse(ai_reply(), media_type="text/plain")
+    return StreamingResponse(ai_reply(), media_type="application/json")
 
 
 @router.get(
