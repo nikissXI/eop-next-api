@@ -5,7 +5,7 @@ from random import randint
 
 
 class Bot(Model):
-    eop_id = fields.IntField(pk=True)
+    eop_id = fields.TextField(pk=True)
     diy = fields.BooleanField()
     handle = fields.TextField()
     bot_id = fields.IntField()
@@ -20,12 +20,12 @@ class Bot(Model):
 
     # eop id是否存在
     @classmethod
-    async def eop_id_exist(cls, eop_id: int) -> bool:
+    async def eop_id_exist(cls, eop_id: str) -> bool:
         return await cls.filter(eop_id=eop_id).exists()
 
     # 判断bot是否可diy
     @classmethod
-    async def bot_can_diy(cls, eop_id: int) -> bool:
+    async def bot_can_diy(cls, eop_id: str) -> bool:
         rows = await cls.filter(eop_id=eop_id).values_list("diy")
         return rows[0][0]
 
@@ -40,9 +40,9 @@ class Bot(Model):
         model: str,
         alias: str,
         prompt: str,
-    ) -> int:
+    ) -> str:
         while True:
-            eop_id = randint(0, 999999)
+            eop_id = str(randint(0, 999999))
             if not await cls.eop_id_exist(eop_id):
                 break
 
@@ -85,7 +85,7 @@ class Bot(Model):
 
     # 删除某个用户相关bot前先删掉相关的会话 todo
     @classmethod
-    async def pre_remove_user_bots(cls, user: str) -> list[tuple[int, bool, int, int]]:
+    async def pre_remove_user_bots(cls, user: str) -> list[tuple[str, bool, int, int]]:
         return await cls.filter(user=user).values_list(
             "eop_id", "diy", "bot_id", "chat_id"
         )
@@ -97,24 +97,24 @@ class Bot(Model):
 
     # 判断某个bot是否为该用户且存在
     @classmethod
-    async def check_bot_user(cls, eop_id: int, user: str) -> bool:
+    async def check_bot_user(cls, eop_id: str, user: str) -> bool:
         return await cls.filter(eop_id=eop_id, user=user).exists()
 
     # 删除某个bot
     @classmethod
-    async def delete_bot(cls, eop_id: int):
+    async def delete_bot(cls, eop_id: str):
         await cls.filter(eop_id=eop_id).delete()
 
     # 更新某个bot的last_talk_time
     @classmethod
-    async def update_bot_last_talk_time(cls, eop_id: int):
+    async def update_bot_last_talk_time(cls, eop_id: str):
         await cls.filter(eop_id=eop_id).update(last_talk_time=int(time() * 1000))
 
     # 修改某个bot信息
     @classmethod
     async def modify_bot(
         cls,
-        eop_id: int,
+        eop_id: str,
         model: str | None = None,
         alias: str | None = None,
         prompt: str | None = None,
@@ -131,7 +131,7 @@ class Bot(Model):
     # 获取某个bot信息
     @classmethod
     async def get_bot_handle_botId_model_prompt(
-        cls, eop_id: int
+        cls, eop_id: str
     ) -> tuple[str, int, str, str]:
         rows = await cls.filter(eop_id=eop_id).values_list(
             "handle", "bot_id", "model", "prompt"
@@ -140,20 +140,20 @@ class Bot(Model):
 
     # 获取某个bot的bot id
     @classmethod
-    async def get_handle_and_bot_id(cls, eop_id: int) -> tuple[str, int]:
+    async def get_handle_and_bot_id(cls, eop_id: str) -> tuple[str, int]:
         rows = await cls.filter(eop_id=eop_id).values_list("handle", "bot_id")
         return rows[0][0], rows[0][1]
 
     # 更新某个bot的chat code和chat id
     @classmethod
     async def update_bot_chat_code_and_chat_id(
-        cls, eop_id: int, chat_code: str = "", chat_id: int = 0
+        cls, eop_id: str, chat_code: str = "", chat_id: int = 0
     ):
         await cls.filter(eop_id=eop_id).update(chat_code=chat_code, chat_id=chat_id)
 
     # 获取某个bot的chat id
     @classmethod
-    async def get_bot_handle_and_chat_id(cls, eop_id: int) -> tuple[str, int]:
+    async def get_bot_handle_and_chat_id(cls, eop_id: str) -> tuple[str, int]:
         rows = await cls.filter(eop_id=eop_id).values_list("handle", "chat_id")
         return rows[0][0], rows[0][1]
 

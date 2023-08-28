@@ -46,7 +46,7 @@ async def _(
                     "example": {
                         "bots": [
                             {
-                                "eop_id": "bot_A_eop_id",
+                                "eop_id": "114514",
                                 "alias": "AAA",
                                 "model": "ChatGPT",
                                 "prompt": "prompt_A",
@@ -54,7 +54,7 @@ async def _(
                                 "last_talk_time": 1693230928703,
                             },
                             {
-                                "eop_id": "bot_B_eop_id",
+                                "eop_id": "415411",
                                 "alias": "BBB",
                                 "model": "ChatGPT4",
                                 "prompt": "",

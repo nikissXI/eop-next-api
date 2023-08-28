@@ -43,7 +43,7 @@ def handle_exception(err_msg: str) -> JSONResponse:
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
 
-async def check_bot_hoster(user: str, eop_id: int):
+async def check_bot_hoster(user: str, eop_id: str):
     if not await Bot.check_bot_user(eop_id, user):
         raise BotNotFound()
 
@@ -108,7 +108,7 @@ async def _(
             "description": "创建成功",
             "content": {
                 "application/json": {
-                    "example": {"eop_id": "eop id（整型的1到6位数字）"},
+                    "example": {"eop_id": "114514"},
                 }
             },
         },
@@ -172,7 +172,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     body: TalkBody = Body(example={"q": "你好啊"}),
     user_data: dict = Depends(verify_token),
 ):
@@ -195,28 +195,33 @@ async def _(
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgId):
                 yield BytesIO(
-                    dumps(
-                        {
-                            "type": "start",
-                            "data": {
-                                "question_msg_id": data.question_msg_id,
-                                "question_create_time": data.question_create_time,
-                                "answer_msg_id": data.answer_msg_id,
-                                "answer_create_time": data.answer_create_time,
-                            },
-                        }
+                    (
+                        dumps(
+                            {
+                                "type": "start",
+                                "data": {
+                                    "question_msg_id": data.question_msg_id,
+                                    "question_create_time": data.question_create_time,
+                                    "answer_msg_id": data.answer_msg_id,
+                                    "answer_create_time": data.answer_create_time,
+                                },
+                            }
+                        )
+                        + "\n"
                     ).encode("utf-8")
                 ).read()
             # ai的回答
             if isinstance(data, Text):
                 yield BytesIO(
-                    dumps({"type": "response", "data": data.content}).encode("utf-8")
+                    (dumps({"type": "response", "data": data.content}) + "\n").encode(
+                        "utf-8"
+                    )
                 ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
                 poe.client.talking = False
                 await Bot.update_bot_last_talk_time(eop_id)
-                yield BytesIO(dumps({"type": "end"}).encode("utf-8")).read()
+                yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
                 poe.client.talking = False
@@ -225,7 +230,9 @@ async def _(
                 # 切换ws地址
                 create_task(poe.client.switch_channel())
                 yield BytesIO(
-                    dumps({"type": "error", "data": data.content}).encode("utf-8")
+                    (dumps({"type": "error", "data": data.content}) + "\n").encode(
+                        "utf-8"
+                    )
                 ).read()
 
     return StreamingResponse(ai_reply(), media_type="application/json")
@@ -244,7 +251,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
@@ -274,7 +281,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
@@ -309,7 +316,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
@@ -339,7 +346,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
@@ -388,7 +395,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
     user_data: dict = Depends(verify_token),
 ):
@@ -428,7 +435,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: int = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", example="114514"),
     body: ModifyBotBody = Body(
         example={
             "alias": "智能傻逼",
