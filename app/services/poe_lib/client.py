@@ -1,4 +1,4 @@
-from asyncio import create_task, sleep, Queue, wait_for, TimeoutError
+from asyncio import create_task, sleep, Queue, wait_for, TimeoutError,Task
 from hashlib import md5
 from secrets import token_hex
 from httpx import AsyncClient
@@ -56,7 +56,6 @@ class Poe_Client:
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
         self.talking = False
-        self.refresh_channel_time = time()
         self.refresh_channel_lock = False
         self.cache_answer_msg_id = {}
 
@@ -153,6 +152,24 @@ class Poe_Client:
             )
         except Exception as e:
             raise Exception(f"subscribe执行失败，错误信息：{e}")
+
+    async def switch_channel(self):
+        # 等待当前回答生成完毕
+        while self.talking:
+            await sleep(1)
+            if self.talking == False:
+                break
+        # 取消之前的ws连接
+        if self.ws_client_task:
+            self.ws_client_task.cancel()
+        # 重置之前的队列
+        self.answer_queue.clear()
+        self.cache_answer_msg_id.clear()
+        # 创建新的ws连接
+        self.ws_client_task = create_task(self.connect_to_channel())
+        logger.info("已刷新ws channel地址")
+        # 解除锁定
+        self.refresh_channel_lock = False
 
     async def get_answer(self, data: dict):
         msg_list: list[dict] = [
@@ -370,23 +387,6 @@ class Poe_Client:
                 if self.refresh_channel_lock == False:
                     break
 
-        # 半小时刷新一次channel地址
-        if time() - self.refresh_channel_time >= 1800:
-            if self.ws_client_task:
-                self.refresh_channel_lock = True
-                self.refresh_channel_time = time()
-                # 等待当前回答生成完毕
-                while self.talking:
-                    await sleep(1)
-                    if self.talking == False:
-                        break
-                self.ws_client_task.cancel()
-                self.answer_queue.clear()
-                self.cache_answer_msg_id.clear()
-                self.ws_client_task = create_task(self.connect_to_channel())
-                logger.info("已刷新ws channel地址")
-                self.refresh_channel_lock = False
-
         # 上锁，防止刷新channel把消息断了
         self.talking = True
 
@@ -405,7 +405,6 @@ class Poe_Client:
                     handle, chat_id, question
                 )
         except Exception as e:
-            self.talking = False
             err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
@@ -446,31 +445,25 @@ class Poe_Client:
                     answer_create_time=answer_create_time,
                 )
                 get_answer_msg_id = True
-                logger.info(f"{chat_id} 1")
             # 取消回复
             if answer_data.get("state") == "cancelled":
-                self.talking = False
                 yield End()
                 return
 
             plain_text = answer_data.get("text")
             # 未完成的回复
             if answer_data.get("state") == "incomplete":
-                logger.info(f"{chat_id} 2")
                 retry = 6
                 yield Text(content=plain_text[last_text_len:])
                 last_text_len = len(plain_text)
                 continue
             # 完成回复
             if answer_data.get("state") == "complete":
-                logger.info(f"{chat_id} 3")
-                self.talking = False
                 yield Text(content=plain_text[last_text_len:])
                 yield End()
                 print(plain_text)
                 return
 
-        self.talking = False
         err_msg = "获取回答超时"
         logger.error(err_msg)
         yield TalkError(content=err_msg)

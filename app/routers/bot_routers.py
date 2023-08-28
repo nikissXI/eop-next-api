@@ -5,6 +5,7 @@ from services import *
 from utils import *
 from utils.config import *
 from time import strftime, localtime
+from asyncio import create_task
 
 try:
     from ujson import dumps
@@ -213,10 +214,16 @@ async def _(
                 ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
+                poe.client.talking = False
                 await Bot.update_bot_last_talk_time(eop_id)
                 yield BytesIO(dumps({"type": "end"}).encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
+                poe.client.talking = False
+                # 锁定
+                poe.client.refresh_channel_lock = True
+                # 切换ws地址
+                create_task(poe.client.switch_channel())
                 yield BytesIO(
                     dumps({"type": "error", "data": data.content}).encode("utf-8")
                 ).read()
