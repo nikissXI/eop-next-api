@@ -81,8 +81,10 @@ class Poe_Client:
 
         limited_info = await self.get_limited_bots_info()
         text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{limited_info['daily_refresh_time']}"
+        if self.user_info.subscription_is_active:
+            text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}"
         for m in limited_info["models"]:
-            text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']} / {m['daily_total_times']}  月可用次数：{m['monthly_available_times']} / {m['monthly_total_times']}"
+            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
         logger.info(text)
 
         # 取消之前的ws连接
