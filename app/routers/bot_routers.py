@@ -262,9 +262,8 @@ async def _(
             # 出错
             if isinstance(data, TalkError):
                 poe.client.talking = False
-                # 锁定
+                # 锁定，并切换ws channel地址
                 poe.client.refresh_channel_lock = True
-                # 切换ws地址
                 create_task(poe.client.switch_channel())
                 yield BytesIO(
                     (dumps({"type": "error", "data": data.content}) + "\n").encode(
