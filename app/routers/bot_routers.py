@@ -110,6 +110,8 @@ async def _(
                 "application/json": {
                     "example": {
                         "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                        "daily_refresh_time": "2023-08-30 08:00:00",
+                        "monthly_refresh_time": "2023-09-13 08:00:00",
                         "models": [
                             {
                                 "model": "Claude-instant-100k",
@@ -130,8 +132,6 @@ async def _(
                                 "monthly_total_times": 601,
                             },
                         ],
-                        "daily_refresh_time": "2023-08-30 08:00:00",
-                        "monthly_refresh_time": "2023-09-13 08:00:00",
                     },
                 }
             },
