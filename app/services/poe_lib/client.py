@@ -109,7 +109,7 @@ class Poe_Client:
         limited_info = await self.get_limited_bots_info()
         text = f"\n有次数限制bot的使用情况\n -- 刷新时间：{limited_info['refresh_time']}\n -- 软硬限制：{limited_info['notice']}"
         for m in limited_info["models"]:
-            text += f"\n -- 模型：{m['model']}\n >> {m['limit_type']}   可用：{m['available']}   可用次数：{m['available_times']} / {m['total_times']}"
+            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  可用次数：{m['available_times']} / {m['total_times']}"
         logger.info(text)
 
         self.ws_client_task = create_task(self.connect_to_channel())
