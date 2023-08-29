@@ -187,7 +187,6 @@ class Poe_Client:
             self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
             ws_domain = f"tch{randint(1, int(1e6))}"[:8]
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
-            logger.info("获取channel ws地址成功")
         except Exception as e:
             err_msg = f"获取channel address失败，错误信息：{e}"
             logger.error(err_msg)
@@ -299,6 +298,8 @@ class Poe_Client:
                     await self.get_answer(loads(data))
                 except Exception as e:
                     logger.error(f"ws channel连接出错：{repr(e)}")
+                    with open("error.json", "a") as a:
+                        a.write(str(data) + "\n")  # type: ignore
                     break
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
@@ -339,7 +340,7 @@ class Poe_Client:
             return json_data
         except Exception as e:
             with open("error.json", "a") as a:
-                dump(json_data, a, ensure_ascii=False)  # type:ignore
+                a.write(resp.text + "\n")  # type: ignore
             raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
 
     async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
