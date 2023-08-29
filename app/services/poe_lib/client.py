@@ -569,7 +569,6 @@ class Poe_Client:
             if answer_data.get("state") == "complete":
                 yield Text(content=plain_text[last_text_len:])
                 yield End()
-                print(plain_text)
                 return
 
         err_msg = "获取回答超时"
