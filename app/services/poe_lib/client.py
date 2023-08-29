@@ -142,7 +142,6 @@ class Poe_Client:
             result = await self.send_query("settingsPageQuery", {})
             data = result["data"]["viewer"]["subscriptionBots"]
             output = {
-                "refresh_time": self.user_info.expire_time,
                 "notice": "软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
                 "models": [],
             }
@@ -165,6 +164,7 @@ class Poe_Client:
                         "total_times": total_times,
                     }
                 )
+                output["refresh_time"] = m["messageLimit"]["monthlyBalanceRefreshTime"]
             return output
         except Exception as e:
             raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
