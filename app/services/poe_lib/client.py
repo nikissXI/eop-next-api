@@ -112,6 +112,9 @@ class Poe_Client:
             text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  可用次数：{m['available_times']} / {m['total_times']}"
         logger.info(text)
 
+        # 取消之前的ws连接
+        if self.ws_client_task:
+            self.ws_client_task.cancel()
         self.ws_client_task = create_task(self.connect_to_channel())
         return self
 
@@ -146,13 +149,23 @@ class Poe_Client:
                 "models": [],
             }
             for m in data:
-                available_times = (
-                    m["messageLimit"]["dailyBalance"]
-                    + m["messageLimit"]["monthlyBalance"]
-                )
-                total_times = (
-                    m["messageLimit"]["dailyLimit"] + m["messageLimit"]["monthlyLimit"]
-                )
+                if self.user_info.subscription_is_active:
+                    output["refresh_time"] = m["messageLimit"][
+                        "monthlyBalanceRefreshTime"
+                    ]
+                    available_times = (
+                        m["messageLimit"]["dailyBalance"]
+                        + m["messageLimit"]["monthlyBalance"]
+                    )
+                    total_times = (
+                        m["messageLimit"]["dailyLimit"]
+                        + m["messageLimit"]["monthlyLimit"]
+                    )
+                else:
+                    output["refresh_time"] = m["messageLimit"]["resetTime"]
+                    available_times = m["messageLimit"]["dailyBalance"]
+                    total_times = m["messageLimit"]["dailyLimit"]
+
                 output["models"].append(
                     {
                         "model": m["displayName"],
@@ -164,8 +177,6 @@ class Poe_Client:
                         "total_times": total_times,
                     }
                 )
-                output["refresh_time"] = m["messageLimit"]["monthlyBalanceRefreshTime"]
-
             output["refresh_time"] = strftime(
                 "%Y-%m-%d %H:%M:%S",
                 localtime(output["refresh_time"] / 1000000),
@@ -242,10 +253,7 @@ class Poe_Client:
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
-        # 重置之前的队列
-        self.answer_queue.clear()
-        self.cache_answer_msg_id.clear()
-        # 创建新的ws连接
+        # 创建新的ws连接任务
         self.ws_client_task = create_task(self.connect_to_channel())
         logger.info("已刷新ws channel地址")
         # 解除锁定
@@ -281,21 +289,22 @@ class Poe_Client:
 
     async def connect_to_channel(self):
         """连接到poe的websocket，用于拉取回答"""
-        while True:
-            # 获取ws地址
-            await self.refresh_channel_data()
-            async with ws_connect(self.channel_url) as ws:
-                logger.info("已连接至ws channel")
-                while True:
-                    try:
-                        data = await ws.recv()
-                        await self.get_answer(loads(data))
-                    except ws_ConnectionClosed:
-                        logger.error("ws channel连接断开")
-                        break
-                    except Exception as e:
-                        logger.error(f"ws channel连接出错：{repr(e)}")
-                        break
+        self.answer_queue.clear()
+        self.cache_answer_msg_id.clear()
+        # 获取ws地址
+        await self.refresh_channel_data()
+        async with ws_connect(self.channel_url) as ws:
+            logger.info("已连接至ws channel")
+            while True:
+                try:
+                    data = await ws.recv()
+                    await self.get_answer(loads(data))
+                except ws_ConnectionClosed:
+                    logger.error("ws channel连接断开")
+                    break
+                except Exception as e:
+                    logger.error(f"ws channel连接出错：{repr(e)}")
+                    break
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
         """
