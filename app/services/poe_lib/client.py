@@ -291,7 +291,6 @@ class Poe_Client:
     async def connect_to_channel(self):
         """连接到poe的websocket，用于拉取回答"""
         async with ws_connect(self.channel_url) as ws:
-            logger.info("已连接至ws channel")
             while True:
                 try:
                     data = await ws.recv()
