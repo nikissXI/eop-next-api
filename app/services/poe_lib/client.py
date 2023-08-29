@@ -209,34 +209,34 @@ class Poe_Client:
                 {
                     "subscriptions": [
                         {
-                            "subscriptionName": "messageAdded",
                             "query": None,
                             "queryHash": "6d5ff500e4390c7a4ee7eeed01cfa317f326c781decb8523223dd2e7f33d3698",
+                            "subscriptionName": "messageAdded",
                         },
                         {
-                            "subscriptionName": "messageCancelled",
                             "query": None,
                             "queryHash": "dfcedd9e0304629c22929725ff6544e1cb32c8f20b0c3fd54d966103ccbcf9d3",
+                            "subscriptionName": "messageCancelled",
                         },
                         {
-                            "subscriptionName": "messageDeleted",
                             "query": None,
                             "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
+                            "subscriptionName": "messageDeleted",
                         },
                         {
-                            "subscriptionName": "viewerStateUpdated",
                             "query": None,
                             "queryHash": "ee640951b5670b559d00b6928e20e4ac29e33d225237f5bdfcb043155f16ef54",
+                            "subscriptionName": "viewerStateUpdated",
                         },
                         {
-                            "subscriptionName": "messageLimitUpdated",
                             "query": None,
                             "queryHash": "d862b8febb4c058d8ad513a7c118952ad9095c4ec0a5471540133fc0a9bd3797",
+                            "subscriptionName": "messageLimitUpdated",
                         },
                         {
-                            "subscriptionName": "chatTitleUpdated",
                             "query": None,
-                            "queryHash": "740e2c7ab27297b7a8acde39a400b932c71beb7e9b525280fc99c1639f1be93a",
+                            "queryHash": "8affa725ade31d757a31e9903e0c5d8759129829baab79c39732cdaa9cc4dde8",
+                            "subscriptionName": "chatTitleUpdated",
                         },
                     ]
                 },
