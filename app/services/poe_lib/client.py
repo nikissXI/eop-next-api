@@ -1,33 +1,29 @@
-from asyncio import create_task, sleep, Queue, wait_for, TimeoutError
+from asyncio import Queue, TimeoutError, create_task, sleep, wait_for
 from hashlib import md5
+from random import randint
 from secrets import token_hex
-from httpx import AsyncClient
+from time import localtime, strftime
 from traceback import format_exc
-from time import strftime, localtime
-
-try:
-    from ujson import loads, dump
-except:
-    from json import loads, dump
+from typing import AsyncGenerator, Tuple
+from uuid import UUID, uuid5
+from httpx import AsyncClient
 from websockets.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosed as ws_ConnectionClosed
-from random import randint
-from re import search
-from typing import AsyncGenerator, Tuple
-from uuid import uuid5
 from .type import *
 from .util import (
-    CONST_NAMESPACE,
     GQL_URL,
-    HOME_URL,
     SETTING_URL,
+    available_models,
+    base64_decode,
+    base64_encode,
     generate_data,
     generate_random_handle,
-    base64_encode,
-    base64_decode,
-    available_models,
 )
 
+try:
+    from ujson import dump, loads
+except:
+    from json import dump, loads
 try:
     from utils import logger
 except:
@@ -43,9 +39,9 @@ class UserInfo:
 
 class Poe_Client:
     def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
-        self.formkey: str = formkey
-        self.p_b: str = p_b
-        self.sdid: str = ""
+        self.formkey = formkey
+        self.p_b = p_b
+        self.sdid = ""
         self.user_info = UserInfo()
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
@@ -60,12 +56,14 @@ class Poe_Client:
             "Upgrade-Insecure-Requests": "1",
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
-        self.channel_url: str = ""
+        self.channel_url = ""
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
         self.talking = False
         self.refresh_channel_lock = False
+        self.refresh_channel_count = 0
         self.cache_answer_msg_id = {}
+        self.last_min_seq = 0
 
     async def login(self):
         """
@@ -75,31 +73,6 @@ class Poe_Client:
             raise Exception(f"p_b和formkey未正确填写，不登陆")
 
         logger.info("Poe登陆中。。。。。。")
-        try:
-            resp = await self.httpx_client.get(HOME_URL, timeout=3)
-
-            json_data = search(
-                r'<script id="__NEXT_DATA__" type="application\/json">(.+?)</script>',
-                resp.text,
-            )
-            if json_data is None:
-                raise Exception("__NEXT_DATA__搜索结果为空")
-
-            next_data = loads(json_data.group(1))
-
-            self.sdid = str(
-                uuid5(
-                    CONST_NAMESPACE,
-                    next_data["props"]["initialData"]["data"]["pageQuery"]["viewer"][
-                        "poeUser"
-                    ]["id"],
-                )
-            )
-
-        except Exception as e:
-            raise Exception(f"登陆失败，错误信息：{e}")
-        logger.info("Poe登陆成功！")
-
         await self.get_user_info()
         text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_is_active}"
         if self.user_info.subscription_is_active:
@@ -107,15 +80,16 @@ class Poe_Client:
         logger.info(text)
 
         limited_info = await self.get_limited_bots_info()
-        text = f"\n有次数限制bot的使用情况\n -- 刷新时间：{limited_info['refresh_time']}\n -- 软硬限制：{limited_info['notice']}"
+        text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{limited_info['daily_refresh_time']}"
         for m in limited_info["models"]:
-            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  可用次数：{m['available_times']} / {m['total_times']}"
+            text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']} / {m['daily_total_times']}  月可用次数：{m['monthly_available_times']} / {m['monthly_total_times']}"
         logger.info(text)
 
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
-        self.ws_client_task = create_task(self.connect_to_channel())
+
+        await self.refresh_channel(True)
         return self
 
     async def get_user_info(self):
@@ -125,7 +99,9 @@ class Poe_Client:
         try:
             result = await self.send_query("settingsPageQuery", {})
             data = result["data"]["viewer"]
-
+            self.sdid = str(
+                uuid5(UUID("00000000000000000000000000000000"), data["poeUser"]["id"])
+            )
             self.user_info.email = data["primaryEmail"]
             self.user_info.subscription_is_active = data["subscription"]["isActive"]
             if self.user_info.subscription_is_active:
@@ -145,50 +121,62 @@ class Poe_Client:
             result = await self.send_query("settingsPageQuery", {})
             data = result["data"]["viewer"]["subscriptionBots"]
             output = {
-                "notice": "软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
                 "models": [],
             }
             for m in data:
+                output["daily_refresh_time"] = m["messageLimit"]["resetTime"]
+                daily_available_times = m["messageLimit"]["dailyBalance"]
+                daily_total_times = m["messageLimit"]["dailyLimit"]
+
+                tmp_data = {
+                    "model": m["displayName"],
+                    "limit_type": "软限制"
+                    if m["limitedAccessType"] == "soft_limit"
+                    else "硬限制",
+                    "available": m["messageLimit"]["canSend"],
+                    "daily_available_times": daily_available_times,
+                    "daily_total_times": daily_total_times,
+                }
                 if self.user_info.subscription_is_active:
-                    output["refresh_time"] = m["messageLimit"][
+                    output["monthly_refresh_time"] = m["messageLimit"][
                         "monthlyBalanceRefreshTime"
                     ]
-                    available_times = (
+                    monthly_available_times = (
                         m["messageLimit"]["dailyBalance"]
                         + m["messageLimit"]["monthlyBalance"]
                     )
-                    total_times = (
+                    monthly_total_times = (
                         m["messageLimit"]["dailyLimit"]
                         + m["messageLimit"]["monthlyLimit"]
                     )
-                else:
-                    output["refresh_time"] = m["messageLimit"]["resetTime"]
-                    available_times = m["messageLimit"]["dailyBalance"]
-                    total_times = m["messageLimit"]["dailyLimit"]
+                    tmp_data.update(
+                        {
+                            "monthly_available_times": monthly_available_times,
+                            "monthly_total_times": monthly_total_times,
+                        }
+                    )
+                output["models"].append(tmp_data)
 
-                output["models"].append(
-                    {
-                        "model": m["displayName"],
-                        "limit_type": "软限制"
-                        if m["limitedAccessType"] == "soft_limit"
-                        else "硬限制",
-                        "available": m["messageLimit"]["canSend"],
-                        "available_times": available_times,
-                        "total_times": total_times,
-                    }
-                )
-            output["refresh_time"] = strftime(
+            output["daily_refresh_time"] = strftime(
                 "%Y-%m-%d %H:%M:%S",
-                localtime(output["refresh_time"] / 1000000),
+                localtime(output["daily_refresh_time"] / 1000000),
             )
+            if self.user_info.subscription_is_active:
+                output["monthly_refresh_time"] = strftime(
+                    "%Y-%m-%d %H:%M:%S",
+                    localtime(output["monthly_refresh_time"] / 1000000),
+                )
             return output
         except Exception as e:
             raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
 
-    async def refresh_channel_data(self):
+    async def get_new_channel(self):
         """
-        此函数从设置_URL获取通道数据，获取tchannel_data，对话用的
+        此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
+        self.answer_queue.clear()
+        self.cache_answer_msg_id.clear()
         try:
             resp = await self.httpx_client.get(SETTING_URL)
             json_data = loads(resp.text)
@@ -199,7 +187,7 @@ class Poe_Client:
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
             logger.info("获取channel ws地址成功")
         except Exception as e:
-            err_msg = f"获取channel data失败，错误信息：{e}"
+            err_msg = f"获取channel address失败，错误信息：{e}"
             logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -244,7 +232,13 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"subscribe执行失败，错误信息：{e}")
 
-    async def switch_channel(self):
+    async def refresh_channel(self, get_new_channel: bool = False):
+        self.refresh_channel_lock = True
+        if get_new_channel:
+            await self.get_new_channel()
+            self.refresh_channel_count = 0
+            logger.info("已获取新的channel地址")
+
         # 等待当前回答生成完毕
         while self.talking:
             await sleep(1)
@@ -255,15 +249,22 @@ class Poe_Client:
             self.ws_client_task.cancel()
         # 创建新的ws连接任务
         self.ws_client_task = create_task(self.connect_to_channel())
-        logger.info("已刷新ws channel地址")
         # 解除锁定
         self.refresh_channel_lock = False
 
     async def get_answer(self, data: dict):
+        min_seq = data.get("min_seq")
+        if min_seq:
+            self.last_min_seq = min_seq
         msg_list: list[dict] = [
             loads(msg_str) for msg_str in data.get("messages", "{}")
         ]
         for msg in msg_list:
+            message_type = msg.get("message_type")
+            if message_type == "refetchChannel":
+                create_task(self.refresh_channel(True))
+                continue
+
             payload = msg.get("payload", {})
 
             if payload.get("subscription_name") not in [
@@ -289,19 +290,12 @@ class Poe_Client:
 
     async def connect_to_channel(self):
         """连接到poe的websocket，用于拉取回答"""
-        self.answer_queue.clear()
-        self.cache_answer_msg_id.clear()
-        # 获取ws地址
-        await self.refresh_channel_data()
         async with ws_connect(self.channel_url) as ws:
             logger.info("已连接至ws channel")
             while True:
                 try:
                     data = await ws.recv()
                     await self.get_answer(loads(data))
-                except ws_ConnectionClosed:
-                    logger.error("ws channel连接断开")
-                    break
                 except Exception as e:
                     logger.error(f"ws channel连接出错：{repr(e)}")
                     break
@@ -329,14 +323,17 @@ class Poe_Client:
                 },
             )
             json_data = loads(resp.text)
+            if "error" in json_data.keys() and json_data["error"] == "missed_messages":
+                create_task(self.refresh_channel(True))
+                raise Exception(resp.text)
 
             if (
                 "success" in json_data.keys()
                 and not json_data["success"]
                 or json_data["data"] is None
             ):
-                err_msg: str = json_data["errors"][0]["message"]
-                raise Exception(err_msg)
+                # err_msg: str = json_data["errors"][0]["message"]
+                raise Exception(resp.text)
 
             return json_data
         except Exception as e:

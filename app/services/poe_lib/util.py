@@ -2,13 +2,9 @@ try:
     from ujson import dumps
 except:
     from json import dumps
-import uuid
 from random import choice
 from string import ascii_letters, digits
 from base64 import b64encode, b64decode
-
-
-CONST_NAMESPACE = uuid.UUID("12345678123456781234567812345678")
 
 QUERIES = {
     "chatHelpersSendNewChatMessageMutation": "35efaf6ca1dc0cde7493491734e376472f31a889dba58357e965a29fbca17c93",
@@ -24,7 +20,6 @@ QUERIES = {
     "settingsPageQuery": "6f9bb5afab6d0b1cad62d49a0cbe724177a2880299388f09230b70d8850664b2",
 }
 GQL_URL = "https://poe.com/api/gql_POST"
-HOME_URL = "https://poe.com"
 SETTING_URL = "https://poe.com/api/settings"
 
 
@@ -52,7 +47,7 @@ def base64_decode(text: str) -> str:
 
 
 # 显示名称：模型名称，描述，是否允许diy(使用prompt)，是否有限使用，botId
-available_models: dict[str, tuple[str, str, bool, bool,int]] = {
+available_models: dict[str, tuple[str, str, bool, bool, int]] = {
     "ChatGPT": (
         "chinchilla",
         "由gpt-3.5-turbo驱动。",

@@ -109,14 +109,29 @@ async def _(
             "content": {
                 "application/json": {
                     "example": {
-                        "available_models": [
+                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                        "models": [
                             {
-                                "model": "ChatGPT",
-                                "description": "由gpt-3.5-turbo驱动。",
-                                "diy": True,
-                                "limited": False,
+                                "model": "Claude-instant-100k",
+                                "limit_type": "硬限制",
+                                "available": True,
+                                "daily_available_times": 30,
+                                "daily_total_times": 30,
+                                "monthly_available_times": 1030,
+                                "monthly_total_times": 1030,
                             },
-                        ]
+                            {
+                                "model": "GPT-4",
+                                "limit_type": "软限制",
+                                "available": True,
+                                "daily_available_times": 1,
+                                "daily_total_times": 1,
+                                "monthly_available_times": 592,
+                                "monthly_total_times": 601,
+                            },
+                        ],
+                        "daily_refresh_time": "2023-08-30 08:00:00",
+                        "monthly_refresh_time": "2023-09-13 08:00:00",
                     },
                 }
             },
@@ -262,9 +277,8 @@ async def _(
             # 出错
             if isinstance(data, TalkError):
                 poe.client.talking = False
-                # 锁定，并切换ws channel地址
-                poe.client.refresh_channel_lock = True
-                create_task(poe.client.switch_channel())
+                # 切换ws channel地址
+                create_task(poe.client.refresh_channel(True))
                 yield BytesIO(
                     (dumps({"type": "error", "data": data.content}) + "\n").encode(
                         "utf-8"
