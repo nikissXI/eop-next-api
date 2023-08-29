@@ -20,6 +20,6 @@ async def login_poe() -> JSONResponse | Response:
         poe.client = await Poe_Client(p_b, formkey, proxy).login()
         return Response(status_code=204)
     except Exception as e:
-        msg = "poe ai 登陆失败。" + str(e)
+        msg = "执行登陆流程出错，错误信息：" + str(e)
         logger.error(msg)
         return JSONResponse({"code": 3008, "msg": msg}, 500)

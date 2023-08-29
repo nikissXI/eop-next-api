@@ -33,3 +33,9 @@ class TalkError(BaseModel):
     """错误"""
 
     content: str
+
+
+class ReachedLimit(BaseModel):
+    """次数上限"""
+
+    pass

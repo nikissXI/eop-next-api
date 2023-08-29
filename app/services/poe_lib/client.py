@@ -1,8 +1,9 @@
-from asyncio import create_task, sleep, Queue, wait_for, TimeoutError, Task
+from asyncio import create_task, sleep, Queue, wait_for, TimeoutError
 from hashlib import md5
 from secrets import token_hex
 from httpx import AsyncClient
 from traceback import format_exc
+from time import strftime, localtime
 
 try:
     from ujson import loads, dump
@@ -12,7 +13,6 @@ from websockets.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosed as ws_ConnectionClosed
 from random import randint
 from re import search
-from time import time
 from typing import AsyncGenerator, Tuple
 from uuid import uuid5
 from .type import *
@@ -34,11 +34,19 @@ except:
     from loguru import logger
 
 
+class UserInfo:
+    email: str = ""
+    subscription_is_active: bool = False
+    plan_type: str = ""
+    expire_time: str = ""
+
+
 class Poe_Client:
     def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
         self.formkey: str = formkey
         self.p_b: str = p_b
         self.sdid: str = ""
+        self.user_info = UserInfo()
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
             "Accept": "*/*",
@@ -87,13 +95,79 @@ class Poe_Client:
                     ]["id"],
                 )
             )
+
         except Exception as e:
             raise Exception(f"登陆失败，错误信息：{e}")
+        logger.info("Poe登陆成功！")
+
+        await self.get_user_info()
+        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_is_active}"
+        if self.user_info.subscription_is_active:
+            text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{self.user_info.expire_time}"
+        logger.info(text)
+
+        limited_info = await self.get_limited_bots_info()
+        text = f"\n有次数限制bot的使用情况\n -- 刷新时间：{limited_info['refresh_time']}\n -- 软硬限制：{limited_info['notice']}"
+        for m in limited_info["models"]:
+            text += f"\n -- 模型：{m['model']}\n >> {m['limit_type']}   可用：{m['available']}   可用次数：{m['available_times']} / {m['total_times']}"
+        logger.info(text)
 
         self.ws_client_task = create_task(self.connect_to_channel())
-
-        logger.info("Poe登陆成功！")
         return self
+
+    async def get_user_info(self):
+        """
+        获取账号信息
+        """
+        try:
+            result = await self.send_query("settingsPageQuery", {})
+            data = result["data"]["viewer"]
+
+            self.user_info.email = data["primaryEmail"]
+            self.user_info.subscription_is_active = data["subscription"]["isActive"]
+            if self.user_info.subscription_is_active:
+                self.user_info.plan_type = data["subscription"]["planType"]
+                self.user_info.expire_time = strftime(
+                    "%Y-%m-%d %H:%M:%S",
+                    localtime(data["subscription"]["expiresTime"] / 1000000),
+                )
+        except Exception as e:
+            raise Exception(f"获取用户信息失败，错误信息：{e}")
+
+    async def get_limited_bots_info(self) -> dict:
+        """
+        获取有次数限制bot的使用情况
+        """
+        try:
+            result = await self.send_query("settingsPageQuery", {})
+            data = result["data"]["viewer"]["subscriptionBots"]
+            output = {
+                "refresh_time": self.user_info.expire_time,
+                "notice": "软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                "models": [],
+            }
+            for m in data:
+                available_times = (
+                    m["messageLimit"]["dailyBalance"]
+                    + m["messageLimit"]["monthlyBalance"]
+                )
+                total_times = (
+                    m["messageLimit"]["dailyLimit"] + m["messageLimit"]["monthlyLimit"]
+                )
+                output["models"].append(
+                    {
+                        "model": m["displayName"],
+                        "limit_type": "软限制"
+                        if m["limitedAccessType"] == "soft_limit"
+                        else "硬限制",
+                        "available": m["messageLimit"]["canSend"],
+                        "available_times": available_times,
+                        "total_times": total_times,
+                    }
+                )
+            return output
+        except Exception as e:
+            raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
 
     async def refresh_channel_data(self):
         """
@@ -107,6 +181,7 @@ class Poe_Client:
             self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
             ws_domain = f"tch{randint(1, int(1e6))}"[:8]
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
+            logger.info("获取channel ws地址成功")
         except Exception as e:
             err_msg = f"获取channel data失败，错误信息：{e}"
             logger.error(err_msg)
@@ -211,10 +286,10 @@ class Poe_Client:
                         data = await ws.recv()
                         await self.get_answer(loads(data))
                     except ws_ConnectionClosed:
-                        logger.error("ws连接断开")
+                        logger.error("ws channel连接断开")
                         break
                     except Exception as e:
-                        logger.error(f"ws连接出错：{repr(e)}")
+                        logger.error(f"ws channel连接出错：{repr(e)}")
                         break
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
@@ -325,6 +400,11 @@ class Poe_Client:
                 "attachments": [],
             },
         )
+
+        # 次数上限，有效性待测试
+        if message_data["data"]["messageEdgeCreate"]["status"] == "reached_limit":
+            return -1, -1, "", -1
+
         data = message_data["data"]["messageEdgeCreate"]["chat"]
         message_id: int = data["messagesConnection"]["edges"][0]["node"]["messageId"]
         create_time: int = data["messagesConnection"]["edges"][0]["node"][
@@ -361,6 +441,11 @@ class Poe_Client:
                 "attachments": [],
             },
         )
+
+        # 次数上限，有效性待测试
+        if message_data["data"]["messageEdgeCreate"]["status"] == "reached_limit":
+            return -1, -1
+
         message_id: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
             "messageId"
         ]
@@ -408,6 +493,11 @@ class Poe_Client:
             err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
+            return
+
+        # 次数上限，有效性待测试
+        if question_msg_id == -1:
+            yield ReachedLimit()
             return
 
         # 如果不存在则创建答案生成队列

@@ -100,6 +100,36 @@ async def _(
     return JSONResponse({"available_models": data}, 200)
 
 
+@router.get(
+    "/limited",
+    summary="获取限制模型的使用情况",
+    responses={
+        200: {
+            "description": "结果",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "available_models": [
+                            {
+                                "model": "ChatGPT",
+                                "description": "由gpt-3.5-turbo驱动。",
+                                "diy": True,
+                                "limited": False,
+                            },
+                        ]
+                    },
+                }
+            },
+        },
+    },
+)
+async def _(
+    _: dict = Depends(verify_token),
+):
+    data = await poe.client.get_limited_bots_info()
+    return JSONResponse(data, 200)
+
+
 @router.post(
     "/create",
     summary="创建会话，prompt选填（不填留空），prompt仅支持diy的模型可用",
@@ -187,6 +217,13 @@ async def _(
 
     async def ai_reply():
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
+            # 次数上限，有效性待测试
+            if isinstance(data, ReachedLimit):
+                yield BytesIO(
+                    (dumps({"type": "limited", "data": "该模型使用次数已耗尽"}) + "\n").encode(
+                        "utf-8"
+                    )
+                ).read()
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
                 await Bot.update_bot_chat_code_and_chat_id(

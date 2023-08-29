@@ -28,6 +28,7 @@ QUERIES = {
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",
     "ChatListPaginationQuery": "dc3f4d34f13ed0a22b0dbfa6a1924a18922f7fe3a392b059b0c8c2134ce4ec8a",
     "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",
+    "settingsPageQuery": "6f9bb5afab6d0b1cad62d49a0cbe724177a2880299388f09230b70d8850664b2",
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 HOME_URL = "https://poe.com"
