@@ -184,11 +184,13 @@ async def _(
         # 如果是自定义prompt需要创建新的bot
         if can_diy and body.prompt:
             handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
+            can_diy = True
         else:
             handle, bot_id = (
                 available_models[body.model][0],
                 available_models[body.model][4],
             )
+            can_diy = False
 
         eop_id = await Bot.create_bot(
             can_diy, handle, bot_id, user, body.model, body.alias, body.prompt
