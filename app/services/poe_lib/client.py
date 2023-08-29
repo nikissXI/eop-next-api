@@ -165,6 +165,11 @@ class Poe_Client:
                     }
                 )
                 output["refresh_time"] = m["messageLimit"]["monthlyBalanceRefreshTime"]
+
+            output["refresh_time"] = strftime(
+                "%Y-%m-%d %H:%M:%S",
+                localtime(output["refresh_time"] / 1000000),
+            )
             return output
         except Exception as e:
             raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
