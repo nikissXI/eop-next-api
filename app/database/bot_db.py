@@ -107,8 +107,8 @@ class Bot(Model):
 
     # 更新某个bot的last_talk_time
     @classmethod
-    async def update_bot_last_talk_time(cls, eop_id: str):
-        await cls.filter(eop_id=eop_id).update(last_talk_time=int(time() * 1000))
+    async def update_bot_last_talk_time(cls, eop_id: str, last_talk_time: int):
+        await cls.filter(eop_id=eop_id).update(last_talk_time=last_talk_time)
 
     # 修改某个bot信息
     @classmethod

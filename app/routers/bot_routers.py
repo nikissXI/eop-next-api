@@ -248,6 +248,7 @@ async def _(
                 )
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgId):
+                await Bot.update_bot_last_talk_time(eop_id, data.answer_create_time)
                 yield BytesIO(
                     (
                         dumps(
@@ -274,7 +275,6 @@ async def _(
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
                 poe.client.talking = False
-                await Bot.update_bot_last_talk_time(eop_id)
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):

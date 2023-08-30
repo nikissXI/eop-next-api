@@ -128,7 +128,7 @@ available_models: dict[str, tuple[str, str, bool, bool, int]] = {
     "Llama-2-70b": (
         "llama_2_70b_chat",
         "来自Meta的Llama-2-70b-chat模型。",
-        False,
+        True,
         False,
         7000,
     ),

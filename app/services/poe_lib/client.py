@@ -170,6 +170,91 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
 
+    async def send_query(self, query_name: str, variables: dict) -> dict:
+        """
+        Send a query request.
+
+        Args:
+        - query_name (str): The name of the query.
+        - variables (dict): The variables for the query.
+
+        Returns:
+        - dict: The response data.
+        """
+        data = generate_data(query_name, variables)
+        base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
+        try:
+            resp = await self.httpx_client.post(
+                GQL_URL,
+                content=data,
+                headers={
+                    "content-type": "application/json",
+                    "poe-tag-id": md5(base_string.encode()).hexdigest(),
+                },
+            )
+            json_data = loads(resp.text)
+
+            if (
+                "success" in json_data.keys()
+                and not json_data["success"]
+                or json_data["data"] is None
+            ):
+                # err_msg: str = json_data["errors"][0]["message"]
+                raise Exception(resp.text)
+
+            return json_data
+        except Exception as e:
+            with open("error.json", "a") as a:
+                a.write(resp.text + "\n")  # type: ignore
+            raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
+
+    async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
+        """
+        Create a new bot using the specified configuration.
+
+        Args:
+        - model: The base model for the new bot.
+        - prompt: The prompt for the new bot.
+
+        Returns:
+        - handle: The handle of the new bot.
+        - bot_id: The ID of the new bot.
+        """
+        while True:
+            handle = generate_random_handle()
+            result = await self.send_query(
+                "CreateBotMain_poeBotCreate_Mutation",
+                {
+                    "handle": handle,
+                    "prompt": prompt,
+                    "model": available_models[model][0],
+                    "hasSuggestedReplies": False,
+                    "displayName": None,
+                    "isPromptPublic": True,
+                    "introduction": "",
+                    "description": "",
+                    "profilePictureUrl": "",
+                    "apiUrl": None,
+                    "apiKey": None,
+                    "isApiBot": False,
+                    "hasLinkification": False,
+                    "hasMarkdownRendering": True,
+                    "isPrivateBot": False,
+                    "temperature": None,
+                },
+            )
+            json_data = result["data"]["poeBotCreate"]
+            status = json_data["status"]
+            if status != "success":
+                if status == "handle_already_taken":
+                    continue
+
+                raise Exception(f"创建bot失败，错误信息：{status}")
+
+            bot_id_b64 = json_data["bot"]["id"]
+            bot_id = int(base64_decode(bot_id_b64)[4:])
+            return handle, bot_id
+
     async def get_new_channel(self):
         """
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
@@ -304,91 +389,6 @@ class Poe_Client:
                     with open("error.json", "a") as a:
                         a.write(str(data) + "\n")  # type: ignore
                     break
-
-    async def send_query(self, query_name: str, variables: dict) -> dict:
-        """
-        Send a query request.
-
-        Args:
-        - query_name (str): The name of the query.
-        - variables (dict): The variables for the query.
-
-        Returns:
-        - dict: The response data.
-        """
-        data = generate_data(query_name, variables)
-        base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
-        try:
-            resp = await self.httpx_client.post(
-                GQL_URL,
-                content=data,
-                headers={
-                    "content-type": "application/json",
-                    "poe-tag-id": md5(base_string.encode()).hexdigest(),
-                },
-            )
-            json_data = loads(resp.text)
-
-            if (
-                "success" in json_data.keys()
-                and not json_data["success"]
-                or json_data["data"] is None
-            ):
-                # err_msg: str = json_data["errors"][0]["message"]
-                raise Exception(resp.text)
-
-            return json_data
-        except Exception as e:
-            with open("error.json", "a") as a:
-                a.write(resp.text + "\n")  # type: ignore
-            raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
-
-    async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
-        """
-        Create a new bot using the specified configuration.
-
-        Args:
-        - model: The base model for the new bot.
-        - prompt: The prompt for the new bot.
-
-        Returns:
-        - handle: The handle of the new bot.
-        - bot_id: The ID of the new bot.
-        """
-        while True:
-            handle = generate_random_handle()
-            result = await self.send_query(
-                "CreateBotMain_poeBotCreate_Mutation",
-                {
-                    "handle": handle,
-                    "prompt": prompt,
-                    "model": available_models[model][0],
-                    "hasSuggestedReplies": False,
-                    "displayName": None,
-                    "isPromptPublic": True,
-                    "introduction": "",
-                    "description": "",
-                    "profilePictureUrl": "",
-                    "apiUrl": None,
-                    "apiKey": None,
-                    "isApiBot": False,
-                    "hasLinkification": False,
-                    "hasMarkdownRendering": True,
-                    "isPrivateBot": False,
-                    "temperature": None,
-                },
-            )
-            json_data = result["data"]["poeBotCreate"]
-            status = json_data["status"]
-            if status != "success":
-                if status == "handle_already_taken":
-                    continue
-
-                raise Exception(f"创建bot失败，错误信息：{status}")
-
-            bot_id_b64 = json_data["bot"]["id"]
-            bot_id = int(base64_decode(bot_id_b64)[4:])
-            return handle, bot_id
 
     async def send_msg_to_new_chat(
         self, handle: str, question: str
