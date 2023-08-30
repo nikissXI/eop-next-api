@@ -91,7 +91,7 @@ class Poe_Client:
         if self.ws_client_task:
             self.ws_client_task.cancel()
 
-        await self.refresh_channel(True)
+        create_task(self.refresh_channel(True))
         return self
 
     async def get_user_info(self):
@@ -238,7 +238,7 @@ class Poe_Client:
         if get_new_channel:
             await self.get_new_channel()
             self.refresh_channel_count = 0
-            logger.info("已获取新的channel地址")
+            # logger.info("已获取新的channel地址")
 
         # 等待当前回答生成完毕
         while self.talking:
@@ -257,6 +257,11 @@ class Poe_Client:
         min_seq = data.get("min_seq")
         if min_seq:
             self.last_min_seq = min_seq
+
+        if "error" in data.keys() and data["error"] == "missed_messages":
+            create_task(self.refresh_channel(True))
+            return
+
         msg_list: list[dict] = [
             loads(msg_str) for msg_str in data.get("messages", "{}")
         ]
@@ -297,6 +302,7 @@ class Poe_Client:
                     data = await ws.recv()
                     await self.get_answer(loads(data))
                 except Exception as e:
+                    print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
                     with open("error.json", "a") as a:
                         a.write(str(data) + "\n")  # type: ignore
@@ -325,9 +331,6 @@ class Poe_Client:
                 },
             )
             json_data = loads(resp.text)
-            if "error" in json_data.keys() and json_data["error"] == "missed_messages":
-                create_task(self.refresh_channel(True))
-                raise Exception(resp.text)
 
             if (
                 "success" in json_data.keys()
@@ -503,10 +506,36 @@ class Poe_Client:
                     handle, chat_id, question
                 )
         except Exception as e:
-            err_msg = f"获取bot【{handle}】的message id出错，错误信息：{e}"
+            err_msg = f"获取bot【{handle}】chat【{chat_id}】的message id出错，错误信息：{e}"
             logger.error(err_msg)
-            yield TalkError(content=err_msg)
-            return
+            # yield TalkError(content="服务器出错")
+            # return
+            logger.error("尝试从历史记录获取回复")
+            retry = 5
+            while True:
+                if retry < 0:
+                    logger.error("从历史记录获取失败")
+                    yield TalkError(content="获取回答超时")
+                    return
+
+                await sleep(2)
+                result_list, next_cursor = await self.get_chat_history(
+                    handle, chat_id, "0"
+                )
+                newest_history: dict = result_list[-1]
+                if (newest_history["author"] == "user") or (
+                    chat_id in self.cache_answer_msg_id
+                    and newest_history["msg_id"] <= self.cache_answer_msg_id[chat_id]
+                ):
+                    retry -= 1
+                    continue
+
+                question_msg_id, question_create_time = (
+                    newest_history["msg_id"],
+                    newest_history["create_time"],
+                )
+                logger.error("从历史记录获取成功")
+                break
 
         # 次数上限，有效性待测试
         if question_msg_id == -1:
@@ -517,7 +546,7 @@ class Poe_Client:
         if chat_id not in self.answer_queue:
             self.answer_queue[chat_id] = Queue()
 
-        retry = 6
+        retry = 5
         last_text_len = 0
         get_answer_msg_id = False
         while retry >= 0:
@@ -559,7 +588,7 @@ class Poe_Client:
 
             # 未完成的回复
             if answer_data.get("state") == "incomplete":
-                retry = 6
+                retry = 5
                 yield Text(content=plain_text[last_text_len:])
                 last_text_len = len(plain_text)
                 continue

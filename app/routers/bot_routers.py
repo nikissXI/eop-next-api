@@ -287,7 +287,7 @@ async def _(
                     )
                 ).read()
 
-    return StreamingResponse(ai_reply(), media_type="application/json")
+    return StreamingResponse(ai_reply(), media_type="text/event-stream")
 
 
 @router.get(
