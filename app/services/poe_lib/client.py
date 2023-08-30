@@ -147,14 +147,8 @@ class Poe_Client:
                     output["monthly_refresh_time"] = m["messageLimit"][
                         "monthlyBalanceRefreshTime"
                     ]
-                    monthly_available_times = (
-                        m["messageLimit"]["dailyBalance"]
-                        + m["messageLimit"]["monthlyBalance"]
-                    )
-                    monthly_total_times = (
-                        m["messageLimit"]["dailyLimit"]
-                        + m["messageLimit"]["monthlyLimit"]
-                    )
+                    monthly_available_times = m["messageLimit"]["monthlyBalance"]
+                    monthly_total_times = m["messageLimit"]["monthlyLimit"]
                     tmp_data.update(
                         {
                             "monthly_available_times": monthly_available_times,

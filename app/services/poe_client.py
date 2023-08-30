@@ -43,5 +43,5 @@ async def _():
             r"\g<1>" + str(poe.client.last_min_seq),
             poe.client.channel_url,
         )
-        get_new_channel = True if poe.client.refresh_channel_count > 30 else False
+        get_new_channel = True if poe.client.refresh_channel_count > 60 else False
         create_task(poe.client.refresh_channel(get_new_channel))
