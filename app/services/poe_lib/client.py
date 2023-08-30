@@ -8,7 +8,6 @@ from typing import AsyncGenerator, Tuple
 from uuid import UUID, uuid5
 from httpx import AsyncClient
 from websockets.client import connect as ws_connect
-from websockets.exceptions import ConnectionClosed as ws_ConnectionClosed
 from .type import *
 from .util import (
     GQL_URL,
@@ -84,7 +83,11 @@ class Poe_Client:
         if self.user_info.subscription_is_active:
             text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}"
         for m in limited_info["models"]:
-            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
+            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
+            if self.user_info.subscription_is_active:
+                text += (
+                    f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
+                )
         logger.info(text)
 
         # 取消之前的ws连接
