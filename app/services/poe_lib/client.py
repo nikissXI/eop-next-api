@@ -58,6 +58,7 @@ class Poe_Client:
         self.channel_url = ""
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
+        self.refresh_ws_cd = 60
         self.talking = False
         self.refresh_channel_lock = False
         self.refresh_channel_count = 0
@@ -116,7 +117,7 @@ class Poe_Client:
                     localtime(data["subscription"]["expiresTime"] / 1000000),
                 )
         except Exception as e:
-            raise Exception(f"获取用户信息失败，错误信息：{e}")
+            raise e
 
     async def get_limited_bots_info(self) -> dict:
         """
@@ -168,7 +169,7 @@ class Poe_Client:
                 )
             return output
         except Exception as e:
-            raise Exception(f"获取有次数限制bot的使用情况失败，错误信息：{e}")
+            raise e
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
         """
@@ -269,6 +270,7 @@ class Poe_Client:
             self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
             ws_domain = f"tch{randint(1, int(1e6))}"[:8]
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
+            self.last_min_seq = tchannel_data["minSeq"]
         except Exception as e:
             err_msg = f"获取channel address失败，错误信息：{e}"
             logger.error(err_msg)
@@ -317,16 +319,18 @@ class Poe_Client:
 
     async def refresh_channel(self, get_new_channel: bool = False):
         self.refresh_channel_lock = True
-        if get_new_channel:
-            await self.get_new_channel()
-            self.refresh_channel_count = 0
-            # logger.info("已获取新的channel地址")
 
         # 等待当前回答生成完毕
         while self.talking:
             await sleep(1)
             if self.talking == False:
                 break
+
+        if get_new_channel:
+            await self.get_new_channel()
+            self.refresh_channel_count = 0
+            # logger.info("已获取新的channel地址")
+
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
@@ -485,6 +489,7 @@ class Poe_Client:
                 if self.refresh_channel_lock == False:
                     break
 
+        self.refresh_ws_cd = 60
         # 上锁，防止刷新channel把消息断了
         self.talking = True
 

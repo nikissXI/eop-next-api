@@ -25,7 +25,7 @@ async def login_poe() -> JSONResponse | Response:
             scheduler.start()
         return Response(status_code=204)
     except Exception as e:
-        msg = "执行登陆流程出错，错误信息：" + str(e)
+        msg = "执行登陆流程出错，" + str(e)
         logger.error(msg)
         return JSONResponse({"code": 3008, "msg": msg}, 500)
 
@@ -34,9 +34,13 @@ scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
 # 刷新ws地址
-@scheduler.scheduled_job("interval", minutes=1)
+@scheduler.scheduled_job("interval", seconds=1)
 async def _():
-    if poe.client.ws_client_task:
+    # 60秒没对话就重连ws
+    poe.client.refresh_ws_cd -= 1
+
+    if poe.client.refresh_ws_cd <= 0 and poe.client.ws_client_task:
+        poe.client.refresh_ws_cd = 60
         poe.client.refresh_channel_count += 1
         poe.client.channel_url = sub(
             r"(min_seq=)\d+",
