@@ -753,6 +753,8 @@ class Poe_Client:
             result_list = []
             for node in nodes:
                 n = node["node"]
+                if n["author"] == "chat_break":
+                    continue
                 result_list.append(
                     {
                         "msg_id": n["messageId"],
