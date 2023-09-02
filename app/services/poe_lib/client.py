@@ -2,7 +2,7 @@ from asyncio import Queue, TimeoutError, create_task, sleep, wait_for
 from hashlib import md5
 from random import randint
 from secrets import token_hex
-from time import localtime, strftime
+from time import localtime, strftime, time
 from traceback import format_exc
 from typing import AsyncGenerator, Tuple
 from uuid import UUID, uuid5
@@ -509,9 +509,12 @@ class Poe_Client:
                 )
         except Exception as e:
             err_msg = f"获取bot【{handle}】chat【{chat_id}】的message id出错，错误信息：{e}"
+            print(format_exc())
             logger.error(err_msg)
-            # yield TalkError(content="服务器出错")
-            # return
+            if chat_id == 0:
+                yield TalkError(content="服务器出错")
+                return
+
             logger.error("尝试从历史记录获取回复")
             retry = 5
             while True:

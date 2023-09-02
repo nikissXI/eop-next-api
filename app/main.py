@@ -16,10 +16,8 @@ from uvicorn import run
 app = FastAPI(
     description="""require Python environment >= 3.10
 
-10XX 常规或网络问题  
-- 1001    认证失败：密码错误、权限不足等  
-  
-20XX 请求错误
+20XX 客户端处理错误  
+- 2000    认证失败：密码错误、权限不足等  
 - 2001    请求错误
 - 2002    模型不存在
 - 2003    用户不存在
@@ -76,7 +74,7 @@ async def _(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(AuthFailed)
 async def _(request: Request, exc: AuthFailed):
-    return JSONResponse({"code": 1001, "msg": exc.error_type}, 403)
+    return JSONResponse({"code": 2000, "msg": exc.error_type}, 403)
 
 
 @app.exception_handler(ModelNotFound)

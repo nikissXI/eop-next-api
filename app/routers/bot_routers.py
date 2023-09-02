@@ -339,14 +339,18 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
+    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+
     try:
         if await Bot.bot_can_diy(eop_id):
             handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
+            await poe.client.delete_chat_by_chat_id(handle, chat_id)
             await poe.client.delete_bot(handle, bot_id)
 
         else:
             handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
-            await poe.client.delete_chat_by_chat_id(handle, chat_id)
+            if chat_id:
+                await poe.client.delete_chat_by_chat_id(handle, chat_id)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -455,7 +459,14 @@ async def _(
     await check_bot_hoster(user, eop_id)
 
     handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
-    await check_chat_exist(chat_id)
+    if not chat_id:
+        return JSONResponse(
+            {
+                "history": [],
+                "next_cursor": -1,
+            },
+            200,
+        )
 
     try:
         result_list, next_cursor = await poe.client.get_chat_history(
