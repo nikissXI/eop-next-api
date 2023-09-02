@@ -7,17 +7,16 @@ from string import ascii_letters, digits
 from base64 import b64encode, b64decode
 
 QUERIES = {
-    "chatHelpersSendNewChatMessageMutation": "35efaf6ca1dc0cde7493491734e376472f31a889dba58357e965a29fbca17c93",
-    "chatHelpers_sendMessageMutation_Mutation": "423f47cbc3c55eaeaa17b78c005e72cefc3dcf2bf1b107c4809828155046ab15",
-    "chatHelpers_addMessageBreakEdgeMutation_Mutation": "9450e06185f46531eca3e650c26fa8524f876924d1a8e9a3fb322305044bdac3",
-    "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",
-    "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9",
-    "CreateBotMain_poeBotCreate_Mutation": "916833ab4558f9afbfdf8e7f181514dda8ab2f77e07a7ef6a6cb75ea83c41e6e",
-    "EditBotMain_poeBotEdit_Mutation": "7a04278f837f1c61321e35b70513166fc8bf93d7f551eaa6a6675774ea190a25",
-    "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",
-    "ChatListPaginationQuery": "52e2f67bbb09cd74ab7300610e0b6cf1e6626fdbe8bcd8f88a3064d88c6dfac0",
-    "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",
-    "settingsPageQuery": "6f9bb5afab6d0b1cad62d49a0cbe724177a2880299388f09230b70d8850664b2",
+    "sendMessageMutation": "730c8c00e4b18909c7a6695447e47cbc895f1f65a438cdbacca626d64d17d035", # 
+    "sendChatBreakMutation": "f392431130dd344ef7ca7409699ebb312a12f581a046a403f26c2657101f7fce", #
+    "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99", #
+    "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9", #
+    "CreateBotMain_poeBotCreate_Mutation": "916833ab4558f9afbfdf8e7f181514dda8ab2f77e07a7ef6a6cb75ea83c41e6e", #
+    "EditBotMain_poeBotEdit_Mutation": "7a04278f837f1c61321e35b70513166fc8bf93d7f551eaa6a6675774ea190a25", #
+    "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18", #
+    "ChatListPaginationQuery": "81d85f26b14aa782bef3ef617ce2222453f3b6ebc4dfaa1b50470a2fb157b58a", #
+    "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e", #
+    "settingsPageQuery": "d81f0e97947680bef2fb6e0ac5947e9198b613575010351995ab565f9ae59cad", # 
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 SETTING_URL = "https://poe.com/api/settings"

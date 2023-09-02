@@ -205,8 +205,8 @@ class Poe_Client:
 
             return json_data
         except Exception as e:
-            with open("error.json", "a") as a:
-                a.write(resp.text + "\n")  # type: ignore
+            # with open("error.json", "a") as a:
+            #     a.write(resp.text + "\n")  # type: ignore
             raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
 
     async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
@@ -283,7 +283,7 @@ class Poe_Client:
                     "subscriptions": [
                         {
                             "query": None,
-                            "queryHash": "6d5ff500e4390c7a4ee7eeed01cfa317f326c781decb8523223dd2e7f33d3698",
+                            "queryHash": "4388f77d26d4fdf99ef6b0c2eaaddbc8f2de2785bb377bb318664144538dbeb5",
                             "subscriptionName": "messageAdded",
                         },
                         {
@@ -303,7 +303,7 @@ class Poe_Client:
                         },
                         {
                             "query": None,
-                            "queryHash": "d862b8febb4c058d8ad513a7c118952ad9095c4ec0a5471540133fc0a9bd3797",
+                            "queryHash": "80ccbe90cb2eb8f10c9847ce5bf05cb7f568c38f30e5e070f3d20c1dff02621a",
                             "subscriptionName": "messageLimitUpdated",
                         },
                         {
@@ -394,27 +394,30 @@ class Poe_Client:
                         a.write(str(data) + "\n")  # type: ignore
                     break
 
-    async def send_msg_to_new_chat(
-        self, handle: str, question: str
+    async def send_msg_to_chat(
+        self, handle: str, chat_id: int, question: str
     ) -> Tuple[int, int, str, int]:
         """
-        发消息给一个新会话
+        发消息给一个会话
 
         参数：
         - handle 要发送消息的机器人的唯一标识符。
         - question 要发送给机器人的消息。
         """
         message_data = await self.send_query(
-            "chatHelpersSendNewChatMessageMutation",
+            "sendMessageMutation",
             {
+                "attachments": [],
                 "bot": handle,
+                "chatId": chat_id if chat_id else None,
+                "clientNonce": token_hex(8),
                 "query": question,
+                "sdid": self.sdid,
+                "shouldFetchChat": True,
                 "source": {
                     "chatInputMetadata": {"useVoiceRecord": False},
                     "sourceType": "chat_input",
                 },
-                "sdid": self.sdid,
-                "attachments": [],
             },
         )
 
@@ -423,53 +426,12 @@ class Poe_Client:
             return -1, -1, "", -1
 
         data = message_data["data"]["messageEdgeCreate"]["chat"]
-        message_id: int = data["messagesConnection"]["edges"][0]["node"]["messageId"]
-        create_time: int = data["messagesConnection"]["edges"][0]["node"][
-            "creationTime"
-        ]
-        chat_code: str = data["chatCode"]
-        chat_id: int = data["chatId"]
-        return message_id, create_time, chat_code, chat_id
-
-    async def send_msg_to_old_chat(
-        self, handle: str, chat_id: int, question: str
-    ) -> tuple[int, int]:
-        """
-        发消息给一个旧会话
-
-        参数：
-        - handle 要发送消息的机器人的唯一标识符。
-        - chat_id 要发送消息的机器人的唯一标识符。
-        - question 要发送给机器人的消息。
-        """
-        message_data = await self.send_query(
-            "chatHelpers_sendMessageMutation_Mutation",
-            {
-                "chatId": chat_id,
-                "bot": handle.lower(),
-                "query": question,
-                "source": {
-                    "sourceType": "chat_input",
-                    "chatInputMetadata": {"useVoiceRecord": False},
-                },
-                "withChatBreak": False,
-                "clientNonce": token_hex(8),
-                "sdid": self.sdid,
-                "attachments": [],
-            },
+        return (
+            data["messagesConnection"]["edges"][0]["node"]["messageId"],
+            data["messagesConnection"]["edges"][0]["node"]["creationTime"],
+            data["chatCode"],
+            data["chatId"],
         )
-
-        # 次数上限，有效性待测试
-        if message_data["data"]["messageEdgeCreate"]["status"] == "reached_limit":
-            return -1, -1
-
-        message_id: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
-            "messageId"
-        ]
-        create_time: int = message_data["data"]["messageEdgeCreate"]["message"]["node"][
-            "creationTime"
-        ]
-        return message_id, create_time
 
     async def talk_to_bot(
         self, handle: str, chat_id: int, question: str
@@ -494,19 +456,14 @@ class Poe_Client:
         self.talking = True
 
         try:
-            if not chat_id:
-                (
-                    question_msg_id,
-                    question_create_time,
-                    chat_code,
-                    chat_id,
-                ) = await self.send_msg_to_new_chat(handle, question)
-                yield NewChat(chat_code=chat_code, chat_id=chat_id)
+            (
+                question_msg_id,
+                question_create_time,
+                chat_code,
+                chat_id,
+            ) = await self.send_msg_to_chat(handle, chat_id, question)
+            yield NewChat(chat_code=chat_code, chat_id=chat_id)
 
-            else:
-                question_msg_id, question_create_time = await self.send_msg_to_old_chat(
-                    handle, chat_id, question
-                )
         except Exception as e:
             err_msg = f"获取bot【{handle}】chat【{chat_id}】的message id出错，错误信息：{e}"
             print(format_exc())
@@ -678,14 +635,11 @@ class Poe_Client:
         - chat_id 与机器人的聊天的唯一标识符。
         """
         try:
-            chat_id_b64 = base64_encode(f"Chat:{chat_id}")
             await self.send_query(
-                "chatHelpers_addMessageBreakEdgeMutation_Mutation",
+                "sendChatBreakMutation",
                 {
-                    "connections": [
-                        f"client:{chat_id_b64}:__ChatMessagesView_chat_messagesConnection_connection"
-                    ],
                     "chatId": chat_id,
+                    "clientNonce": token_hex(8),
                 },
             )
         except Exception as e:
