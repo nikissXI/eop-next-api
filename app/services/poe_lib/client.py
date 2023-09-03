@@ -36,6 +36,10 @@ class UserInfo:
     expire_time: str = ""
 
 
+class ReachedLimitError(Exception):
+    pass
+
+
 class Poe_Client:
     def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
         self.formkey = formkey
@@ -106,7 +110,7 @@ class Poe_Client:
             result = await self.send_query("settingsPageQuery", {})
             data = result["data"]["viewer"]
             self.sdid = str(
-                uuid5(UUID("00000000000000000000000000000000"), data["poeUser"]["id"])
+                uuid5(UUID("98765432101234567898765432101234"), data["poeUser"]["id"])
             )
             self.user_info.email = data["primaryEmail"]
             self.user_info.subscription_is_active = data["subscription"]["isActive"]
@@ -369,9 +373,6 @@ class Poe_Client:
             if not msg:
                 continue
 
-            if msg.get("author") == "human":
-                continue
-
             chat_id: int = int(payload.get("unique_id")[13:])  # messageAdded:66642643
 
             # 如果不存在则创建答案生成队列
@@ -396,12 +397,13 @@ class Poe_Client:
 
     async def send_msg_to_chat(
         self, handle: str, chat_id: int, question: str
-    ) -> Tuple[int, int, str, int]:
+    ) -> Tuple[str, int]:
         """
         发消息给一个会话
 
         参数：
         - handle 要发送消息的机器人的唯一标识符。
+        - chat_id 要发送消息的机器人的唯一标识符。
         - question 要发送给机器人的消息。
         """
         message_data = await self.send_query(
@@ -413,25 +415,25 @@ class Poe_Client:
                 "clientNonce": token_hex(8),
                 "query": question,
                 "sdid": self.sdid,
-                "shouldFetchChat": True,
+                "shouldFetchChat": False if chat_id else True,
                 "source": {
                     "chatInputMetadata": {"useVoiceRecord": False},
                     "sourceType": "chat_input",
                 },
             },
         )
-
         # 次数上限，有效性待测试
         if message_data["data"]["messageEdgeCreate"]["status"] == "reached_limit":
-            return -1, -1, "", -1
+            raise ReachedLimitError()
 
-        data = message_data["data"]["messageEdgeCreate"]["chat"]
-        return (
-            data["messagesConnection"]["edges"][0]["node"]["messageId"],
-            data["messagesConnection"]["edges"][0]["node"]["creationTime"],
-            data["chatCode"],
-            data["chatId"],
-        )
+        if not chat_id:
+            data = message_data["data"]["messageEdgeCreate"]["chat"]
+            return (
+                data["chatCode"],
+                data["chatId"],
+            )
+        else:
+            return "", 0
 
     async def talk_to_bot(
         self, handle: str, chat_id: int, question: str
@@ -451,58 +453,25 @@ class Poe_Client:
                 if self.refresh_channel_lock == False:
                     break
 
-        self.refresh_ws_cd = 60
         # 上锁，防止刷新channel把消息断了
         self.talking = True
 
         try:
-            (
-                question_msg_id,
-                question_create_time,
-                chat_code,
-                chat_id,
-            ) = await self.send_msg_to_chat(handle, chat_id, question)
-            yield NewChat(chat_code=chat_code, chat_id=chat_id)
-
-        except Exception as e:
-            err_msg = f"获取bot【{handle}】chat【{chat_id}】的message id出错，错误信息：{e}"
-            print(format_exc())
-            logger.error(err_msg)
-            if chat_id == 0:
-                yield TalkError(content="服务器出错")
-                return
-
-            logger.error("尝试从历史记录获取回复")
-            retry = 5
-            while True:
-                if retry < 0:
-                    logger.error("从历史记录获取失败")
-                    yield TalkError(content="获取回答超时")
-                    return
-
-                await sleep(2)
-                result_list, next_cursor = await self.get_chat_history(
-                    handle, chat_id, "0"
-                )
-                newest_history: dict = result_list[-1]
-                if (newest_history["author"] == "user") or (
-                    chat_id in self.cache_answer_msg_id
-                    and newest_history["msg_id"] <= self.cache_answer_msg_id[chat_id]
-                ):
-                    retry -= 1
-                    continue
-
-                question_msg_id, question_create_time = (
-                    newest_history["msg_id"],
-                    newest_history["create_time"],
-                )
-                logger.error("从历史记录获取成功")
-                break
-
+            _chat_code, _chat_id = await self.send_msg_to_chat(
+                handle, chat_id, question
+            )
+            # 新会话
+            if not chat_id:
+                chat_id = _chat_id
+                yield NewChat(chat_code=_chat_code, chat_id=chat_id)
         # 次数上限，有效性待测试
-        if question_msg_id == -1:
+        except ReachedLimitError:
             yield ReachedLimit()
             return
+        except Exception as e:
+            err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{e}"
+            print(format_exc())
+            logger.error(err_msg)
 
         # 如果不存在则创建答案生成队列
         if chat_id not in self.answer_queue:
@@ -510,7 +479,13 @@ class Poe_Client:
 
         retry = 5
         last_text_len = 0
-        get_answer_msg_id = False
+
+        question_msg_id = 0
+        question_create_time = 0
+
+        get_question_msg_id = False
+        yield_msg_id = False
+        self.refresh_ws_cd = 0
         while retry >= 0:
             # 从队列拉取回复
             try:
@@ -519,8 +494,15 @@ class Poe_Client:
                 retry -= 1
                 continue
 
+            # 获取问题的msg id和creation time
+            if answer_data.get("author") == "human" and get_question_msg_id == False:
+                question_msg_id: int = answer_data.get("messageId")
+                question_create_time: int = answer_data.get("creationTime")
+                get_question_msg_id = True
+                continue
+
             # 收到第一条生成的回复
-            if get_answer_msg_id == False:
+            if yield_msg_id == False and get_question_msg_id == True:
                 answer_msg_id = answer_data.get("messageId")
                 answer_create_time = answer_data.get("creationTime")
                 # 判断是否为旧回复（有时候会拉取到之前的回复，不知道为啥）
@@ -538,7 +520,7 @@ class Poe_Client:
                     answer_msg_id=answer_msg_id,
                     answer_create_time=answer_create_time,
                 )
-                get_answer_msg_id = True
+                yield_msg_id = True
 
             # 取消回复
             if answer_data.get("state") == "cancelled":
@@ -698,6 +680,14 @@ class Poe_Client:
                     "id": base64_encode(f"Chat:{chat_id}"),
                 },
             )
+            # with open("result.json", "w") as w:
+            #     dump(result, w)
+            # {"data":{"node":null},"extensions":{"is_final":true}}
+
+            # 没有聊天记录
+            if result["data"]["node"] == None:
+                return [], "-1"
+
             _history = result["data"]["node"]["messagesConnection"]
 
             nodes: list[dict] = _history["edges"]

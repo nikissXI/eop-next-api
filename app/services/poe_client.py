@@ -34,7 +34,7 @@ scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
 # 刷新ws地址
-@scheduler.scheduled_job("interval", seconds=1)
+@scheduler.scheduled_job("interval", seconds=10)
 async def _():
     # 60秒没对话就重连ws
     poe.client.refresh_ws_cd -= 1

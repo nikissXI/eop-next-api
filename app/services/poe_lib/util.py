@@ -19,7 +19,7 @@ QUERIES = {
     "settingsPageQuery": "d81f0e97947680bef2fb6e0ac5947e9198b613575010351995ab565f9ae59cad", # 
 }
 GQL_URL = "https://poe.com/api/gql_POST"
-SETTING_URL = "https://poe.com/api/settings"
+SETTING_URL = "https://poe.com/api/settings?channel=poe-chan52-8888-iimnqpoozcytkitfqkud"
 
 
 def generate_data(query_name, variables) -> str:
