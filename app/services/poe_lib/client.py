@@ -63,10 +63,10 @@ class Poe_Client:
         self.ws_client_task = None
         self.answer_queue: dict[int, Queue] = {}
         self.refresh_ws_cd = 60
-        self.talking = False
+        self.talking = set()
         self.refresh_channel_lock = False
         self.refresh_channel_count = 0
-        self.cache_answer_msg_id = {}
+        self.chat_msg_info = {}
         self.last_min_seq = 0
 
     async def login(self):
@@ -264,8 +264,9 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
+        self.talking.clear()
         self.answer_queue.clear()
-        self.cache_answer_msg_id.clear()
+        self.chat_msg_info.clear()
         try:
             resp = await self.httpx_client.get(SETTING_URL)
             json_data = loads(resp.text)
@@ -322,18 +323,16 @@ class Poe_Client:
             raise Exception(f"subscribe执行失败，错误信息：{e}")
 
     async def refresh_channel(self, get_new_channel: bool = False):
-        self.refresh_channel_lock = True
-
         # 等待当前回答生成完毕
         while self.talking:
             await sleep(1)
-            if self.talking == False:
-                break
+
+        self.refresh_channel_lock = True
 
         if get_new_channel:
             await self.get_new_channel()
             self.refresh_channel_count = 0
-            # logger.info("已获取新的channel地址")
+            logger.info("已获取新的channel地址")
 
         # 取消之前的ws连接
         if self.ws_client_task:
@@ -344,8 +343,9 @@ class Poe_Client:
         self.refresh_channel_lock = False
 
     async def get_answer(self, data: dict):
+        # 更新min_seq
         min_seq = data.get("min_seq")
-        if min_seq:
+        if min_seq and min_seq > self.last_min_seq:
             self.last_min_seq = min_seq
 
         if "error" in data.keys() and data["error"] == "missed_messages":
@@ -447,14 +447,8 @@ class Poe_Client:
         - question 要发送给机器人的消息。
         """
         # channel地址刷新中
-        if self.refresh_channel_lock:
-            while True:
-                await sleep(1)
-                if self.refresh_channel_lock == False:
-                    break
-
-        # 上锁，防止刷新channel把消息断了
-        self.talking = True
+        while self.refresh_channel_lock:
+            await sleep(1)
 
         try:
             _chat_code, _chat_id = await self.send_msg_to_chat(
@@ -483,7 +477,7 @@ class Poe_Client:
         question_msg_id = 0
         question_create_time = 0
 
-        get_question_msg_id = False
+        get_question_msg_info = False
         yield_msg_id = False
         self.refresh_ws_cd = 0
         while retry >= 0:
@@ -495,24 +489,43 @@ class Poe_Client:
                 continue
 
             # 获取问题的msg id和creation time
-            if answer_data.get("author") == "human" and get_question_msg_id == False:
+            if answer_data.get("author") == "human" and get_question_msg_info == False:
                 question_msg_id: int = answer_data.get("messageId")
                 question_create_time: int = answer_data.get("creationTime")
-                get_question_msg_id = True
-                continue
 
-            # 收到第一条生成的回复
-            if yield_msg_id == False and get_question_msg_id == True:
-                answer_msg_id = answer_data.get("messageId")
-                answer_create_time = answer_data.get("creationTime")
-                # 判断是否为旧回复（有时候会拉取到之前的回复，不知道为啥）
+                # 判断是否为旧消息（有时候会拉取到之前的消息，不知道为啥）
                 if (
-                    chat_id in self.cache_answer_msg_id
-                    and answer_msg_id <= self.cache_answer_msg_id[chat_id]
+                    chat_id in self.chat_msg_info
+                    and "question_msg_id" in self.chat_msg_info[chat_id]
+                    and question_msg_id
+                    <= self.chat_msg_info[chat_id]["question_msg_id"]
                 ):
                     continue
 
-                self.cache_answer_msg_id[chat_id] = answer_msg_id
+                get_question_msg_info = True
+                self.chat_msg_info[chat_id] = {
+                    "answer_msg_id": question_msg_id,
+                    "answer_create_time": question_create_time,
+                }
+                continue
+
+            # 收到第一条生成的回复
+            if yield_msg_id == False:
+                # 还没拿到问题的信息
+                if get_question_msg_info == False:
+                    continue
+
+                answer_msg_id = answer_data.get("messageId")
+                answer_create_time = answer_data.get("creationTime")
+                # 判断是否为旧消息（有时候会拉取到之前的消息，不知道为啥）
+                if (
+                    chat_id in self.chat_msg_info
+                    and "answer_msg_id" in self.chat_msg_info[chat_id]
+                    and answer_msg_id <= self.chat_msg_info[chat_id]["answer_msg_id"]
+                ):
+                    continue
+
+                self.chat_msg_info[chat_id]["answer_msg_id"] = answer_msg_id
 
                 yield MsgId(
                     question_msg_id=question_msg_id,
@@ -556,10 +569,13 @@ class Poe_Client:
         - handle 要发送消息的机器人的唯一标识符。
         - chat_id 要发送消息的机器人的唯一标识符。
         """
-        if chat_id not in self.cache_answer_msg_id:
+        if (
+            chat_id not in self.chat_msg_info
+            or "answer_msg_id" not in self.chat_msg_info
+        ):
             return
 
-        msg_id = self.cache_answer_msg_id[chat_id]
+        msg_id = self.chat_msg_info[chat_id]["answer_msg_id"]
         try:
             await self.send_query(
                 "chatHelpers_messageCancel_Mutation",

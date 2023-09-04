@@ -34,12 +34,19 @@ scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
 # 刷新ws地址
-@scheduler.scheduled_job("interval", seconds=10)
+@scheduler.scheduled_job("interval", seconds=1)
 async def _():
+    if (
+        poe.client.ws_client_task == None
+        or poe.client.refresh_channel_lock == True
+        or poe.client.talking
+    ):
+        return
+
     # 60秒没对话就重连ws
     poe.client.refresh_ws_cd -= 1
 
-    if poe.client.refresh_ws_cd <= 0 and poe.client.ws_client_task:
+    if poe.client.refresh_ws_cd <= 0:
         poe.client.refresh_ws_cd = 60
         poe.client.refresh_channel_count += 1
         poe.client.channel_url = sub(

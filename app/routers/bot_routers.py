@@ -233,6 +233,8 @@ async def _(
     handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
 
     async def ai_reply():
+        # 上锁，防止刷新channel把消息断了
+        poe.client.talking.add(eop_id)
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 次数上限，有效性待测试
             if isinstance(data, ReachedLimit):
@@ -274,11 +276,11 @@ async def _(
                 ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
-                poe.client.talking = False
+                poe.client.talking.remove(eop_id)
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
-                poe.client.talking = False
+                poe.client.talking.remove(eop_id)
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel(True))
                 yield BytesIO(
