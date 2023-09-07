@@ -1,3 +1,5 @@
+接口文档运行后访问路径/docs或/redoc  
+
 require Python environment >= 3.10
 
 安装依赖库 pip install -r requirements.txt
