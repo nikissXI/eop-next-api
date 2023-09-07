@@ -25,7 +25,6 @@ class End(BaseModel):
 class NewChat(BaseModel):
     """新会话"""
 
-    chat_code: str
     chat_id: int
 
 

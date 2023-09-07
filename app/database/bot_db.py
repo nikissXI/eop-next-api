@@ -9,7 +9,6 @@ class Bot(Model):
     diy = fields.BooleanField()
     handle = fields.TextField()
     bot_id = fields.IntField()
-    chat_code = fields.TextField()
     chat_id = fields.IntField()
     user = fields.TextField()
     model = fields.TextField()
@@ -52,7 +51,6 @@ class Bot(Model):
             diy=diy,
             handle=handle,
             bot_id=bot_id,
-            chat_code="",
             chat_id=0,
             user=user,
             model=model,
@@ -146,10 +144,8 @@ class Bot(Model):
 
     # 更新某个bot的chat code和chat id
     @classmethod
-    async def update_bot_chat_code_and_chat_id(
-        cls, eop_id: str, chat_code: str = "", chat_id: int = 0
-    ):
-        await cls.filter(eop_id=eop_id).update(chat_code=chat_code, chat_id=chat_id)
+    async def update_bot_chat_id(cls, eop_id: str, chat_id: int = 0):
+        await cls.filter(eop_id=eop_id).update(chat_id=chat_id)
 
     # 获取某个bot的chat id
     @classmethod

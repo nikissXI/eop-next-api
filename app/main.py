@@ -57,10 +57,12 @@ async def _():
     await User.init_data()
     await Config.init_data()
     await login_poe()
+    scheduler.start()
 
 
 @app.on_event("shutdown")
 async def _():
+    scheduler.shutdown()
     await db_close()
 
 

@@ -245,9 +245,7 @@ async def _(
                 ).read()
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
-                await Bot.update_bot_chat_code_and_chat_id(
-                    eop_id, data.chat_code, data.chat_id
-                )
+                await Bot.update_bot_chat_id(eop_id, data.chat_id)
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgId):
                 await Bot.update_bot_last_talk_time(eop_id, data.answer_create_time)
@@ -415,7 +413,7 @@ async def _(
 
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
-        await Bot.update_bot_chat_code_and_chat_id(eop_id)
+        await Bot.update_bot_chat_id(eop_id)
         return Response(status_code=204)
 
     except Exception as e:

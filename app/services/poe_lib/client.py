@@ -36,7 +36,7 @@ class UserInfo:
     expire_time: str = ""
 
 
-class ReachedLimitError(Exception):
+class ServerError(Exception):
     pass
 
 
@@ -57,16 +57,19 @@ class Poe_Client:
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": '"Windows"',
             "Upgrade-Insecure-Requests": "1",
+            "Origin": "https://poe.com",
+            "Referer": "https://poe.com",
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
         self.channel_url = ""
         self.ws_client_task = None
-        self.answer_queue: dict[int, Queue] = {}
-        self.refresh_ws_cd = 60
+        self.ws_data_queue: dict[int, Queue] = {}
+        self.refresh_ws_cd = 120
         self.talking = set()
         self.refresh_channel_lock = False
         self.refresh_channel_count = 0
-        self.chat_msg_info = {}
+        self.get_chat_code = {}
+        self.answer_msg_id_cache = {}
         self.last_min_seq = 0
 
     async def login(self):
@@ -177,14 +180,7 @@ class Poe_Client:
 
     async def send_query(self, query_name: str, variables: dict) -> dict:
         """
-        Send a query request.
-
-        Args:
-        - query_name (str): The name of the query.
-        - variables (dict): The variables for the query.
-
-        Returns:
-        - dict: The response data.
+        发送请求
         """
         data = generate_data(query_name, variables)
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
@@ -204,10 +200,17 @@ class Poe_Client:
                 and not json_data["success"]
                 or json_data["data"] is None
             ):
-                # err_msg: str = json_data["errors"][0]["message"]
-                raise Exception(resp.text)
+                err_msg: str = json_data["errors"][0]["message"]
+                if err_msg == "Server Error":
+                    raise ServerError()
+                else:
+                    logger.error(resp.status_code)
+                    logger.error(resp.text)
+                    raise Exception(resp.text)
 
             return json_data
+        except ServerError:
+            raise ServerError("server error")
         except Exception as e:
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
@@ -215,15 +218,7 @@ class Poe_Client:
 
     async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
         """
-        Create a new bot using the specified configuration.
-
-        Args:
-        - model: The base model for the new bot.
-        - prompt: The prompt for the new bot.
-
-        Returns:
-        - handle: The handle of the new bot.
-        - bot_id: The ID of the new bot.
+        创建bot
         """
         while True:
             handle = generate_random_handle()
@@ -265,8 +260,8 @@ class Poe_Client:
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
         self.talking.clear()
-        self.answer_queue.clear()
-        self.chat_msg_info.clear()
+        self.ws_data_queue.clear()
+        self.answer_msg_id_cache.clear()
         try:
             resp = await self.httpx_client.get(SETTING_URL)
             json_data = loads(resp.text)
@@ -275,7 +270,7 @@ class Poe_Client:
             self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
             ws_domain = f"tch{randint(1, int(1e6))}"[:8]
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
-            self.last_min_seq = tchannel_data["minSeq"]
+            self.last_min_seq = int(tchannel_data["minSeq"])
         except Exception as e:
             err_msg = f"获取channel address失败，错误信息：{e}"
             logger.error(err_msg)
@@ -323,6 +318,9 @@ class Poe_Client:
             raise Exception(f"subscribe执行失败，错误信息：{e}")
 
     async def refresh_channel(self, get_new_channel: bool = False):
+        """
+        刷新ws连接
+        """
         # 等待当前回答生成完毕
         while self.talking:
             await sleep(1)
@@ -332,7 +330,6 @@ class Poe_Client:
         if get_new_channel:
             await self.get_new_channel()
             self.refresh_channel_count = 0
-            logger.info("已获取新的channel地址")
 
         # 取消之前的ws连接
         if self.ws_client_task:
@@ -342,26 +339,29 @@ class Poe_Client:
         # 解除锁定
         self.refresh_channel_lock = False
 
-    async def get_answer(self, data: dict):
+    async def handle_ws_data(self, ws_data: dict):
+        """
+        处理ws中的数据
+        """
         # 更新min_seq
-        min_seq = data.get("min_seq")
+        min_seq = ws_data.get("min_seq")
         if min_seq and min_seq > self.last_min_seq:
-            self.last_min_seq = min_seq
+            self.last_min_seq: int = min_seq
 
-        if "error" in data.keys() and data["error"] == "missed_messages":
+        if "error" in ws_data.keys() and ws_data["error"] == "missed_messages":
             create_task(self.refresh_channel(True))
             return
 
-        msg_list: list[dict] = [
-            loads(msg_str) for msg_str in data.get("messages", "{}")
+        data_list: list[dict] = [
+            loads(msg_str) for msg_str in ws_data.get("messages", "{}")
         ]
-        for msg in msg_list:
-            message_type = msg.get("message_type")
+        for data in data_list:
+            message_type = data.get("message_type")
             if message_type == "refetchChannel":
                 create_task(self.refresh_channel(True))
-                continue
+                return
 
-            payload = msg.get("payload", {})
+            payload = data.get("payload", {})
 
             if payload.get("subscription_name") not in [
                 "messageAdded",
@@ -369,25 +369,35 @@ class Poe_Client:
             ]:
                 continue
 
-            msg = (payload.get("data", {})).get("messageAdded", {})
-            if not msg:
+            data = (payload.get("data", {})).get("messageAdded", {})
+            # 去掉空内容和带建议的
+            if not data or data["suggestedReplies"]:
                 continue
 
-            chat_id: int = int(payload.get("unique_id")[13:])  # messageAdded:66642643
+            chat_id: int = int(payload.get("unique_id")[13:])
+
+            if self.get_chat_code and data.get("author") == "human":
+                question_md5 = md5(data.get("text").encode()).hexdigest()
+                if question_md5 in self.get_chat_code:
+                    self.get_chat_code[question_md5] = chat_id
 
             # 如果不存在则创建答案生成队列
-            if chat_id not in self.answer_queue:
-                self.answer_queue[chat_id] = Queue()
+            if chat_id not in self.ws_data_queue:
+                self.ws_data_queue[chat_id] = Queue()
 
-            await self.answer_queue[chat_id].put(msg)
+            await self.ws_data_queue[chat_id].put(data)
 
     async def connect_to_channel(self):
-        """连接到poe的websocket，用于拉取回答"""
+        """
+        连接到poe的websocket，用于拉取回答
+        """
         async with ws_connect(self.channel_url) as ws:
             while True:
                 try:
                     data = await ws.recv()
-                    await self.get_answer(loads(data))
+                    # with open("wss.json", "a") as a:
+                    #     a.write(str(data) + "\n\n")  # type: ignore
+                    await self.handle_ws_data(loads(data))
                 except Exception as e:
                     print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
@@ -395,138 +405,98 @@ class Poe_Client:
                         a.write(str(data) + "\n")  # type: ignore
                     break
 
-    async def send_msg_to_chat(
-        self, handle: str, chat_id: int, question: str
-    ) -> Tuple[str, int]:
-        """
-        发消息给一个会话
-
-        参数：
-        - handle 要发送消息的机器人的唯一标识符。
-        - chat_id 要发送消息的机器人的唯一标识符。
-        - question 要发送给机器人的消息。
-        """
-        message_data = await self.send_query(
-            "sendMessageMutation",
-            {
-                "attachments": [],
-                "bot": handle,
-                "chatId": chat_id if chat_id else None,
-                "clientNonce": token_hex(8),
-                "query": question,
-                "sdid": self.sdid,
-                "shouldFetchChat": False if chat_id else True,
-                "source": {
-                    "chatInputMetadata": {"useVoiceRecord": False},
-                    "sourceType": "chat_input",
-                },
-            },
-        )
-        # 次数上限，有效性待测试
-        if message_data["data"]["messageEdgeCreate"]["status"] == "reached_limit":
-            raise ReachedLimitError()
-
-        if not chat_id:
-            data = message_data["data"]["messageEdgeCreate"]["chat"]
-            return (
-                data["chatCode"],
-                data["chatId"],
-            )
-        else:
-            return "", 0
-
     async def talk_to_bot(
         self, handle: str, chat_id: int, question: str
     ) -> AsyncGenerator:
         """
         向指定的机器人发送问题
-
-        参数：
-        - handle 要发送消息的机器人的唯一标识符。
-        - chat_id 要发送消息的机器人的唯一标识符。
-        - question 要发送给机器人的消息。
         """
         # channel地址刷新中
         while self.refresh_channel_lock:
             await sleep(1)
 
+        question_md5 = ""
+        if not chat_id:
+            question_md5 = md5(question.encode()).hexdigest()
+            self.get_chat_code[question_md5] = 0
+
         try:
-            _chat_code, _chat_id = await self.send_msg_to_chat(
-                handle, chat_id, question
+            resp = await self.send_query(
+                "sendMessageMutation",
+                {
+                    "attachments": [],
+                    "bot": handle,
+                    "chatId": chat_id if chat_id else None,
+                    "clientNonce": token_hex(8),
+                    "query": question,
+                    "sdid": self.sdid,
+                    "shouldFetchChat": False if chat_id else True,
+                    "source": {
+                        "chatInputMetadata": {"useVoiceRecord": False},
+                        "sourceType": "chat_input",
+                    },
+                },
             )
-            # 新会话
-            if not chat_id:
-                chat_id = _chat_id
-                yield NewChat(chat_code=_chat_code, chat_id=chat_id)
-        # 次数上限，有效性待测试
-        except ReachedLimitError:
-            yield ReachedLimit()
-            return
+            # 次数上限，有效性待测试
+            if resp["data"]["messageEdgeCreate"]["status"] == "reached_limit":
+                yield ReachedLimit()
+                return
+        except ServerError:
+            pass
         except Exception as e:
             err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{e}"
-            print(format_exc())
+            # print(format_exc())
             logger.error(err_msg)
 
         # 如果不存在则创建答案生成队列
-        if chat_id not in self.answer_queue:
-            self.answer_queue[chat_id] = Queue()
+        if chat_id and chat_id not in self.ws_data_queue:
+            self.ws_data_queue[chat_id] = Queue()
 
-        retry = 5
-        last_text_len = 0
+        self.refresh_ws_cd = 120
 
         question_msg_id = 0
         question_create_time = 0
 
-        get_question_msg_info = False
         yield_msg_id = False
-        self.refresh_ws_cd = 0
+        last_text_len = 0
+        retry = 10
         while retry >= 0:
+            if not chat_id:
+                await sleep(0.5)
+                if self.get_chat_code[question_md5]:
+                    chat_id = self.get_chat_code[question_md5]
+                    self.get_chat_code.pop(question_md5)
+                    yield NewChat(chat_id=chat_id)
+                    retry = 10
+                else:
+                    retry -= 1
+                continue
+
             # 从队列拉取回复
             try:
-                answer_data = await wait_for(self.answer_queue[chat_id].get(), 2)
+                quene_data = await wait_for(self.ws_data_queue[chat_id].get(), 2)
             except TimeoutError:
                 retry -= 1
                 continue
 
             # 获取问题的msg id和creation time
-            if answer_data.get("author") == "human" and get_question_msg_info == False:
-                question_msg_id: int = answer_data.get("messageId")
-                question_create_time: int = answer_data.get("creationTime")
-
-                # 判断是否为旧消息（有时候会拉取到之前的消息，不知道为啥）
-                if (
-                    chat_id in self.chat_msg_info
-                    and "question_msg_id" in self.chat_msg_info[chat_id]
-                    and question_msg_id
-                    <= self.chat_msg_info[chat_id]["question_msg_id"]
-                ):
-                    continue
-
-                get_question_msg_info = True
-                self.chat_msg_info[chat_id] = {
-                    "answer_msg_id": question_msg_id,
-                    "answer_create_time": question_create_time,
-                }
+            if quene_data.get("author") == "human":
+                question_msg_id: int = quene_data.get("messageId")
+                question_create_time: int = quene_data.get("creationTime")
                 continue
 
             # 收到第一条生成的回复
             if yield_msg_id == False:
-                # 还没拿到问题的信息
-                if get_question_msg_info == False:
-                    continue
-
-                answer_msg_id = answer_data.get("messageId")
-                answer_create_time = answer_data.get("creationTime")
-                # 判断是否为旧消息（有时候会拉取到之前的消息，不知道为啥）
+                answer_msg_id = quene_data.get("messageId")
+                # 判断是否为旧消息，有时候会拉取到之前的消息
                 if (
-                    chat_id in self.chat_msg_info
-                    and "answer_msg_id" in self.chat_msg_info[chat_id]
-                    and answer_msg_id <= self.chat_msg_info[chat_id]["answer_msg_id"]
+                    chat_id in self.answer_msg_id_cache
+                    and answer_msg_id <= self.answer_msg_id_cache[chat_id]
                 ):
                     continue
+                answer_create_time = quene_data.get("creationTime")
 
-                self.chat_msg_info[chat_id]["answer_msg_id"] = answer_msg_id
-
+                self.answer_msg_id_cache[chat_id] = answer_msg_id
                 yield MsgId(
                     question_msg_id=question_msg_id,
                     question_create_time=question_create_time,
@@ -536,22 +506,22 @@ class Poe_Client:
                 yield_msg_id = True
 
             # 取消回复
-            if answer_data.get("state") == "cancelled":
+            if quene_data.get("state") == "cancelled":
                 yield End()
                 return
 
             # 获取内容
-            plain_text = answer_data.get("text")
+            plain_text = quene_data.get("text")
 
             # 未完成的回复
-            if answer_data.get("state") == "incomplete":
-                retry = 5
+            if quene_data.get("state") == "incomplete":
+                retry = 10
                 yield Text(content=plain_text[last_text_len:])
                 last_text_len = len(plain_text)
                 continue
 
             # 完成回复
-            if answer_data.get("state") == "complete":
+            if quene_data.get("state") == "complete":
                 yield Text(content=plain_text[last_text_len:])
                 yield End()
                 return
@@ -564,18 +534,11 @@ class Poe_Client:
     async def talk_stop(self, handle: str, chat_id: int):
         """
         停止生成回复
-
-        参数：
-        - handle 要发送消息的机器人的唯一标识符。
-        - chat_id 要发送消息的机器人的唯一标识符。
         """
-        if (
-            chat_id not in self.chat_msg_info
-            or "answer_msg_id" not in self.chat_msg_info
-        ):
+        if chat_id not in self.answer_msg_id_cache:
             return
 
-        msg_id = self.chat_msg_info[chat_id]["answer_msg_id"]
+        msg_id = self.answer_msg_id_cache[chat_id]
         try:
             await self.send_query(
                 "chatHelpers_messageCancel_Mutation",
@@ -590,13 +553,7 @@ class Poe_Client:
 
     async def edit_bot(self, handle: str, bot_id: int, model: str, prompt: str):
         """
-        这个函数用于编辑现有机器人的配置。
-
-        参数：
-        - handle 要编辑的机器人的URL名称。
-        - bot_id 要发送消息的机器人的唯一标识符。
-        - prompt 机器人的新提示。
-        - model 机器人的新基础模型。
+        编辑bot设置
         """
         result = await self.send_query(
             "EditBotMain_poeBotEdit_Mutation",
@@ -627,10 +584,6 @@ class Poe_Client:
     async def send_chat_break(self, handle: str, chat_id: int):
         """
         重置对话，仅清除会话记忆，不会删除聊天记录。
-
-        参数:
-        - handle 要发送聊天终止信号的机器人的唯一标识符。
-        - chat_id 与机器人的聊天的唯一标识符。
         """
         try:
             await self.send_query(
@@ -646,25 +599,17 @@ class Poe_Client:
     async def delete_chat_by_chat_id(self, handle: str, chat_id: int):
         """
         删除某个bot下的会话
-
-        参数:
-        - handle 要发送聊天终止信号的机器人的唯一标识符。
-        - chat_id 与机器人的聊天的唯一标识符。
         """
         try:
             await self.send_query(
                 "useDeleteChat_deleteChat_Mutation", {"chatId": chat_id}
             )
         except Exception as e:
-            raise Exception(f"删除bot【{handle}】失败，错误信息：{e}")
+            raise Exception(f"删除chat【{handle}】失败，错误信息：{e}")
 
     async def delete_bot(self, handle: str, bot_id: int):
         """
-        删除某个bot
-
-        参数:
-        - handle 要发送聊天终止信号的机器人的唯一标识符。
-        - bot_id 与机器人的聊天的唯一标识符。
+        删除bot
         """
         try:
             resp = await self.send_query(
@@ -696,9 +641,6 @@ class Poe_Client:
                     "id": base64_encode(f"Chat:{chat_id}"),
                 },
             )
-            # with open("result.json", "w") as w:
-            #     dump(result, w)
-            # {"data":{"node":null},"extensions":{"is_final":true}}
 
             # 没有聊天记录
             if result["data"]["node"] == None:

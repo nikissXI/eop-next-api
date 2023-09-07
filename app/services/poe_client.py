@@ -21,8 +21,6 @@ async def login_poe() -> JSONResponse | Response:
         proxy = None
     try:
         poe.client = await Poe_Client(p_b, formkey, proxy).login()
-        if poe.client.ws_client_task:
-            scheduler.start()
         return Response(status_code=204)
     except Exception as e:
         msg = "执行登陆流程出错，" + str(e)
@@ -42,12 +40,11 @@ async def _():
         or poe.client.talking
     ):
         return
-
-    # 60秒没对话就重连ws
+    # 120秒没对话就重连ws
     poe.client.refresh_ws_cd -= 1
 
     if poe.client.refresh_ws_cd <= 0:
-        poe.client.refresh_ws_cd = 60
+        poe.client.refresh_ws_cd = 120
         poe.client.refresh_channel_count += 1
         poe.client.channel_url = sub(
             r"(min_seq=)\d+",
