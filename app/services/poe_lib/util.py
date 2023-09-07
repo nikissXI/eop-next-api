@@ -7,19 +7,24 @@ from string import ascii_letters, digits
 from base64 import b64encode, b64decode
 
 QUERIES = {
-    "sendMessageMutation": "730c8c00e4b18909c7a6695447e47cbc895f1f65a438cdbacca626d64d17d035", # 
-    "sendChatBreakMutation": "f392431130dd344ef7ca7409699ebb312a12f581a046a403f26c2657101f7fce", #
-    "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99", #
-    "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9", #
-    "CreateBotMain_poeBotCreate_Mutation": "916833ab4558f9afbfdf8e7f181514dda8ab2f77e07a7ef6a6cb75ea83c41e6e", #
-    "EditBotMain_poeBotEdit_Mutation": "7a04278f837f1c61321e35b70513166fc8bf93d7f551eaa6a6675774ea190a25", #
-    "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18", #
-    "ChatListPaginationQuery": "81d85f26b14aa782bef3ef617ce2222453f3b6ebc4dfaa1b50470a2fb157b58a", #
-    "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e", #
-    "settingsPageQuery": "d81f0e97947680bef2fb6e0ac5947e9198b613575010351995ab565f9ae59cad", # 
+    "exploreBotsIndexPageQuery": "b6b0fb768c7727b57f4cb51489a3850ded36d1b96e27c1346f04171db0b2cf25",  #
+    "createBotIndexPageQuery": "3925692460e7c12565a722f1f934620ff5190c6023b80c86c7529159953ef73c",  #
+    "HandleBotLandingPageQuery": "9f8049fbcbd162ac0121cee1014290c81671673fa2466b4ebd14e33c4f8e155f",  #
+    "sendMessageMutation": "730c8c00e4b18909c7a6695447e47cbc895f1f65a438cdbacca626d64d17d035",  #
+    "sendChatBreakMutation": "f392431130dd344ef7ca7409699ebb312a12f581a046a403f26c2657101f7fce",  #
+    "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  #
+    "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9",  #
+    "CreateBotMain_poeBotCreate_Mutation": "916833ab4558f9afbfdf8e7f181514dda8ab2f77e07a7ef6a6cb75ea83c41e6e",  #
+    "EditBotMain_poeBotEdit_Mutation": "7a04278f837f1c61321e35b70513166fc8bf93d7f551eaa6a6675774ea190a25",  #
+    "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",  #
+    "ChatListPaginationQuery": "81d85f26b14aa782bef3ef617ce2222453f3b6ebc4dfaa1b50470a2fb157b58a",  #
+    "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",  #
+    "settingsPageQuery": "d81f0e97947680bef2fb6e0ac5947e9198b613575010351995ab565f9ae59cad",  #
 }
 GQL_URL = "https://poe.com/api/gql_POST"
-SETTING_URL = "https://poe.com/api/settings?channel=poe-chan52-8888-iimnqpoozcytkitfqkud"
+SETTING_URL = (
+    "https://poe.com/api/settings?channel=poe-chan52-8888-iimnqpoozcytkitfqkud"
+)
 
 
 def generate_data(query_name, variables) -> str:
@@ -43,92 +48,3 @@ def base64_encode(text: str) -> str:
 
 def base64_decode(text: str) -> str:
     return b64decode(text).decode("utf-8")
-
-
-# 显示名称：模型名称，描述，是否允许diy(使用prompt)，是否有限使用，botId
-available_models: dict[str, tuple[str, str, bool, bool, int]] = {
-    "ChatGPT": (
-        "chinchilla",
-        "由gpt-3.5-turbo驱动。",
-        True,
-        False,
-        3004,
-    ),
-    "GPT-4": (
-        "beaver",
-        "OpenAI最强大的模型。在定量问题（数学和物理）、创造性写作和许多其他具有挑战性的任务方面比ChatGPT更强大。",
-        True,
-        True,
-        3007,
-    ),
-    "Claude-instant": (
-        "a2",
-        "Anthropic的最快模型，在创造性任务方面表现出色。具有约7,000个单词的上下文窗口。",
-        True,
-        False,
-        1006,
-    ),
-    "Claude-2-100k": (
-        "a2_2",
-        "Anthropic的最强大模型，其上下文窗口增加到约75,000个单词。在创意写作方面特别出色。",
-        True,
-        True,
-        1008,
-    ),
-    "Assistant": (
-        "capybara",
-        "通用助手机器人，擅长处理编程相关任务和非英语语言。由gpt-3.5-turbo驱动。之前被称为Sage。",
-        False,
-        False,
-        3002,
-    ),
-    "ChatGPT-16k": (
-        "agouti",
-        "由gpt-3.5-turbo-16k驱动。",
-        False,
-        True,
-        3009,
-    ),
-    "GPT-4-32k": (
-        "vizcacha",
-        "由gpt-4-32k驱动。",
-        False,
-        True,
-        3010,
-    ),
-    "Claude-instant-100k": (
-        "a2_100k",
-        "Anthropic的最快模型，具有增加到约75,000个单词的上下文窗口。能够分析非常长的文档、代码等内容。",
-        False,
-        True,
-        1009,
-    ),
-    "Google-PaLM": (
-        "acouchy",
-        "由Google的PaLM 2 chat-bison-001模型驱动。",
-        False,
-        False,
-        6000,
-    ),
-    "Llama-2-7b": (
-        "llama_2_7b_chat",
-        "来自Meta的Llama-2-7b-chat模型。",
-        False,
-        False,
-        7002,
-    ),
-    "Llama-2-13b": (
-        "llama_2_13b_chat",
-        "来自Meta的Llama-2-13b-chat模型。",
-        False,
-        False,
-        7001,
-    ),
-    "Llama-2-70b": (
-        "llama_2_70b_chat",
-        "来自Meta的Llama-2-70b-chat模型。",
-        True,
-        False,
-        7000,
-    ),
-}

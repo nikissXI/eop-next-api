@@ -1,10 +1,10 @@
-from asyncio import Queue, TimeoutError, create_task, sleep, wait_for
+from asyncio import Queue, TimeoutError, create_task, sleep, wait_for, gather
 from hashlib import md5
 from random import randint
 from secrets import token_hex
-from time import localtime, strftime, time
+from time import localtime, strftime
 from traceback import format_exc
-from typing import AsyncGenerator, Tuple
+from typing import AsyncGenerator
 from uuid import UUID, uuid5
 from httpx import AsyncClient
 from websockets.client import connect as ws_connect
@@ -12,7 +12,6 @@ from .type import *
 from .util import (
     GQL_URL,
     SETTING_URL,
-    available_models,
     base64_decode,
     base64_encode,
     generate_data,
@@ -38,6 +37,10 @@ class UserInfo:
 
 class ServerError(Exception):
     pass
+
+
+# 显示名称：模型名称，描述，是否允许diy(使用prompt)，是否有限使用，botId
+available_models: dict[str, tuple[str, str, bool, bool, int]] = {}
 
 
 class Poe_Client:
@@ -97,7 +100,7 @@ class Poe_Client:
                     f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
                 )
         logger.info(text)
-
+        await self.get_offical_models()
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
@@ -123,6 +126,55 @@ class Poe_Client:
                     "%Y-%m-%d %H:%M:%S",
                     localtime(data["subscription"]["expiresTime"] / 1000000),
                 )
+        except Exception as e:
+            raise e
+
+    async def get_offical_models(self):
+        """
+        获取官方模型信息
+        """
+        try:
+            result = await self.send_query(
+                "createBotIndexPageQuery",
+                {"messageId": None},
+            )
+            diy_model_list: list[str] = [
+                _["displayName"]
+                for _ in result["data"]["viewer"]["botsAllowedForUserCreation"]
+            ]
+            result = await self.send_query(
+                "exploreBotsIndexPageQuery",
+                {"categoryName": "Official"},
+            )
+            task_list = [
+                self.get_bot_info(
+                    m["node"]["handle"], m["node"]["handle"] in diy_model_list
+                )
+                for m in result["data"]["exploreBotsConnection"]["edges"]
+            ]
+            await gather(*task_list)
+            logger.info(f"已加载{len(available_models)}个官方模型")
+        except Exception as e:
+            raise e
+
+    async def get_bot_info(self, handle: str, diy: bool):
+        """
+        获取bot详细信息
+        """
+        try:
+            result = await self.send_query(
+                "HandleBotLandingPageQuery",
+                {"botHandle": handle},
+            )
+
+            info: dict = result["data"]["bot"]
+            available_models[info["displayName"]] = (
+                info["model"],
+                info["description"],
+                diy,
+                False if info["limitedAccessType"] == "no_limit" else True,
+                info["botId"],
+            )
         except Exception as e:
             raise e
 

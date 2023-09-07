@@ -97,7 +97,9 @@ async def _(
     data = []
     for k, v in available_models.items():
         data.append({"model": k, "description": v[1], "diy": v[2], "limited": v[3]})
-    return JSONResponse({"available_models": data}, 200)
+    return JSONResponse(
+        {"available_models": sorted(data, key=lambda x: x["model"])}, 200
+    )
 
 
 @router.get(
