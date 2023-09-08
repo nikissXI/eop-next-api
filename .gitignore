@@ -3,6 +3,6 @@ dist
 venv
 data.db
 data
-.vscode
 .env
 test
+.vscode
