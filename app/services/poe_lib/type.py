@@ -38,3 +38,28 @@ class ReachedLimit(BaseModel):
     """次数上限"""
 
     pass
+
+
+class ModelInfo(BaseModel):
+    """模型信息"""
+
+    model: str
+    description: str
+    diy: bool
+    limited: bool
+    bot_id: int
+
+
+class UserInfo(BaseModel):
+    """账号信息"""
+
+    email: str = ""
+    subscription_is_active: bool = False
+    plan_type: str = ""
+    expire_time: str = ""
+
+
+class ServerError(Exception):
+    """请求报错 server error"""
+
+    pass

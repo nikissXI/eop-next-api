@@ -57,12 +57,10 @@ async def _():
     await User.init_data()
     await Config.init_data()
     await login_poe()
-    scheduler.start()
 
 
 @app.on_event("shutdown")
 async def _():
-    scheduler.shutdown()
     await db_close()
 
 
@@ -171,22 +169,22 @@ custom_logging_config = {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
         },
-        # "file_default": {
-        #     "formatter": "default",
-        #     "class": "logging.handlers.TimedRotatingFileHandler",
-        #     "filename": "./server.log",
-        # },
-        # "file_access": {
-        #     "formatter": "access",
-        #     "class": "logging.handlers.TimedRotatingFileHandler",
-        #     "filename": "./server.log",
-        # },
+        "file_default": {
+            "formatter": "default",
+            "class": "logging.FileHandler",
+            "filename": "./server.log",
+        },
+        "file_access": {
+            "formatter": "access",
+            "class": "logging.FileHandler",
+            "filename": "./server.log",
+        },
     },
     "loggers": {
-        "uvicorn": {"handlers": ["default"], "level": "INFO"},
+        "uvicorn": {"handlers": ["default", "file_default"], "level": "INFO"},
         "uvicorn.error": {"level": "INFO"},
         "uvicorn.access": {
-            "handlers": ["access"],
+            "handlers": ["access", "file_access"],
             "level": "INFO",
             "propagate": False,
         },
@@ -201,8 +199,8 @@ if __name__ == "__main__":
         app,
         host=HOST,
         port=PORT,
-        ssl_keyfile=SSL_KEYFILE_PATH,
-        ssl_certfile=SSL_CERTFILE_PATH,
+        # ssl_keyfile=SSL_KEYFILE_PATH,
+        # ssl_certfile=SSL_CERTFILE_PATH,
         log_config=custom_logging_config,
         headers=[("server", "huaQ")],  # 修改响应头里的默认server字段
     )

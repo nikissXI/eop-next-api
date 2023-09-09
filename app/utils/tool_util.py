@@ -6,8 +6,6 @@ from logging import getLogger
 logger = getLogger("uvicorn.error")
 
 
-
-
 def generate_random_password(length=8) -> tuple[str, str]:
     characters = ascii_letters + digits
     passwd = "".join(choice(characters) for _ in range(length))

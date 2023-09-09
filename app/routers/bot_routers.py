@@ -95,10 +95,17 @@ async def _(
     _: dict = Depends(verify_token),
 ):
     data = []
-    for k, v in available_models.items():
-        data.append({"model": k, "description": v[1], "diy": v[2], "limited": v[3]})
+    for model, info in poe.client.models.items():
+        data.append(
+            {
+                "model": model,
+                "description": info.description,
+                "diy": info.diy,
+                "limited": info.limited,
+            }
+        )
     return JSONResponse(
-        {"available_models": sorted(data, key=lambda x: x["model"])}, 200
+        {"available_models": data}, 200
     )
 
 
@@ -177,10 +184,10 @@ async def _(
         expire_date = await User.get_expire_date(user)
         raise UserOutdate(expire_date)
 
-    if body.model not in available_models:
+    if body.model not in poe.client.models:
         raise ModelNotFound(body.model)
 
-    can_diy = available_models[body.model][2]
+    can_diy = poe.client.models[body.model].diy
 
     try:
         # 如果是自定义prompt需要创建新的bot
@@ -189,8 +196,8 @@ async def _(
             can_diy = True
         else:
             handle, bot_id = (
-                available_models[body.model][0],
-                available_models[body.model][4],
+                poe.client.models[body.model].model,
+                poe.client.models[body.model].bot_id,
             )
             can_diy = False
 
@@ -235,8 +242,6 @@ async def _(
     handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
 
     async def ai_reply():
-        # 上锁，防止刷新channel把消息断了
-        poe.client.talking.add(eop_id)
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 次数上限，有效性待测试
             if isinstance(data, ReachedLimit):
@@ -276,13 +281,11 @@ async def _(
                 ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
-                poe.client.talking.remove(eop_id)
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
-                poe.client.talking.remove(eop_id)
                 # 切换ws channel地址
-                create_task(poe.client.refresh_channel(True))
+                create_task(poe.client.refresh_channel())
                 yield BytesIO(
                     (dumps({"type": "error", "data": data.content}) + "\n").encode(
                         "utf-8"
@@ -513,7 +516,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    if body.model and body.model not in available_models:
+    if body.model and body.model not in poe.client.models:
         raise ModelNotFound(body.model)
 
     # 更新缓存

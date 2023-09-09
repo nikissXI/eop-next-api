@@ -8,6 +8,7 @@ from typing import AsyncGenerator
 from uuid import UUID, uuid5
 from httpx import AsyncClient
 from websockets.client import connect as ws_connect
+from re import sub
 from .type import *
 from .util import (
     GQL_URL,
@@ -28,27 +29,13 @@ except:
     from loguru import logger
 
 
-class UserInfo:
-    email: str = ""
-    subscription_is_active: bool = False
-    plan_type: str = ""
-    expire_time: str = ""
-
-
-class ServerError(Exception):
-    pass
-
-
-# 显示名称：模型名称，描述，是否允许diy(使用prompt)，是否有限使用，botId
-available_models: dict[str, tuple[str, str, bool, bool, int]] = {}
-
-
 class Poe_Client:
     def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
         self.formkey = formkey
         self.p_b = p_b
         self.sdid = ""
         self.user_info = UserInfo()
+        self.models: dict[str, ModelInfo] = {}
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
             "Accept": "*/*",
@@ -66,23 +53,21 @@ class Poe_Client:
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
         self.channel_url = ""
         self.ws_client_task = None
-        self.ws_data_queue: dict[int, Queue] = {}
-        self.refresh_ws_cd = 120
-        self.talking = set()
         self.refresh_channel_lock = False
-        self.refresh_channel_count = 0
+        self.last_min_seq = 0
+        self.ws_data_queue: dict[int, Queue] = {}
         self.get_chat_code = {}
         self.answer_msg_id_cache = {}
-        self.last_min_seq = 0
 
     async def login(self):
         """
-        创建poe请求实例，可用于验证凭证是否有效。预加载可获取所有bot的基础数据
+        创建poe请求实例，可用于验证凭证是否有效，并拉取用户数据。
         """
         if not (self.p_b and self.formkey):
             raise Exception(f"p_b和formkey未正确填写，不登陆")
 
         logger.info("Poe登陆中。。。。。。")
+
         await self.get_user_info()
         text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_is_active}"
         if self.user_info.subscription_is_active:
@@ -100,12 +85,14 @@ class Poe_Client:
                     f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
                 )
         logger.info(text)
+
         await self.get_offical_models()
+
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
+        create_task(self.refresh_channel())
 
-        create_task(self.refresh_channel(True))
         return self
 
     async def get_user_info(self):
@@ -134,6 +121,7 @@ class Poe_Client:
         获取官方模型信息
         """
         try:
+            # 获取支持diy（create bot）的模型
             result = await self.send_query(
                 "createBotIndexPageQuery",
                 {"messageId": None},
@@ -142,6 +130,7 @@ class Poe_Client:
                 _["displayName"]
                 for _ in result["data"]["viewer"]["botsAllowedForUserCreation"]
             ]
+            # 获取官方模型
             result = await self.send_query(
                 "exploreBotsIndexPageQuery",
                 {"categoryName": "Official"},
@@ -153,7 +142,16 @@ class Poe_Client:
                 for m in result["data"]["exploreBotsConnection"]["edges"]
             ]
             await gather(*task_list)
-            logger.info(f"已加载{len(available_models)}个官方模型")
+
+            # 排序
+            tmp_dict = {}
+            sorted_keys = sorted(self.models.keys())
+            for k in sorted_keys:
+                tmp_dict[k] = self.models[k]
+            self.models.clear()
+            self.models = tmp_dict
+
+            logger.info(f"已加载{len(self.models)}个官方模型：" + "、".join(self.models.keys()))
         except Exception as e:
             raise e
 
@@ -168,12 +166,12 @@ class Poe_Client:
             )
 
             info: dict = result["data"]["bot"]
-            available_models[info["displayName"]] = (
-                info["model"],
-                info["description"],
-                diy,
-                False if info["limitedAccessType"] == "no_limit" else True,
-                info["botId"],
+            self.models[info["displayName"]] = ModelInfo(
+                model=info["model"],
+                description=info["description"],
+                diy=diy,
+                limited=False if info["limitedAccessType"] == "no_limit" else True,
+                bot_id=info["botId"],
             )
         except Exception as e:
             raise e
@@ -279,7 +277,7 @@ class Poe_Client:
                 {
                     "handle": handle,
                     "prompt": prompt,
-                    "model": available_models[model][0],
+                    "model": self.models[model].model,
                     "hasSuggestedReplies": False,
                     "displayName": None,
                     "isPromptPublic": True,
@@ -311,8 +309,8 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
-        self.talking.clear()
         self.ws_data_queue.clear()
+        self.get_chat_code.clear()
         self.answer_msg_id_cache.clear()
         try:
             resp = await self.httpx_client.get(SETTING_URL)
@@ -369,19 +367,20 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"subscribe执行失败，错误信息：{e}")
 
-    async def refresh_channel(self, get_new_channel: bool = False):
+    async def refresh_channel(self, get_new_channel: bool = True):
         """
         刷新ws连接
         """
-        # 等待当前回答生成完毕
-        while self.talking:
-            await sleep(1)
-
         self.refresh_channel_lock = True
 
         if get_new_channel:
             await self.get_new_channel()
-            self.refresh_channel_count = 0
+        else:
+            self.channel_url = sub(
+                r"(min_seq=)\d+",
+                r"\g<1>" + str(self.last_min_seq),
+                self.channel_url,
+            )
 
         # 取消之前的ws连接
         if self.ws_client_task:
@@ -401,7 +400,7 @@ class Poe_Client:
             self.last_min_seq: int = min_seq
 
         if "error" in ws_data.keys() and ws_data["error"] == "missed_messages":
-            create_task(self.refresh_channel(True))
+            create_task(self.refresh_channel())
             return
 
         data_list: list[dict] = [
@@ -410,7 +409,7 @@ class Poe_Client:
         for data in data_list:
             message_type = data.get("message_type")
             if message_type == "refetchChannel":
-                create_task(self.refresh_channel(True))
+                create_task(self.refresh_channel())
                 return
 
             payload = data.get("payload", {})
@@ -446,10 +445,16 @@ class Poe_Client:
         async with ws_connect(self.channel_url) as ws:
             while True:
                 try:
-                    data = await ws.recv()
+                    data = await wait_for(ws.recv(), 120)
                     # with open("wss.json", "a") as a:
                     #     a.write(str(data) + "\n\n")  # type: ignore
                     await self.handle_ws_data(loads(data))
+
+                except TimeoutError:
+                    logger.info("TimeoutError")
+                    create_task(self.refresh_channel(get_new_channel=False))
+                    break
+
                 except Exception as e:
                     print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
@@ -503,8 +508,6 @@ class Poe_Client:
         # 如果不存在则创建答案生成队列
         if chat_id and chat_id not in self.ws_data_queue:
             self.ws_data_queue[chat_id] = Queue()
-
-        self.refresh_ws_cd = 120
 
         question_msg_id = 0
         question_create_time = 0
@@ -611,7 +614,7 @@ class Poe_Client:
             "EditBotMain_poeBotEdit_Mutation",
             {
                 "prompt": prompt,
-                "baseBot": available_models[model][0],
+                "baseBot": self.models[model].model,
                 "botId": bot_id,
                 "handle": handle,
                 "displayName": handle,
@@ -680,8 +683,8 @@ class Poe_Client:
         获取某个会话的历史记录
 
         参数:
-        - handle 要发送聊天终止信号的机器人的唯一标识符。
-        - chat_id 与机器人的聊天的唯一标识符。
+        - handle 要发送聊天终止信号的机器人的唯一标识符
+        - chat_id 与机器人的聊天的唯一标识符
         - cursor 坐标，用于翻页
         """
         try:
