@@ -74,7 +74,7 @@ async def _(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(AuthFailed)
 async def _(request: Request, exc: AuthFailed):
-    return JSONResponse({"code": 2000, "msg": exc.error_type}, 403)
+    return JSONResponse({"code": 2000, "msg": exc.error_type}, 401)
 
 
 @app.exception_handler(ModelNotFound)
