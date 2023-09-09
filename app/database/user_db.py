@@ -52,7 +52,7 @@ class User(Model):
     # 列出所有用户名
     @classmethod
     async def list_user(cls) -> list[tuple[str, int, bool]]:
-        return await cls.filter().values_list("user", "expire_date", "admin")
+        return await cls.filter().values_list("user", "expire_date", "admin") # type: ignore
 
     # 判断是否为管理员
     @classmethod
