@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 from jwt import decode as jwtDecode
@@ -31,7 +31,6 @@ async def verify_token(
 
     except PyJWTError:
         raise AuthFailed("凭证无效")
-        # raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Not authenticated")
 
 
 async def verify_admin(
@@ -42,9 +41,7 @@ async def verify_admin(
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if not await User.is_admin(jwt_data["user"]):
             raise AuthFailed("权限不足")
-            # raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Not administrator")
         return jwt_data
 
     except PyJWTError:
         raise AuthFailed("凭证无效")
-        # raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Not authenticated")
