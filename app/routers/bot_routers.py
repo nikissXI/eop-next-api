@@ -94,16 +94,17 @@ router = APIRouter()
 async def _(
     _: dict = Depends(verify_token),
 ):
-    handle_list = await poe.client.explore_bot("Official")
-    for h in handle_list:
-        if h not in poe.client.offical_models:
+    model_list, next_cursor = await poe.client.explore_bot("Official")
+    for m in model_list:
+        if m not in poe.client.offical_models:
             try:
-                await poe.client.get_offical_bot_info(h)
+                await poe.client.cache_offical_bot_info(m)
             except Exception as e:
                 return handle_exception(str(e))
 
     data = []
-    for model, info in poe.client.offical_models.items():
+    for model in model_list:
+        info = poe.client.offical_models[model]
         data.append(
             {
                 "model": model,
@@ -209,8 +210,18 @@ async def _(
             )
             can_diy = False
 
+        # 获取bot头像
+        bot_data = await poe.client.get_bot_info(body.model)
+        image_link = bot_data["image_link"]
         eop_id = await Bot.create_bot(
-            can_diy, handle, bot_id, user, body.model, body.alias, body.prompt
+            can_diy,
+            handle,
+            bot_id,
+            user,
+            body.model,
+            body.alias,
+            body.prompt,
+            image_link,
         )
         return JSONResponse({"eop_id": eop_id}, 200)
 
@@ -548,3 +559,65 @@ async def _(
             return handle_exception(str(e))
 
     return Response(status_code=204)
+
+
+@router.get(
+    "/explore/{cursor}",
+    summary="探索bot",
+    responses={
+        200: {
+            "description": "返回历史记录和翻页光标，如果next_cursor为-1，则没有下一页",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "history": [
+                            {
+                                "msg_id": 2692997857,
+                                "create_time": 1692964266475260,
+                                "text": "你好啊",
+                                "author": "user",
+                            },
+                            {
+                                "msg_id": 2692997880,
+                                "create_time": 1692964266638975,
+                                "text": "你好啊！我是你的智能助手。有什么我可以帮助你的吗？",
+                                "author": "bot",
+                            },
+                        ],
+                        "next_cursor": "2692997857",
+                    }
+                }
+            },
+        }
+    },
+)
+async def _(
+    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
+    _: dict = Depends(verify_token),
+):
+    # handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    # if not chat_id:
+    #     return JSONResponse(
+    #         {
+    #             "history": [],
+    #             "next_cursor": -1,
+    #         },
+    #         200,
+    #     )
+
+    # try:
+    #     result_list, next_cursor = await poe.client.get_chat_history(
+    #         handle, chat_id, cursor
+    #     )
+
+    #     return JSONResponse(
+    #         {
+    #             "history": result_list,
+    #             "next_cursor": next_cursor,
+    #         },
+    #         200,
+    #     )
+
+    # except Exception as e:
+    #     return handle_exception(str(e))
+    pass

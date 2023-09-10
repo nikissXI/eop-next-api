@@ -14,6 +14,7 @@ class Bot(Model):
     display_name = fields.TextField()
     alias = fields.TextField()
     prompt = fields.TextField()
+    image_link = fields.TextField()
     create_time = fields.IntField()
     last_talk_time = fields.IntField()
 
@@ -39,6 +40,7 @@ class Bot(Model):
         display_name: str,
         alias: str,
         prompt: str,
+        image_link: str,
     ) -> str:
         while True:
             eop_id = str(randint(0, 999999))
@@ -56,6 +58,7 @@ class Bot(Model):
             display_name=display_name,
             alias=alias,
             prompt=prompt,
+            image_link=image_link,
             create_time=current_timestamp,
             last_talk_time=current_timestamp,
         )
@@ -86,7 +89,7 @@ class Bot(Model):
     async def pre_remove_user_bots(cls, user: str) -> list[tuple[str, bool, int, int]]:
         return await cls.filter(user=user).values_list(
             "eop_id", "diy", "bot_id", "chat_id"
-        )  #type: ignore
+        )  # type: ignore
 
     # 删除某个用户相关bot
     @classmethod
@@ -118,13 +121,17 @@ class Bot(Model):
         prompt: str | None = None,
     ):
         # 拉取旧数据
-        rows = await cls.filter(eop_id=eop_id).values_list("display_name", "alias", "prompt")
+        rows = await cls.filter(eop_id=eop_id).values_list(
+            "display_name", "alias", "prompt"
+        )
 
         display_name = display_name or rows[0][0]
         alias = alias or rows[0][1]
         prompt = prompt or rows[0][2]
 
-        await cls.filter(eop_id=eop_id).update(display_name=display_name, alias=alias, prompt=prompt)
+        await cls.filter(eop_id=eop_id).update(
+            display_name=display_name, alias=alias, prompt=prompt
+        )
 
     # 获取某个bot信息
     @classmethod
@@ -134,7 +141,7 @@ class Bot(Model):
         rows = await cls.filter(eop_id=eop_id).values_list(
             "handle", "bot_id", "display_name", "prompt"
         )
-        return rows[0] #type: ignore
+        return rows[0]  # type: ignore
 
     # 获取某个bot的bot id
     @classmethod

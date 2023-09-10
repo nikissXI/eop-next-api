@@ -13,6 +13,7 @@ from .type import *
 from .util import (
     GQL_URL,
     SETTING_URL,
+    BOT_IMAGE_LINK_CACHE,
     base64_decode,
     base64_encode,
     generate_data,
@@ -87,7 +88,8 @@ class Poe_Client:
                 )
         logger.info(text)
 
-        await self.get_offical_models()
+        # 获取官方模型
+        await self.cache_offical_models()
 
         # 取消之前的ws连接
         if self.ws_client_task:
@@ -117,7 +119,7 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def explore_bot(self, category: str) -> list[str]:
+    async def explore_bot(self, category: str) -> tuple[list[str], str]:
         """
         获取某个会话的历史记录
 
@@ -135,19 +137,34 @@ class Poe_Client:
                     "cursor": next_cursor,
                 },
             )
-            # with open("result.json", "w", encoding="utf-8") as w:
-            #     dump(result, w)
             data = result["data"]["exploreBotsConnection"]
             handle_list.extend([m["node"]["handle"] for m in data["edges"]])
+
+            # for m in data["edges"]:
+            #     handle: str = m["node"]["handle"]
+            #     bot_id: int = m["node"]["botId"]
+            #     description: str = m["node"]["description"]
+            #     if m["node"]["image"]["__typename"] == "UrlBotImage":
+            #         image_link: str = m["node"]["image"]["url"]
+            #     elif handle in BOT_IMAGE_LINK_CACHE:
+            #         image_link = BOT_IMAGE_LINK_CACHE[handle]
+            #     else:
+            #         raise Exception("image_link不存在")
 
             if data["pageInfo"]["hasNextPage"]:
                 next_cursor: str = data["pageInfo"]["endCursor"]
             else:
+                next_cursor = "-1"
+
+            # 如果获取官方模型信息就拉全部（因为数量有限）
+            if category == "Official" and data["pageInfo"]["hasNextPage"]:
+                continue
+            else:
                 break
 
-        return handle_list
+        return handle_list, next_cursor
 
-    async def get_offical_models(self):
+    async def cache_offical_models(self):
         """
         缓存官方模型信息
         """
@@ -173,9 +190,8 @@ class Poe_Client:
             ]
 
             # 获取详细信息
-            handle_list = await self.explore_bot("Official")
-            task_list = []
-            task_list = [self.get_offical_bot_info(handle) for handle in handle_list]
+            handle_list, _ = await self.explore_bot("Official")
+            task_list = [self.cache_offical_bot_info(handle) for handle in handle_list]
             await gather(*task_list)
 
             # 标记可创建自定义bot的模型
@@ -189,9 +205,9 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def get_offical_bot_info(self, handle: str):
+    async def cache_offical_bot_info(self, handle: str):
         """
-        获取bot详细信息
+        缓存官方bot详细信息
         """
         try:
             result = await self.send_query(
@@ -207,6 +223,34 @@ class Poe_Client:
                 limited=False if info["limitedAccessType"] == "no_limit" else True,
                 bot_id=info["botId"],
             )
+        except Exception as e:
+            raise e
+
+    async def get_bot_info(self, handle: str) -> dict:
+        """
+        获取bot详细信息
+        """
+        try:
+            result = await self.send_query(
+                "HandleBotLandingPageQuery",
+                {"botHandle": handle},
+            )
+            info: dict = result["data"]["bot"]
+
+            if info["image"]["__typename"] == "UrlBotImage":
+                image_link = info["image"]["url"]
+            elif handle in BOT_IMAGE_LINK_CACHE:
+                image_link = BOT_IMAGE_LINK_CACHE[handle]
+            else:
+                image_link = ""
+
+            bot_info = {
+                "bot_id": info["botId"],
+                "handle": info["nickname"],
+                "displayName": info["displayName"],
+                "image_link": image_link,
+            }
+            return bot_info
         except Exception as e:
             raise e
 
