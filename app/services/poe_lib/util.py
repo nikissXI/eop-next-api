@@ -8,9 +8,10 @@ from base64 import b64encode, b64decode
 
 QUERIES = {
     "exploreBotsIndexPageQuery": "b6b0fb768c7727b57f4cb51489a3850ded36d1b96e27c1346f04171db0b2cf25",  #
+    "ExploreBotsListPaginationQuery": "983be13fda71b7926b77f461ae7e8925c4e696cdd578fbfd42cb0d14103993ac",  #
     "createBotIndexPageQuery": "3925692460e7c12565a722f1f934620ff5190c6023b80c86c7529159953ef73c",  #
-    "HandleBotLandingPageQuery": "9f8049fbcbd162ac0121cee1014290c81671673fa2466b4ebd14e33c4f8e155f",  #
-    "sendMessageMutation": "730c8c00e4b18909c7a6695447e47cbc895f1f65a438cdbacca626d64d17d035",  #
+    "HandleBotLandingPageQuery": "9f8049fbcbd162ac0121cee1014290c81671673fa2466b4ebd14e33c4f8e155f",  # 
+    "sendMessageMutation": "d5be9015e04fe40923c598bc44b4849eee161e284b243cad6de48eaf5f0f6e22",  #
     "sendChatBreakMutation": "f392431130dd344ef7ca7409699ebb312a12f581a046a403f26c2657101f7fce",  #
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  #
     "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9",  #

@@ -11,7 +11,7 @@ class Bot(Model):
     bot_id = fields.IntField()
     chat_id = fields.IntField()
     user = fields.TextField()
-    model = fields.TextField()
+    display_name = fields.TextField()
     alias = fields.TextField()
     prompt = fields.TextField()
     create_time = fields.IntField()
@@ -36,7 +36,7 @@ class Bot(Model):
         handle: str,
         bot_id: int,
         user: str,
-        model: str,
+        display_name: str,
         alias: str,
         prompt: str,
     ) -> str:
@@ -53,7 +53,7 @@ class Bot(Model):
             bot_id=bot_id,
             chat_id=0,
             user=user,
-            model=model,
+            display_name=display_name,
             alias=alias,
             prompt=prompt,
             create_time=current_timestamp,
@@ -65,15 +65,15 @@ class Bot(Model):
     @classmethod
     async def get_user_bots(cls, user: str) -> list[dict]:
         rows = await cls.filter(user=user).values_list(
-            "eop_id", "alias", "model", "prompt", "create_time", "last_talk_time"
+            "eop_id", "alias", "display_name", "prompt", "create_time", "last_talk_time"
         )
         data = []
-        for eop_id, alias, model, prompt, create_time, last_talk_time in rows:
+        for eop_id, alias, display_name, prompt, create_time, last_talk_time in rows:
             data.append(
                 {
                     "eop_id": eop_id,
                     "alias": alias,
-                    "model": model,
+                    "model": display_name,
                     "prompt": prompt,
                     "create_time": create_time,
                     "last_talk_time": last_talk_time,
@@ -86,7 +86,7 @@ class Bot(Model):
     async def pre_remove_user_bots(cls, user: str) -> list[tuple[str, bool, int, int]]:
         return await cls.filter(user=user).values_list(
             "eop_id", "diy", "bot_id", "chat_id"
-        )
+        )  #type: ignore
 
     # 删除某个用户相关bot
     @classmethod
@@ -113,18 +113,18 @@ class Bot(Model):
     async def modify_bot(
         cls,
         eop_id: str,
-        model: str | None = None,
+        display_name: str | None = None,
         alias: str | None = None,
         prompt: str | None = None,
     ):
         # 拉取旧数据
-        rows = await cls.filter(eop_id=eop_id).values_list("model", "alias", "prompt")
+        rows = await cls.filter(eop_id=eop_id).values_list("display_name", "alias", "prompt")
 
-        model = model or rows[0][0]
+        display_name = display_name or rows[0][0]
         alias = alias or rows[0][1]
         prompt = prompt or rows[0][2]
 
-        await cls.filter(eop_id=eop_id).update(model=model, alias=alias, prompt=prompt)
+        await cls.filter(eop_id=eop_id).update(display_name=display_name, alias=alias, prompt=prompt)
 
     # 获取某个bot信息
     @classmethod
@@ -132,9 +132,9 @@ class Bot(Model):
         cls, eop_id: str
     ) -> tuple[str, int, str, str]:
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "handle", "bot_id", "model", "prompt"
+            "handle", "bot_id", "display_name", "prompt"
         )
-        return rows[0]
+        return rows[0] #type: ignore
 
     # 获取某个bot的bot id
     @classmethod

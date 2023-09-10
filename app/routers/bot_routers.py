@@ -94,8 +94,16 @@ router = APIRouter()
 async def _(
     _: dict = Depends(verify_token),
 ):
+    handle_list = await poe.client.explore_bot("Official")
+    for h in handle_list:
+        if h not in poe.client.offical_models:
+            try:
+                await poe.client.get_offical_bot_info(h)
+            except Exception as e:
+                return handle_exception(str(e))
+
     data = []
-    for model, info in poe.client.models.items():
+    for model, info in poe.client.offical_models.items():
         data.append(
             {
                 "model": model,
@@ -104,9 +112,7 @@ async def _(
                 "limited": info.limited,
             }
         )
-    return JSONResponse(
-        {"available_models": data}, 200
-    )
+    return JSONResponse({"available_models": data}, 200)
 
 
 @router.get(
@@ -184,20 +190,22 @@ async def _(
         expire_date = await User.get_expire_date(user)
         raise UserOutdate(expire_date)
 
-    if body.model not in poe.client.models:
+    if body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
 
-    can_diy = poe.client.models[body.model].diy
+    can_diy = poe.client.offical_models[body.model].diy
 
     try:
         # 如果是自定义prompt需要创建新的bot
         if can_diy and body.prompt:
-            handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
+            handle, bot_id = await poe.client.create_bot(
+                poe.client.offical_models[body.model].model, body.prompt
+            )
             can_diy = True
         else:
             handle, bot_id = (
-                poe.client.models[body.model].model,
-                poe.client.models[body.model].bot_id,
+                poe.client.offical_models[body.model].model,
+                poe.client.offical_models[body.model].bot_id,
             )
             can_diy = False
 
@@ -516,7 +524,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    if body.model and body.model not in poe.client.models:
+    if body.model and body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
 
     # 更新缓存
@@ -533,7 +541,7 @@ async def _(
             await poe.client.edit_bot(
                 handle,
                 bot_id,
-                body.model or _model,
+                poe.client.offical_models[body.model or _model].model,
                 body.prompt or _prompt,
             )
         except Exception as e:

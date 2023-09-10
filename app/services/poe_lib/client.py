@@ -35,7 +35,8 @@ class Poe_Client:
         self.p_b = p_b
         self.sdid = ""
         self.user_info = UserInfo()
-        self.models: dict[str, ModelInfo] = {}
+        self.offical_models: dict[str, ModelInfo] = {}
+        self.category_list: list[str] = []
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
             "Accept": "*/*",
@@ -116,11 +117,51 @@ class Poe_Client:
         except Exception as e:
             raise e
 
+    async def explore_bot(self, category: str) -> list[str]:
+        """
+        获取某个会话的历史记录
+
+        参数:
+        - category 类别名称
+        """
+        handle_list = []
+        next_cursor = "0"
+        while True:
+            result = await self.send_query(
+                "ExploreBotsListPaginationQuery",
+                {
+                    "categoryName": category,
+                    "count": 25,
+                    "cursor": next_cursor,
+                },
+            )
+            # with open("result.json", "w", encoding="utf-8") as w:
+            #     dump(result, w)
+            data = result["data"]["exploreBotsConnection"]
+            handle_list.extend([m["node"]["handle"] for m in data["edges"]])
+
+            if data["pageInfo"]["hasNextPage"]:
+                next_cursor: str = data["pageInfo"]["endCursor"]
+            else:
+                break
+
+        return handle_list
+
     async def get_offical_models(self):
         """
-        获取官方模型信息
+        缓存官方模型信息
         """
         try:
+            # 获取category可选项
+            result = await self.send_query(
+                "exploreBotsIndexPageQuery",
+                {"categoryName": "Official"},
+            )
+
+            self.category_list = [
+                c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
+            ]
+
             # 获取支持diy（create bot）的模型
             result = await self.send_query(
                 "createBotIndexPageQuery",
@@ -130,32 +171,25 @@ class Poe_Client:
                 _["displayName"]
                 for _ in result["data"]["viewer"]["botsAllowedForUserCreation"]
             ]
-            # 获取官方模型
-            result = await self.send_query(
-                "exploreBotsIndexPageQuery",
-                {"categoryName": "Official"},
-            )
-            task_list = [
-                self.get_bot_info(
-                    m["node"]["handle"], m["node"]["handle"] in diy_model_list
-                )
-                for m in result["data"]["exploreBotsConnection"]["edges"]
-            ]
+
+            # 获取详细信息
+            handle_list = await self.explore_bot("Official")
+            task_list = []
+            task_list = [self.get_offical_bot_info(handle) for handle in handle_list]
             await gather(*task_list)
 
-            # 排序
-            tmp_dict = {}
-            sorted_keys = sorted(self.models.keys())
-            for k in sorted_keys:
-                tmp_dict[k] = self.models[k]
-            self.models.clear()
-            self.models = tmp_dict
+            # 标记可创建自定义bot的模型
+            for m in diy_model_list:
+                self.offical_models[m].diy = True
 
-            logger.info(f"已加载{len(self.models)}个官方模型：" + "、".join(self.models.keys()))
+            logger.info(
+                f"已加载{len(self.offical_models)}个官方模型："
+                + "、".join(self.offical_models.keys())
+            )
         except Exception as e:
             raise e
 
-    async def get_bot_info(self, handle: str, diy: bool):
+    async def get_offical_bot_info(self, handle: str):
         """
         获取bot详细信息
         """
@@ -166,10 +200,10 @@ class Poe_Client:
             )
 
             info: dict = result["data"]["bot"]
-            self.models[info["displayName"]] = ModelInfo(
+            self.offical_models[info["displayName"]] = ModelInfo(
                 model=info["model"],
                 description=info["description"],
-                diy=diy,
+                diy=False,
                 limited=False if info["limitedAccessType"] == "no_limit" else True,
                 bot_id=info["botId"],
             )
@@ -277,7 +311,7 @@ class Poe_Client:
                 {
                     "handle": handle,
                     "prompt": prompt,
-                    "model": self.models[model].model,
+                    "model": model,
                     "hasSuggestedReplies": False,
                     "displayName": None,
                     "isPromptPublic": True,
@@ -289,7 +323,7 @@ class Poe_Client:
                     "isApiBot": False,
                     "hasLinkification": False,
                     "hasMarkdownRendering": True,
-                    "isPrivateBot": False,
+                    "isPrivateBot": True,
                     "temperature": None,
                 },
             )
@@ -614,7 +648,7 @@ class Poe_Client:
             "EditBotMain_poeBotEdit_Mutation",
             {
                 "prompt": prompt,
-                "baseBot": self.models[model].model,
+                "baseBot": model,
                 "botId": bot_id,
                 "handle": handle,
                 "displayName": handle,
@@ -627,7 +661,7 @@ class Poe_Client:
                 "hasLinkification": False,
                 "hasMarkdownRendering": True,
                 "hasSuggestedReplies": False,
-                "isPrivateBot": False,
+                "isPrivateBot": True,
                 "temperature": None,
             },
         )
