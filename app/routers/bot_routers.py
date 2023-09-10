@@ -368,7 +368,8 @@ async def _(
     try:
         if await Bot.bot_can_diy(eop_id):
             handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
-            await poe.client.delete_chat_by_chat_id(handle, chat_id)
+            if chat_id:
+                await poe.client.delete_chat_by_chat_id(handle, chat_id)
             await poe.client.delete_bot(handle, bot_id)
 
         else:
