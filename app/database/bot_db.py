@@ -68,16 +68,31 @@ class Bot(Model):
     @classmethod
     async def get_user_bots(cls, user: str) -> list[dict]:
         rows = await cls.filter(user=user).values_list(
-            "eop_id", "alias", "display_name", "prompt", "create_time", "last_talk_time"
+            "eop_id",
+            "alias",
+            "display_name",
+            "prompt",
+            "image_link",
+            "create_time",
+            "last_talk_time",
         )
         data = []
-        for eop_id, alias, display_name, prompt, create_time, last_talk_time in rows:
+        for (
+            eop_id,
+            alias,
+            display_name,
+            prompt,
+            image_link,
+            create_time,
+            last_talk_time,
+        ) in rows:
             data.append(
                 {
                     "eop_id": eop_id,
                     "alias": alias,
                     "model": display_name,
                     "prompt": prompt,
+                    "image": image_link,
                     "create_time": create_time,
                     "last_talk_time": last_talk_time,
                 }
