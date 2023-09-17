@@ -223,6 +223,7 @@ async def _(
             body.prompt,
             image_link,
         )
+        user_logger.info(f"用户:{user}  动作:创建会话  eop_id:{eop_id}  handle:{handle}")
         return JSONResponse({"eop_id": eop_id}, 200)
 
     except Exception as e:
@@ -261,6 +262,7 @@ async def _(
     handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
 
     async def ai_reply():
+        nonlocal chat_id
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 次数上限，有效性待测试
             if isinstance(data, ReachedLimit):
@@ -271,7 +273,9 @@ async def _(
                 ).read()
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
-                await Bot.update_bot_chat_id(eop_id, data.chat_id)
+                chat_id = data.chat_id
+                user_logger.info(f"用户:{user}  动作:新会话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
+                await Bot.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgId):
                 await Bot.update_bot_last_talk_time(eop_id, data.answer_create_time)
@@ -300,9 +304,11 @@ async def _(
                 ).read()
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
+                user_logger.info(f"用户:{user}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
+                user_logger.error(f"用户:{user}  动作:回答出错  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
                 yield BytesIO(
@@ -338,6 +344,7 @@ async def _(
 
     try:
         await poe.client.talk_stop(handle, chat_id)
+        user_logger.info(f"用户:{user}  动作:停止回答  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
         return Response(status_code=204)
 
     except Exception as e:
@@ -381,6 +388,7 @@ async def _(
         return handle_exception(str(e))
 
     await Bot.delete_bot(eop_id)
+    user_logger.info(f"用户:{user}  动作:删除会话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
     return Response(status_code=204)
 
 
@@ -408,6 +416,7 @@ async def _(
 
     try:
         await poe.client.send_chat_break(handle, chat_id)
+        user_logger.info(f"用户:{user}  动作:重置对话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
         return Response(status_code=204)
 
     except Exception as e:
@@ -439,6 +448,7 @@ async def _(
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
         await Bot.update_bot_chat_id(eop_id)
+        user_logger.info(f"用户:{user}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}")
         return Response(status_code=204)
 
     except Exception as e:
@@ -558,7 +568,7 @@ async def _(
             )
         except Exception as e:
             return handle_exception(str(e))
-
+        
     return Response(status_code=204)
 
 

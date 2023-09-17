@@ -529,7 +529,7 @@ class Poe_Client:
                     await self.handle_ws_data(loads(data))
 
                 except TimeoutError:
-                    logger.info("TimeoutError")
+                    # logger.info("TimeoutError")
                     create_task(self.refresh_channel(get_new_channel=False))
                     break
 
@@ -538,6 +538,7 @@ class Poe_Client:
                     logger.error(f"ws channel连接出错：{repr(e)}")
                     with open("error.json", "a") as a:
                         a.write(str(data) + "\n")  # type: ignore
+                    create_task(self.refresh_channel(get_new_channel=True))
                     break
 
     async def talk_to_bot(
@@ -595,12 +596,15 @@ class Poe_Client:
         retry = 10
         while retry >= 0:
             if not chat_id:
-                await sleep(0.5)
+                await sleep(1)
                 if self.get_chat_code[question_md5]:
                     chat_id = self.get_chat_code[question_md5]
                     self.get_chat_code.pop(question_md5)
                     yield NewChat(chat_id=chat_id)
                     retry = 10
+
+                    if chat_id not in self.ws_data_queue:
+                        self.ws_data_queue[chat_id] = Queue()
                 else:
                     retry -= 1
                 continue
