@@ -658,7 +658,10 @@ class Poe_Client:
                 continue
 
             # 完成回复
-            if quene_data.get("state") == "complete":
+            if (
+                quene_data.get("state") == "complete"
+                or quene_data.get("state") == "cancelled"
+            ):
                 yield Text(content=plain_text[last_text_len:])
                 yield End()
                 return

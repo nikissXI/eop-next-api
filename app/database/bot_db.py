@@ -66,17 +66,28 @@ class Bot(Model):
 
     # 获取某个用户的所有bot
     @classmethod
-    async def get_user_bots(cls, user: str) -> list[dict]:
-        rows = await cls.filter(user=user).values_list(
-            "eop_id",
-            "alias",
-            "display_name",
-            "prompt",
-            "image_link",
-            "create_time",
-            "last_talk_time",
-        )
+    async def get_user_bot(cls, user: str, eop_id: str | None=None) -> list[dict]:
         data = []
+        if eop_id:
+            rows = await cls.filter(user=user, eop_id=eop_id).values_list(
+                "eop_id",
+                "alias",
+                "display_name",
+                "prompt",
+                "image_link",
+                "create_time",
+                "last_talk_time",
+            )
+        else:
+            rows = await cls.filter(user=user).values_list(
+                "eop_id",
+                "alias",
+                "display_name",
+                "prompt",
+                "image_link",
+                "create_time",
+                "last_talk_time",
+            )
         for (
             eop_id,
             alias,

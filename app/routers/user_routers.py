@@ -72,7 +72,7 @@ async def _(
 )
 async def _(user_data: dict = Depends(verify_token)):
     user = user_data["user"]
-    botList = await Bot.get_user_bots(user)
+    botList = await Bot.get_user_bot(user)
     return JSONResponse({"bots": botList}, 200)
 
 
