@@ -6,7 +6,7 @@ from time import time
 class User(Model):
     user = fields.TextField(pk=True)
     passwd = fields.TextField()
-    admin = fields.BooleanField()
+    level = fields.IntField()
     expire_date = fields.IntField()
 
     @classmethod
@@ -15,14 +15,14 @@ class User(Model):
             await cls.create(
                 user="nikiss",
                 passwd="f303aabb3a5bd6a547e3fdbf664bc7e093db187339048c74a0b19f8ebab42d3c",  # 明文nikiss，生产环境记得修改
+                level=0,
                 expire_date=4070880000000,
-                admin=True,
             )
 
     # 创建用户
     @classmethod
-    async def create_user(cls, user: str, passwd: str, expire_date: int, admin: bool):
-        await cls.create(user=user, passwd=passwd, expire_date=expire_date, admin=admin)
+    async def create_user(cls, user: str, passwd: str, expire_date: int, level: int):
+        await cls.create(user=user, passwd=passwd, expire_date=expire_date, level=level)
 
     # 删除用户
     @classmethod
@@ -51,14 +51,19 @@ class User(Model):
 
     # 列出所有用户名
     @classmethod
-    async def list_user(cls) -> list[tuple[str, int, bool]]:
-        return await cls.filter().values_list("user", "expire_date", "admin") # type: ignore
+    async def list_user(cls) -> list[tuple[str, int, int]]:
+        return await cls.filter().values_list("user", "level", "expire_date")  # type: ignore
 
     # 判断是否为管理员
     @classmethod
-    async def is_admin(cls, user: str) -> bool:
-        rows = await cls.filter(user=user).values_list("admin")
+    async def get_level(cls, user: str) -> int:
+        rows = await cls.filter(user=user).values_list("level")
         return rows[0][0]
+
+    # 更改用户级别
+    @classmethod
+    async def update_level(cls, user: str, level: int):
+        await cls.filter(user=user).update(level=level)
 
     # 判断是否过期
     @classmethod

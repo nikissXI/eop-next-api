@@ -39,7 +39,8 @@ async def verify_admin(
     token = credentials.credentials
     try:
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if not await User.is_admin(jwt_data["user"]):
+        level = await User.get_level(jwt_data["user"])
+        if level != 0:
             raise AuthFailed("权限不足")
         return jwt_data
 

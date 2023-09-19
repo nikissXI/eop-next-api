@@ -23,10 +23,12 @@ class AddUserBody(BaseModel):
     passwd: str = Field(
         description="密码",
     )
-    expire_date: int = Field(
-        description="过期日期，格式13位整数时间戳",
+    level: int = Field(
+        description="用户等级：0是管理员，1是普通用户，2是高级用户",
     )
-    admin: bool = Field(description="是否为管理员")
+    expire_date: int = Field(
+        description="过期日期，格式13位整数时间戳，如果创建的是管理员该字段无效",
+    )
 
 
 class RenewUserBody(BaseModel):

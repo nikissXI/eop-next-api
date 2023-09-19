@@ -85,7 +85,7 @@ async def _(user_data: dict = Depends(verify_token)):
             "content": {
                 "application/json": {
                     "example": {
-                        "is_admin": False,
+                        "level": 1,
                         "expire_date": 4070880000000,
                     }
                 }
@@ -95,13 +95,10 @@ async def _(user_data: dict = Depends(verify_token)):
 )
 async def _(user_data: dict = Depends(verify_token)):
     user = user_data["user"]
-    is_admin = False
-    if await User.is_admin(user):
-        is_admin = True
-
+    level =  await User.get_level(user)
     expire_date = await User.get_expire_date(user)
 
-    return JSONResponse({"is_admin": is_admin, "expire_date": expire_date}, 200)
+    return JSONResponse({"level": level, "expire_date": expire_date}, 200)
 
 
 @router.put(

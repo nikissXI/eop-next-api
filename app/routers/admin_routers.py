@@ -35,8 +35,8 @@ async def _(
         example={
             "user": "username",
             "passwd": "hashed_password",
+            "level": 1,
             "expire_date": 1693230928703,
-            "admin": False,
         },
     ),
     _: dict = Depends(verify_admin),
@@ -44,7 +44,12 @@ async def _(
     if await User.user_exist(body.user):
         return JSONResponse({"code": 2004, "msg": f"用户【{body.user}】已存在"}, 402)
 
-    await User.create_user(body.user, body.passwd, body.expire_date, body.admin)
+    await User.create_user(
+        body.user,
+        body.passwd,
+        body.level,
+        4070880000000 if body.level == 0 else body.expire_date,
+    )
     return Response(status_code=204)
 
 
@@ -169,13 +174,13 @@ async def _(_: dict = Depends(verify_admin)):
                         "users": [
                             {
                                 "user": "user_A",
-                                "expire_date": "1693230928703",
-                                "admin": True,
+                                "level": 0,
+                                "expire_date": 4070880000000,
                             },
                             {
                                 "user": "user_B",
-                                "expire_date": "1693230928703",
-                                "admin": False,
+                                "level": 1,
+                                "expire_date": 1693230928703,
                             },
                         ]
                     }
@@ -187,8 +192,8 @@ async def _(_: dict = Depends(verify_admin)):
 async def _(_: dict = Depends(verify_admin)):
     rows = await User.list_user()
     data = []
-    for user, expire_date, admin in rows:
-        data.append({"user": user, "expire_date": expire_date, "admin": admin})
+    for user, level, expire_date in rows:
+        data.append({"user": user, "level": level, "expire_date": expire_date})
     return JSONResponse({"users": data}, 200)
 
 
@@ -242,4 +247,26 @@ async def _(
     proxy = body.proxy if body.proxy else _proxy
 
     await Config.update_setting(p_b, formkey, proxy)
+    return Response(status_code=204)
+
+
+@router.patch(
+    "/{user}/level/{level}",
+    summary="修改用户级别",
+    responses={
+        200: {
+            "description": "无相关响应",
+        },
+        204: {
+            "description": "修改成功",
+        },
+    },
+)
+async def _(
+    user: str = Path(description="用户名", example="username"),
+    level: int = Path(description="级别", example="1"),
+    _: dict = Depends(verify_admin),
+):
+    await check_user_exist(user)
+    await User.update_level(user, level)
     return Response(status_code=204)
