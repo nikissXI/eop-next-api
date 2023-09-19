@@ -232,7 +232,7 @@ async def _(
             image_link,
         )
         user_logger.info(f"用户:{user}  动作:创建会话  eop_id:{eop_id}  handle:{handle}")
-        bot_info = await Bot.get_user_bot(user)
+        bot_info = await Bot.get_user_bot(user, eop_id=eop_id)
         return JSONResponse({"bot_info": bot_info[0]}, 200)
 
     except Exception as e:
