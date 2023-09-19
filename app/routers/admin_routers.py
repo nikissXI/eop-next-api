@@ -92,7 +92,7 @@ async def _(
 
 @router.patch(
     "/{user}/renew",
-    summary="更新用户的过期日期",
+    summary="更新用户的级别和过期日期",
     responses={
         200: {
             "description": "无相关响应",
@@ -106,6 +106,7 @@ async def _(
     user: str = Path(description="用户名", example="username"),
     body: RenewUserBody = Body(
         example={
+            "level": 1,
             "expire_date": 1693230928703,
         }
     ),
@@ -113,7 +114,7 @@ async def _(
 ):
     await check_user_exist(user)
 
-    await User.update_expire_date(user, body.expire_date)
+    await User.update_info(user, body.level, body.expire_date)
 
     return Response(status_code=204)
 
@@ -246,26 +247,4 @@ async def _(
     proxy = body.proxy if body.proxy else _proxy
 
     await Config.update_setting(p_b, formkey, proxy)
-    return Response(status_code=204)
-
-
-@router.patch(
-    "/{user}/level/{level}",
-    summary="修改用户级别",
-    responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "修改成功",
-        },
-    },
-)
-async def _(
-    user: str = Path(description="用户名", example="username"),
-    level: int = Path(description="级别", example="1"),
-    _: dict = Depends(verify_admin),
-):
-    await check_user_exist(user)
-    await User.update_level(user, level)
     return Response(status_code=204)

@@ -32,6 +32,9 @@ class AddUserBody(BaseModel):
 
 
 class RenewUserBody(BaseModel):
+    level: int = Field(
+        description="用户级别，0是管理员，1是普通用户，2是高级用户",
+    )
     expire_date: int = Field(
         description="过期日期，格式13位整数时间戳",
     )

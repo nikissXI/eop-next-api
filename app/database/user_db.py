@@ -36,8 +36,8 @@ class User(Model):
 
     # 更新到期时间
     @classmethod
-    async def update_expire_date(cls, user: str, expire_date: int):
-        await cls.filter(user=user).update(expire_date=expire_date)
+    async def update_info(cls, user: str, level: int, expire_date: int):
+        await cls.filter(user=user).update(level=level, expire_date=expire_date)
 
     # 用户是否存在
     @classmethod
@@ -59,11 +59,6 @@ class User(Model):
     async def get_level(cls, user: str) -> int:
         rows = await cls.filter(user=user).values_list("level")
         return rows[0][0]
-
-    # 更改用户级别
-    @classmethod
-    async def update_level(cls, user: str, level: int):
-        await cls.filter(user=user).update(level=level)
 
     # 判断是否过期
     @classmethod
