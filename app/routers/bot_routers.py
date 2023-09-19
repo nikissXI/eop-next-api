@@ -231,8 +231,10 @@ async def _(
             body.prompt,
             image_link,
         )
-        user_logger.info(f"用户:{user}  动作:创建会话  eop_id:{eop_id}  handle:{handle}")
-        bot_info = await Bot.get_user_bot(user)
+        user_logger.info(
+            f"用户:{user}  动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
+        )
+        bot_info = await Bot.get_user_bot(user, eop_id=eop_id)
         return JSONResponse({"bot_info": bot_info[0]}, 200)
 
     except Exception as e:
@@ -268,7 +270,7 @@ async def _(
 
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
 
     async def ai_reply():
         nonlocal chat_id
@@ -284,7 +286,7 @@ async def _(
             if isinstance(data, NewChat):
                 chat_id = data.chat_id
                 user_logger.info(
-                    f"用户:{user}  动作:新会话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+                    f"用户:{user}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 await Bot.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
@@ -316,13 +318,13 @@ async def _(
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
                 user_logger.info(
-                    f"用户:{user}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+                    f"用户:{user}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
                 user_logger.error(
-                    f"用户:{user}  动作:回答出错  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+                    f"用户:{user}  动作:回答出错  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
@@ -354,13 +356,13 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.talk_stop(handle, chat_id)
         user_logger.info(
-            f"用户:{user}  动作:停止回答  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+            f"用户:{user}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -387,26 +389,23 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
 
     try:
         if await Bot.bot_can_diy(eop_id):
-            handle, bot_id = await Bot.get_handle_and_bot_id(eop_id)
             if chat_id:
                 await poe.client.delete_chat_by_chat_id(handle, chat_id)
             await poe.client.delete_bot(handle, bot_id)
 
-        else:
-            handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
-            if chat_id:
-                await poe.client.delete_chat_by_chat_id(handle, chat_id)
+        elif chat_id:
+            await poe.client.delete_chat_by_chat_id(handle, chat_id)
 
     except Exception as e:
         return handle_exception(str(e))
 
     await Bot.delete_bot(eop_id)
     user_logger.info(
-        f"用户:{user}  动作:删除会话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+        f"用户:{user}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
     )
     return Response(status_code=204)
 
@@ -430,13 +429,13 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.send_chat_break(handle, chat_id)
         user_logger.info(
-            f"用户:{user}  动作:重置对话  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+            f"用户:{user}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -463,14 +462,14 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
         await Bot.update_bot_chat_id(eop_id)
         user_logger.info(
-            f"用户:{user}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}  chat_id:{chat_id}"
+            f"用户:{user}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -516,7 +515,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
     if not chat_id:
         return JSONResponse(
             {

@@ -169,22 +169,22 @@ class Bot(Model):
         )
         return rows[0]  # type: ignore
 
-    # 获取某个bot的bot id
+    # 获取某个bot的handle、display name、bot id、chat id
     @classmethod
-    async def get_handle_and_bot_id(cls, eop_id: str) -> tuple[str, int]:
-        rows = await cls.filter(eop_id=eop_id).values_list("handle", "bot_id")
-        return rows[0][0], rows[0][1]
+    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int]:
+        rows = await cls.filter(eop_id=eop_id).values_list("handle", "display_name","bot_id","chat_id")
+        return rows[0][0], rows[0][1], rows[0][2], rows[0][3]
 
     # 更新某个bot的chat code和chat id
     @classmethod
     async def update_bot_chat_id(cls, eop_id: str, chat_id: int = 0):
         await cls.filter(eop_id=eop_id).update(chat_id=chat_id)
 
-    # 获取某个bot的chat id
-    @classmethod
-    async def get_bot_handle_and_chat_id(cls, eop_id: str) -> tuple[str, int]:
-        rows = await cls.filter(eop_id=eop_id).values_list("handle", "chat_id")
-        return rows[0][0], rows[0][1]
+    # # 获取某个bot的chat id
+    # @classmethod
+    # async def get_bot_handle_and_chat_id(cls, eop_id: str) -> tuple[str, int]:
+    #     rows = await cls.filter(eop_id=eop_id).values_list("handle", "chat_id")
+    #     return rows[0][0], rows[0][1]
 
     # 列出所有bot id
     @classmethod

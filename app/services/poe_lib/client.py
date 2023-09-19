@@ -198,10 +198,7 @@ class Poe_Client:
             for m in diy_model_list:
                 self.offical_models[m].diy = True
 
-            logger.info(
-                f"已加载{len(self.offical_models)}个官方模型："
-                + "、".join(self.offical_models.keys())
-            )
+            logger.info(f"当前发现{len(handle_list)}个官方模型：" + "、".join(handle_list))
         except Exception as e:
             raise e
 
