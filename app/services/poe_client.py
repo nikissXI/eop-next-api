@@ -14,7 +14,15 @@ async def login_poe(
     p_b: str | None = None, formkey: str | None = None, proxy: str | None = None
 ) -> JSONResponse | Response:
     if not (p_b and formkey and proxy):
-        p_b, formkey, proxy = await Config.get_setting()
+        (
+            p_b,
+            formkey,
+            proxy,
+            _,
+            _,
+            _,
+            _,
+        ) = await Config.get_setting()
     if proxy:
         logger.info(f"使用代理连接Poe {proxy}")
     else:

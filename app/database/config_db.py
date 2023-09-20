@@ -12,19 +12,44 @@ class Config(Model):
             await cls.create(key="p_b", value="")
             await cls.create(key="formkey", value="")
             await cls.create(key="proxy", value="")
+            await cls.create(key="telegram_url", value="")
+            await cls.create(key="discord_url", value="")
+            await cls.create(key="weixin_url", value="")
+            await cls.create(key="qq_url", value="")
 
     @classmethod
-    async def get_setting(cls) -> tuple[str, str, str]:
+    async def get_setting(cls) -> tuple[str, str, str, str, str, str, str]:
         rows = await cls.filter(key="p_b").values_list("value")
         p_b = rows[0][0]
         rows = await cls.filter(key="formkey").values_list("value")
         formkey = rows[0][0]
         rows = await cls.filter(key="proxy").values_list("value")
         proxy = rows[0][0]
-        return p_b, formkey, proxy
+        rows = await cls.filter(key="telegram_url").values_list("value")
+        telegram_url = rows[0][0]
+        rows = await cls.filter(key="discord_url").values_list("value")
+        discord_url = rows[0][0]
+        rows = await cls.filter(key="weixin_url").values_list("value")
+        weixin_url = rows[0][0]
+        rows = await cls.filter(key="qq_url").values_list("value")
+        qq_url = rows[0][0]
+        return p_b, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
 
     @classmethod
-    async def update_setting(cls, p_b: str, formkey: str, proxy: str):
+    async def update_setting(
+        cls,
+        p_b: str,
+        formkey: str,
+        proxy: str,
+        telegram_url: str,
+        discord_url: str,
+        weixin_url: str,
+        qq_url: str,
+    ):
         await cls.filter(key="p_b").update(value=p_b)
         await cls.filter(key="formkey").update(value=formkey)
         await cls.filter(key="proxy").update(value=proxy)
+        await cls.filter(key="telegram_url").update(value=telegram_url)
+        await cls.filter(key="discord_url").update(value=discord_url)
+        await cls.filter(key="weixin_url").update(value=weixin_url)
+        await cls.filter(key="qq_url").update(value=qq_url)

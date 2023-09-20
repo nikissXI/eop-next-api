@@ -14,6 +14,22 @@ class UpdateSettingBody(BaseModel):
         default=None,
         description="代理地址，支持http和socks",
     )
+    telegram_url: str = Field(
+        default=None,
+        description="telegram群链接",
+    )
+    discord_url: str = Field(
+        default=None,
+        description="discord群链接",
+    )
+    weixin_url: str = Field(
+        default=None,
+        description="微信群链接",
+    )
+    qq_url: str = Field(
+        default=None,
+        description="QQ群链接",
+    )
 
 
 class AddUserBody(BaseModel):

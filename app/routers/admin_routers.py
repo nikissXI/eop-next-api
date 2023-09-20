@@ -208,14 +208,37 @@ async def _(_: dict = Depends(verify_admin)):
                     "p_b": "p_b值",
                     "formkey": "formkey值",
                     "proxy": "代理地址",
+                    "telegram_url": "telegram群链接",
+                    "discord_url": "discord群链接",
+                    "weixin_url": "微信群链接",
+                    "qq_url": "QQ群链接",
                 }
             },
         },
     },
 )
 async def _(_: dict = Depends(verify_admin)):
-    p_b, formkey, proxy = await Config.get_setting()
-    return JSONResponse({"p_b": p_b, "formkey": formkey, "proxy": proxy}, 200)
+    (
+        p_b,
+        formkey,
+        proxy,
+        telegram_url,
+        discord_url,
+        weixin_url,
+        qq_url,
+    ) = await Config.get_setting()
+    return JSONResponse(
+        {
+            "p_b": p_b,
+            "formkey": formkey,
+            "proxy": proxy,
+            "telegram_url": telegram_url,
+            "discord_url": discord_url,
+            "weixin_url": weixin_url,
+            "qq_url": qq_url,
+        },
+        200,
+    )
 
 
 @router.patch(
@@ -235,16 +258,34 @@ async def _(
         example={
             "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
             "formkey": "2cf072difnsie23f7892divd0380e3f7",
-            "proxy": "",
+            "proxy": "http://xxx",
+            "telegram_url": "https://xxx",
+            "discord_url": "https://xxx",
+            "weixin_url": "https://xxx",
+            "qq_url": "https://xxx",
         }
     ),
     _: dict = Depends(verify_admin),
 ):
-    _p_b, _formkey, _proxy = await Config.get_setting()
+    (
+        _p_b,
+        _formkey,
+        _proxy,
+        _telegram_url,
+        _discord_url,
+        _weixin_url,
+        _qq_url,
+    ) = await Config.get_setting()
 
     p_b = body.p_b if body.p_b else _p_b
     formkey = body.formkey if body.formkey else _formkey
     proxy = body.proxy if body.proxy else _proxy
+    telegram_url = body.telegram_url if body.telegram_url else _telegram_url
+    discord_url = body.discord_url if body.discord_url else _discord_url
+    weixin_url = body.weixin_url if body.weixin_url else _weixin_url
+    qq_url = body.qq_url if body.qq_url else _qq_url
 
-    await Config.update_setting(p_b, formkey, proxy)
+    await Config.update_setting(
+        p_b, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
+    )
     return Response(status_code=204)
