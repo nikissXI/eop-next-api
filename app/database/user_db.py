@@ -4,7 +4,8 @@ from time import time
 
 
 class User(Model):
-    user = fields.TextField(pk=True)
+    uid = fields.IntField(pk=True)
+    user = fields.TextField()
     passwd = fields.TextField()
     level = fields.IntField()
     expire_date = fields.IntField()
@@ -21,53 +22,70 @@ class User(Model):
 
     # 创建用户
     @classmethod
-    async def create_user(cls, user: str, passwd: str, expire_date: int, level: int):
-        await cls.create(user=user, passwd=passwd, expire_date=expire_date, level=level)
+    async def create_user(cls, user: str, passwd: str, level: int, expire_date: int):
+        await cls.create(user=user, passwd=passwd, level=level, expire_date=expire_date)
+
+    # 通过用户名获取用户uid
+    @classmethod
+    async def get_uid(cls, user: str) -> int:
+        rows = await cls.filter(user=user).values_list("uid")
+        return rows[0][0]
 
     # 删除用户
     @classmethod
-    async def remove_user(cls, user: str):
-        await cls.filter(user=user).delete()
+    async def remove_user(cls, uid: int):
+        await cls.filter(uid=uid).delete()
 
     # 修改用户密码
     @classmethod
-    async def update_passwd(cls, user: str, newPasswd: str):
-        await cls.filter(user=user).update(passwd=newPasswd)
+    async def update_passwd(cls, uid: int, newPasswd: str):
+        await cls.filter(uid=uid).update(passwd=newPasswd)
 
     # 更新到期时间
     @classmethod
-    async def update_info(cls, user: str, level: int, expire_date: int):
-        await cls.filter(user=user).update(level=level, expire_date=expire_date)
+    async def update_info(cls, uid: int, level: int, expire_date: int):
+        await cls.filter(uid=uid).update(level=level, expire_date=expire_date)
 
     # 用户是否存在
     @classmethod
-    async def user_exist(cls, user: str) -> bool:
-        return await cls.filter(user=user).exists()
+    async def user_exist(cls, uid_or_user: int | str) -> bool:
+        if isinstance(uid_or_user, int):
+            return await cls.filter(uid=uid_or_user).exists()
+        else:
+            return await cls.filter(user=uid_or_user).exists()
 
     # 认证用户
     @classmethod
-    async def check_user(cls, user: str, passwd: str) -> bool:
+    async def check_user(cls, user: str , passwd: str) -> bool:
         return await cls.filter(user=user, passwd=passwd).exists()
 
     # 列出所有用户名
     @classmethod
-    async def list_user(cls) -> list[tuple[str, int, int]]:
-        return await cls.filter().values_list("user", "level", "expire_date")  # type: ignore
+    async def list_user(cls, uid: int | None = None) -> list[tuple[str, int, int, int]]:
+        if uid:
+            rows = await cls.filter(uid=uid).values_list(
+                "user", "uid", "level", "expire_date"
+            )
+        else:
+            rows = await cls.filter().values_list(
+                "user", "uid", "level", "expire_date"
+            )
+        return rows  # type: ignore
 
     # 判断是否为管理员
     @classmethod
-    async def get_level(cls, user: str) -> int:
-        rows = await cls.filter(user=user).values_list("level")
+    async def get_level(cls, uid: int) -> int:
+        rows = await cls.filter(uid=uid).values_list("level")
         return rows[0][0]
 
     # 判断是否过期
     @classmethod
-    async def is_outdate(cls, user: str) -> bool:
-        rows = await cls.filter(user=user).values_list("expire_date")
+    async def is_outdate(cls, uid: int) -> bool:
+        rows = await cls.filter(uid=uid).values_list("expire_date")
         return rows[0][0] < time() * 1000
 
     # 获取到期时间
     @classmethod
-    async def get_expire_date(cls, user: str) -> int:
-        rows = await cls.filter(user=user).values_list("expire_date")
+    async def get_expire_date(cls, uid: int) -> int:
+        rows = await cls.filter(uid=uid).values_list("expire_date")
         return rows[0][0]

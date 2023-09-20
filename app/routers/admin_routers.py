@@ -6,13 +6,13 @@ from models import *
 
 
 class UserNotExist(Exception):
-    def __init__(self, user: str):
-        self.user = user
+    def __init__(self):
+        pass
 
 
-async def check_user_exist(user: str):
-    if not await User.user_exist(user):
-        raise UserNotExist(user)
+async def check_user_exist(uid: int):
+    if not await User.user_exist(uid):
+        raise UserNotExist()
 
 
 router = APIRouter()
@@ -54,7 +54,7 @@ async def _(
 
 
 @router.delete(
-    "/{user}/delete",
+    "/{uid}/delete",
     summary="删除用户",
     responses={
         200: {
@@ -66,13 +66,13 @@ async def _(
     },
 )
 async def _(
-    user: str = Path(description="用户名", example="username"),
+    uid: int = Path(description="uid", example="1"),
     _: dict = Depends(verify_admin),
 ):
-    await check_user_exist(user)
+    await check_user_exist(uid)
 
     # 先把用户相关bot信息拉取并删除poe上的数据
-    rows = await Bot.pre_remove_user_bots(user)
+    rows = await Bot.pre_remove_user_bots(uid)
     for eop_id, handle, diy, bot_id, chat_id in rows:
         try:
             if chat_id:
@@ -84,14 +84,14 @@ async def _(
         except Exception as e:
             logger.error(f"删除相关bot时出错，错误信息：{e}")
     # 把数据库的相关bot信息删掉
-    await Bot.remove_user_bots(user)
+    await Bot.remove_user_bots(uid)
     # 把用户删掉
-    await User.remove_user(user)
+    await User.remove_user(uid)
     return Response(status_code=204)
 
 
 @router.patch(
-    "/{user}/renew",
+    "/{uid}/renew",
     summary="更新用户的级别和过期日期",
     responses={
         200: {
@@ -103,7 +103,7 @@ async def _(
     },
 )
 async def _(
-    user: str = Path(description="用户名", example="username"),
+    uid: int = Path(description="uid", example="1"),
     body: RenewUserBody = Body(
         example={
             "level": 1,
@@ -112,15 +112,15 @@ async def _(
     ),
     _: dict = Depends(verify_admin),
 ):
-    await check_user_exist(user)
+    await check_user_exist(uid)
 
-    await User.update_info(user, body.level, body.expire_date)
+    await User.update_info(uid, body.level, body.expire_date)
 
     return Response(status_code=204)
 
 
 @router.get(
-    "/{user}/resetPasswd",
+    "/{uid}/resetPasswd",
     summary="重置用户密码为一个新的随机密码",
     responses={
         200: {
@@ -136,13 +136,13 @@ async def _(
     },
 )
 async def _(
-    user: str = Path(description="用户名", example="username"),
+    uid: int = Path(description="uid", example="1"),
     _: dict = Depends(verify_admin),
 ):
-    await check_user_exist(user)
+    await check_user_exist(uid)
 
     passwd, hashed_passwd = generate_random_password()
-    await User.update_passwd(user, hashed_passwd)
+    await User.update_passwd(uid, hashed_passwd)
     return JSONResponse({"passwd": passwd}, 200)
 
 
@@ -174,11 +174,13 @@ async def _(_: dict = Depends(verify_admin)):
                         "users": [
                             {
                                 "user": "user_A",
+                                "uid": 1,
                                 "level": 0,
                                 "expire_date": 4070880000000,
                             },
                             {
                                 "user": "user_B",
+                                "uid": 2,
                                 "level": 1,
                                 "expire_date": 1693230928703,
                             },
@@ -192,8 +194,10 @@ async def _(_: dict = Depends(verify_admin)):
 async def _(_: dict = Depends(verify_admin)):
     rows = await User.list_user()
     data = []
-    for user, level, expire_date in rows:
-        data.append({"user": user, "level": level, "expire_date": expire_date})
+    for user, uid, level, expire_date in rows:
+        data.append(
+            {"user": user, "uid": uid, "level": level, "expire_date": expire_date}
+        )
     return JSONResponse({"users": data}, 200)
 
 

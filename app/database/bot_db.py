@@ -6,11 +6,11 @@ from random import randint
 
 class Bot(Model):
     eop_id = fields.TextField(pk=True)
+    uid = fields.IntField()
     diy = fields.BooleanField()
     handle = fields.TextField()
     bot_id = fields.IntField()
     chat_id = fields.IntField()
-    user = fields.TextField()
     display_name = fields.TextField()
     alias = fields.TextField()
     prompt = fields.TextField()
@@ -27,10 +27,10 @@ class Bot(Model):
     @classmethod
     async def create_bot(
         cls,
+        uid: int,
         diy: bool,
         handle: str,
         bot_id: int,
-        user: str,
         display_name: str,
         alias: str,
         prompt: str,
@@ -44,11 +44,11 @@ class Bot(Model):
         current_timestamp = int(time() * 1000)
         await cls.create(
             eop_id=eop_id,
+            uid=uid,
             diy=diy,
             handle=handle,
             bot_id=bot_id,
             chat_id=0,
-            user=user,
             display_name=display_name,
             alias=alias,
             prompt=prompt,
@@ -60,10 +60,10 @@ class Bot(Model):
 
     # 获取某个用户的所有bot
     @classmethod
-    async def get_user_bot(cls, user: str, eop_id: str | None = None) -> list[dict]:
+    async def get_user_bot(cls, uid: int, eop_id: str | None = None) -> list[dict]:
         data = []
         if eop_id:
-            rows = await cls.filter(user=user, eop_id=eop_id).values_list(
+            rows = await cls.filter(uid=uid, eop_id=eop_id).values_list(
                 "eop_id",
                 "alias",
                 "display_name",
@@ -73,7 +73,7 @@ class Bot(Model):
                 "last_talk_time",
             )
         else:
-            rows = await cls.filter(user=user).values_list(
+            rows = await cls.filter(uid=uid).values_list(
                 "eop_id",
                 "alias",
                 "display_name",
@@ -107,21 +107,21 @@ class Bot(Model):
     # 删除某个用户相关bot前先删掉相关的会话 todo
     @classmethod
     async def pre_remove_user_bots(
-        cls, user: str
+        cls, uid: int
     ) -> list[tuple[str, str, bool, int, int]]:
-        return await cls.filter(user=user).values_list(
+        return await cls.filter(uid=uid).values_list(
             "eop_id", "handle", "diy", "bot_id", "chat_id"
         )  # type: ignore
 
     # 删除某个用户相关bot
     @classmethod
-    async def remove_user_bots(cls, user: str):
-        await cls.filter(user=user).delete()
+    async def remove_user_bots(cls, uid: int):
+        await cls.filter(uid=uid).delete()
 
     # 判断某个bot是否为该用户且存在
     @classmethod
-    async def check_bot_user(cls, eop_id: str, user: str) -> bool:
-        return await cls.filter(eop_id=eop_id, user=user).exists()
+    async def check_bot_user(cls, eop_id: str, uid: int) -> bool:
+        return await cls.filter(eop_id=eop_id, uid=uid).exists()
 
     # 删除某个bot
     @classmethod
@@ -175,12 +175,6 @@ class Bot(Model):
     @classmethod
     async def update_bot_chat_id(cls, eop_id: str, chat_id: int = 0):
         await cls.filter(eop_id=eop_id).update(chat_id=chat_id)
-
-    # # 获取某个bot的chat id
-    # @classmethod
-    # async def get_bot_handle_and_chat_id(cls, eop_id: str) -> tuple[str, int]:
-    #     rows = await cls.filter(eop_id=eop_id).values_list("handle", "chat_id")
-    #     return rows[0][0], rows[0][1]
 
     # 列出所有bot id
     @classmethod

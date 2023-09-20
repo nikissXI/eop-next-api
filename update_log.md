@@ -9,4 +9,9 @@
 
 ## 2023/9/20
 增加用户分级限制，普通用户无法调用限次数的模型
-/admin/updateSetting接口增加群链接的参数
+/admin/updateSetting 接口增加群链接的参数
+
+## 2023/9/21
+/admin/listUser 接口结果字段增加uid
+/admin/{uid}/resetPasswd 接口{user}改为{uid}
+/admin/{uid}/delete 接口{user}改为{uid}

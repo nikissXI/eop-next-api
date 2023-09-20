@@ -48,8 +48,8 @@ def handle_exception(err_msg: str) -> JSONResponse:
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
 
-async def check_bot_hoster(user: str, eop_id: str):
-    if not await Bot.check_bot_user(eop_id, user):
+async def check_bot_hoster(uid: int, eop_id: str):
+    if not await Bot.check_bot_user(eop_id, uid):
         raise BotNotFound()
 
 
@@ -58,11 +58,17 @@ async def check_chat_exist(id: int):
         raise NoChat()
 
 
-async def check_user_level(user: str, model: str):
-    level = await User.get_level(user)
+async def check_user_level(uid: int, model: str):
+    level = await User.get_level(uid)
     info = poe.client.offical_models[model]
     if info.limited and level == 1:
         raise LevelError()
+
+
+async def check_user_outdate(uid: int):
+    if await User.is_outdate(uid):
+        expire_date = await User.get_expire_date(uid)
+        raise UserOutdate(expire_date)
 
 
 router = APIRouter()
@@ -114,7 +120,9 @@ async def _(
             except Exception as e:
                 return handle_exception(str(e))
 
-    level = await User.get_level(user_data["user"])
+    uid = user_data["uid"]
+
+    level = await User.get_level(uid)
 
     data = []
     for model in model_list:
@@ -210,13 +218,11 @@ async def _(
     ),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
+    uid = user_data["uid"]
 
-    if await User.is_outdate(user):
-        expire_date = await User.get_expire_date(user)
-        raise UserOutdate(expire_date)
+    await check_user_outdate(uid)
 
-    await check_user_level(user, body.model)
+    await check_user_level(uid, body.model)
 
     if body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
@@ -241,19 +247,19 @@ async def _(
         bot_data = await poe.client.get_bot_info(body.model)
         image_link = bot_data["image_link"]
         eop_id = await Bot.create_bot(
+            uid,
             can_diy,
             handle,
             bot_id,
-            user,
             body.model,
             body.alias,
             body.prompt,
             image_link,
         )
         user_logger.info(
-            f"用户:{user}  动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
+            f"用户:{uid}  动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
         )
-        bot_info = await Bot.get_user_bot(user, eop_id=eop_id)
+        bot_info = await Bot.get_user_bot(uid, eop_id)
         return JSONResponse({"bot_info": bot_info[0]}, 200)
 
     except Exception as e:
@@ -282,16 +288,15 @@ async def _(
     body: TalkBody = Body(example={"q": "你好啊"}),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    if await User.is_outdate(user):
-        expire_date = await User.get_expire_date(user)
-        raise UserOutdate(expire_date)
+    uid = user_data["uid"]
 
-    await check_bot_hoster(user, eop_id)
+    await check_user_outdate(uid)
+
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
 
-    await check_user_level(user, model)
+    await check_user_level(uid, model)
 
     async def ai_reply():
         nonlocal chat_id
@@ -307,7 +312,7 @@ async def _(
             if isinstance(data, NewChat):
                 chat_id = data.chat_id
                 user_logger.info(
-                    f"用户:{user}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 await Bot.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
@@ -339,13 +344,13 @@ async def _(
             # 回答完毕，更新最后对话时间
             if isinstance(data, End):
                 user_logger.info(
-                    f"用户:{user}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
             # 出错
             if isinstance(data, TalkError):
                 user_logger.error(
-                    f"用户:{user}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
@@ -374,8 +379,8 @@ async def _(
     eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
@@ -383,7 +388,7 @@ async def _(
     try:
         await poe.client.talk_stop(handle, chat_id)
         user_logger.info(
-            f"用户:{user}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -407,8 +412,8 @@ async def _(
     eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
 
@@ -424,7 +429,7 @@ async def _(
 
     await Bot.delete_bot(eop_id)
     user_logger.info(
-        f"用户:{user}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+        f"用户:{uid}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
     )
     return Response(status_code=204)
 
@@ -445,8 +450,8 @@ async def _(
     eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
@@ -454,7 +459,7 @@ async def _(
     try:
         await poe.client.send_chat_break(handle, chat_id)
         user_logger.info(
-            f"用户:{user}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -478,8 +483,8 @@ async def _(
     eop_id: str = Path(description="会话唯一标识", example="114514"),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
@@ -488,7 +493,7 @@ async def _(
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
         await Bot.update_bot_chat_id(eop_id)
         user_logger.info(
-            f"用户:{user}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -531,8 +536,8 @@ async def _(
     cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     if not chat_id:
@@ -584,8 +589,8 @@ async def _(
     ),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    await check_bot_hoster(user, eop_id)
+    uid = user_data["uid"]
+    await check_bot_hoster(uid, eop_id)
 
     if body.model and body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)

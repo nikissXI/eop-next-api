@@ -31,7 +31,8 @@ async def _(
     if not await User.check_user(body.user, body.passwd):
         return JSONResponse({"code": 2000, "msg": "认证失败"}, 401)
 
-    token = create_token({"user": body.user})
+    uid = await User.get_uid(body.user)
+    token = create_token({"uid": uid})
     return JSONResponse({"access_token": token, "token_type": "Bearer"}, 200)
 
 
@@ -71,8 +72,8 @@ async def _(
     },
 )
 async def _(user_data: dict = Depends(verify_token)):
-    user = user_data["user"]
-    botList = await Bot.get_user_bot(user)
+    uid = user_data["uid"]
+    botList = await Bot.get_user_bot(uid)
     return JSONResponse({"bots": botList}, 200)
 
 
@@ -85,6 +86,8 @@ async def _(user_data: dict = Depends(verify_token)):
             "content": {
                 "application/json": {
                     "example": {
+                        "user": "user_name",
+                        "uid": 114514,
                         "level": 1,
                         "expire_date": 4070880000000,
                     }
@@ -94,11 +97,12 @@ async def _(user_data: dict = Depends(verify_token)):
     },
 )
 async def _(user_data: dict = Depends(verify_token)):
-    user = user_data["user"]
-    level =  await User.get_level(user)
-    expire_date = await User.get_expire_date(user)
+    uid = user_data["uid"]
+    user, uid, level, expire_date = (await User.list_user(uid))[0]
 
-    return JSONResponse({"level": level, "expire_date": expire_date}, 200)
+    return JSONResponse(
+        {"user": user, "uid": uid, "level": level, "expire_date": expire_date}, 200
+    )
 
 
 @router.put(
@@ -119,15 +123,17 @@ async def _(
     ),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    # test不让改密码
+    uid = user_data["uid"]
+
+    user, uid, level, expire_date = (await User.list_user(uid))[0]
+    # test不能让用户自己改密码
     if user == "test":
         return Response(status_code=204)
 
     if not await User.check_user(user, body.old_passwd):
         return JSONResponse({"code": 2000, "msg": "Wrong password"}, 401)
 
-    await User.update_passwd(user, body.new_passwd)
+    await User.update_passwd(uid, body.new_passwd)
     return Response(status_code=204)
 
 

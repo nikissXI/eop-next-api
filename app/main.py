@@ -115,7 +115,7 @@ async def _(request: Request, exc: UserNotExist):
     return JSONResponse(
         {
             "code": 2003,
-            "msg": f"用户【{exc.user}】不存在",
+            "msg": f"用户不存在",
         },
         402,
     )

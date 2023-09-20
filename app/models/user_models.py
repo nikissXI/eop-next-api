@@ -2,10 +2,12 @@ from pydantic import BaseModel, Field
 
 
 class LoginBody(BaseModel):
-    user: str = Field(description="登陆用户名")
-    passwd: str = Field(description="登陆密码")
-
-
+    user: str = Field(
+        description="登陆用户名",
+    )
+    passwd: str = Field(
+        description="登陆密码",
+    )
 
 
 class LoginResp(BaseModel):
