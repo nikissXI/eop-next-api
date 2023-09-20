@@ -345,7 +345,7 @@ async def _(
             # 出错
             if isinstance(data, TalkError):
                 user_logger.error(
-                    f"用户:{user}  动作:回答出错  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{user}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
