@@ -6,3 +6,6 @@
 /admin/user/add 接口变更，请求体中的admin字段改为level字段
 /user/info 接口变更，请响应体的is_admin字段改为level字段
 /admin/user/renew 请求体增加level字段
+
+## 2023/9/20
+增加用户分级限制，普通用户无法调用限次数的模型

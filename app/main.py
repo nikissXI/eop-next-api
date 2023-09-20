@@ -130,6 +130,15 @@ async def _(request: Request, exc: UserOutdate):
         },
         402,
     )
+@app.exception_handler(LevelError)
+async def _(request: Request, exc: UserOutdate):
+    return JSONResponse(
+        {
+            "code": 2010,
+            "msg": f"你的账号等级不足，需升级用户权限",
+        },
+        402,
+    )
 
 
 ################

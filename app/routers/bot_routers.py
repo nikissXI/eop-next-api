@@ -34,6 +34,11 @@ class UserOutdate(Exception):
         self.date = date_string
 
 
+class LevelError(Exception):
+    def __init__(self):
+        pass
+
+
 def handle_exception(err_msg: str) -> JSONResponse:
     """处理poe请求错误"""
     if "The bot doesn't exist or isn't accessible" in err_msg:
@@ -51,6 +56,13 @@ async def check_bot_hoster(user: str, eop_id: str):
 async def check_chat_exist(id: int):
     if not id:
         raise NoChat()
+
+
+async def check_user_level(user: str, model: str):
+    level = await User.get_level(user)
+    info = poe.client.offical_models[model]
+    if info.limited and level == 1:
+        raise LevelError()
 
 
 router = APIRouter()
@@ -92,7 +104,7 @@ router = APIRouter()
     },
 )
 async def _(
-    _: dict = Depends(verify_token),
+    user_data: dict = Depends(verify_token),
 ):
     model_list, next_cursor = await poe.client.explore_bot("Official")
     for m in model_list:
@@ -102,9 +114,14 @@ async def _(
             except Exception as e:
                 return handle_exception(str(e))
 
+    level = await User.get_level(user_data["user"])
+
     data = []
     for model in model_list:
         info = poe.client.offical_models[model]
+        # 普通用户不返回限制模型
+        if info.limited and level == 1:
+            continue
         data.append(
             {
                 "model": model,
@@ -199,6 +216,8 @@ async def _(
         expire_date = await User.get_expire_date(user)
         raise UserOutdate(expire_date)
 
+    await check_user_level(user, body.model)
+
     if body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
 
@@ -270,7 +289,10 @@ async def _(
 
     await check_bot_hoster(user, eop_id)
 
+
     handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+
+    await check_user_level(user, model)
 
     async def ai_reply():
         nonlocal chat_id
