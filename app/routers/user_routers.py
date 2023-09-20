@@ -120,6 +120,10 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
+    # test不让改密码
+    if user == "test":
+        return Response(status_code=204)
+
     if not await User.check_user(user, body.old_passwd):
         return JSONResponse({"code": 2000, "msg": "Wrong password"}, 401)
 

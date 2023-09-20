@@ -23,12 +23,6 @@ class Bot(Model):
     async def eop_id_exist(cls, eop_id: str) -> bool:
         return await cls.filter(eop_id=eop_id).exists()
 
-    # 判断bot是否可diy
-    @classmethod
-    async def bot_can_diy(cls, eop_id: str) -> bool:
-        rows = await cls.filter(eop_id=eop_id).values_list("diy")
-        return rows[0][0]
-
     # 创建bot
     @classmethod
     async def create_bot(
@@ -66,7 +60,7 @@ class Bot(Model):
 
     # 获取某个用户的所有bot
     @classmethod
-    async def get_user_bot(cls, user: str, eop_id: str | None=None) -> list[dict]:
+    async def get_user_bot(cls, user: str, eop_id: str | None = None) -> list[dict]:
         data = []
         if eop_id:
             rows = await cls.filter(user=user, eop_id=eop_id).values_list(
@@ -112,9 +106,11 @@ class Bot(Model):
 
     # 删除某个用户相关bot前先删掉相关的会话 todo
     @classmethod
-    async def pre_remove_user_bots(cls, user: str) -> list[tuple[str, bool, int, int]]:
+    async def pre_remove_user_bots(
+        cls, user: str
+    ) -> list[tuple[str, str, bool, int, int]]:
         return await cls.filter(user=user).values_list(
-            "eop_id", "diy", "bot_id", "chat_id"
+            "eop_id", "handle", "diy", "bot_id", "chat_id"
         )  # type: ignore
 
     # 删除某个用户相关bot
@@ -161,19 +157,19 @@ class Bot(Model):
 
     # 获取某个bot信息
     @classmethod
-    async def get_bot_handle_botId_model_prompt(
-        cls, eop_id: str
-    ) -> tuple[str, int, str, str]:
+    async def pre_modify_bot_info(cls, eop_id: str) -> tuple[str, int, str, str, bool]:
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "handle", "bot_id", "display_name", "prompt"
+            "handle", "bot_id", "display_name", "prompt", "diy"
         )
-        return rows[0]  # type: ignore
+        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4]
 
     # 获取某个bot的handle、display name、bot id、chat id
     @classmethod
-    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int]:
-        rows = await cls.filter(eop_id=eop_id).values_list("handle", "display_name","bot_id","chat_id")
-        return rows[0][0], rows[0][1], rows[0][2], rows[0][3]
+    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int, bool]:
+        rows = await cls.filter(eop_id=eop_id).values_list(
+            "handle", "display_name", "bot_id", "chat_id", "diy"
+        )
+        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4]
 
     # 更新某个bot的chat code和chat id
     @classmethod

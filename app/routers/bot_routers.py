@@ -289,8 +289,7 @@ async def _(
 
     await check_bot_hoster(user, eop_id)
 
-
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
 
     await check_user_level(user, model)
 
@@ -378,7 +377,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -411,16 +410,14 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
 
     try:
-        if await Bot.bot_can_diy(eop_id):
-            if chat_id:
-                await poe.client.delete_chat_by_chat_id(handle, chat_id)
-            await poe.client.delete_bot(handle, bot_id)
-
-        elif chat_id:
+        if chat_id:
             await poe.client.delete_chat_by_chat_id(handle, chat_id)
+
+        if diy:
+            await poe.client.delete_bot(handle, bot_id)
 
     except Exception as e:
         return handle_exception(str(e))
@@ -451,7 +448,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -484,7 +481,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -537,7 +534,7 @@ async def _(
     user = user_data["user"]
     await check_bot_hoster(user, eop_id)
 
-    handle, model, bot_id, chat_id = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
     if not chat_id:
         return JSONResponse(
             {
@@ -596,13 +593,12 @@ async def _(
     # 更新缓存
     await Bot.modify_bot(eop_id, None, body.alias, None)
 
+    handle, bot_id, _model, _prompt, diy = await Bot.pre_modify_bot_info(eop_id)
     # 只有支持diy的可以更新模型和预设
-    if await Bot.bot_can_diy(eop_id) and (body.model or body.prompt):
+    if diy and (body.model or body.prompt):
         # 更新缓存
         await Bot.modify_bot(eop_id, body.model, None, body.prompt)
-        handle, bot_id, _model, _prompt = await Bot.get_bot_handle_botId_model_prompt(
-            eop_id
-        )
+
         try:
             await poe.client.edit_bot(
                 handle,
