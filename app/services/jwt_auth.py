@@ -27,9 +27,10 @@ async def verify_token(
     token = credentials.credentials
     try:
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        jwt_data["uid"]
         return jwt_data
 
-    except PyJWTError:
+    except (PyJWTError, KeyError):
         raise AuthFailed("凭证无效")
 
 
@@ -44,5 +45,5 @@ async def verify_admin(
             raise AuthFailed("权限不足")
         return jwt_data
 
-    except PyJWTError:
+    except (PyJWTError, KeyError):
         raise AuthFailed("凭证无效")

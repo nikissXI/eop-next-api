@@ -7,12 +7,6 @@ from utils.config import *
 from time import strftime, localtime
 from asyncio import create_task
 
-try:
-    from ujson import dumps
-except:
-    from json import dumps
-
-
 class BotNotFound(Exception):
     def __init__(self):
         pass

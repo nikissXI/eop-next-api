@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 from os import getenv
 from secrets import token_urlsafe
+from utils import *
 
 load_dotenv()
 
@@ -18,6 +19,11 @@ if _ := getenv("PORT"):
     PORT = int(_)
 else:
     PORT = 8080
+
+if _ := getenv("ORIGINS"):
+    ORIGINS = loads(_)
+else:
+    ORIGINS = ["*"]
 
 SSL_KEYFILE_PATH = getenv("SSL_KEYFILE_PATH")
 SSL_CERTFILE_PATH = getenv("SSL_CERTFILE_PATH")

@@ -2,13 +2,15 @@ from database import *
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+
+# from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from models import *
 from routers import *
 from services import *
 from utils import *
 from utils.config import *
 from uvicorn import run
+
 
 ################
 ### 后端定义
@@ -44,8 +46,8 @@ app = FastAPI(
 # 跨域
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -130,6 +132,8 @@ async def _(request: Request, exc: UserOutdate):
         },
         402,
     )
+
+
 @app.exception_handler(LevelError)
 async def _(request: Request, exc: UserOutdate):
     return JSONResponse(
@@ -208,8 +212,8 @@ if __name__ == "__main__":
         app,
         host=HOST,
         port=PORT,
-        # ssl_keyfile=SSL_KEYFILE_PATH,
-        # ssl_certfile=SSL_CERTFILE_PATH,
+        ssl_keyfile=SSL_KEYFILE_PATH,
+        ssl_certfile=SSL_CERTFILE_PATH,
         log_config=custom_logging_config,
         headers=[("server", "huaQ")],  # 修改响应头里的默认server字段
     )
