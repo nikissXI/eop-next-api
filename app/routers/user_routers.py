@@ -131,7 +131,7 @@ async def _(
         return Response(status_code=204)
 
     if not await User.check_user(user, body.old_passwd):
-        return JSONResponse({"code": 2000, "msg": "Wrong password"}, 401)
+        return JSONResponse({"code": 2000, "msg": "密码错误"}, 401)
 
     await User.update_passwd(uid, body.new_passwd)
     return Response(status_code=204)

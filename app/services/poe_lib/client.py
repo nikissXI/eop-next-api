@@ -14,6 +14,7 @@ from .util import (
     GQL_URL,
     SETTING_URL,
     BOT_IMAGE_LINK_CACHE,
+    CHINESE_DISCRIPTION,
     base64_decode,
     base64_encode,
     generate_data,
@@ -60,6 +61,7 @@ class Poe_Client:
         self.ws_data_queue: dict[int, Queue] = {}
         self.get_chat_code = {}
         self.answer_msg_id_cache = {}
+        self.last_text_len_cache = {}
 
     async def login(self):
         """
@@ -213,9 +215,14 @@ class Poe_Client:
             )
 
             info: dict = result["data"]["bot"]
+            if info["displayName"] in CHINESE_DISCRIPTION:
+                description = CHINESE_DISCRIPTION[info["displayName"]]
+            else:
+                logger.warning(f"模型{info['displayName']}的介绍未作汉化")
+                description = info["description"]
             self.offical_models[info["displayName"]] = ModelInfo(
                 model=info["model"],
-                description=info["description"],
+                description=description,
                 diy=False,
                 limited=False if info["limitedAccessType"] == "no_limit" else True,
                 bot_id=info["botId"],
@@ -589,7 +596,6 @@ class Poe_Client:
         question_create_time = 0
 
         yield_msg_id = False
-        last_text_len = 0
         retry = 10
         while retry >= 0:
             if not chat_id:
@@ -631,6 +637,7 @@ class Poe_Client:
                 answer_create_time = quene_data.get("creationTime")
 
                 self.answer_msg_id_cache[chat_id] = answer_msg_id
+                self.last_text_len_cache[chat_id] = 0
                 yield MsgId(
                     question_msg_id=question_msg_id,
                     question_create_time=question_create_time,
@@ -650,8 +657,8 @@ class Poe_Client:
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
                 retry = 10
-                yield Text(content=plain_text[last_text_len:])
-                last_text_len = len(plain_text)
+                yield Text(content=plain_text[self.last_text_len_cache[chat_id] :])
+                self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
 
             # 完成回复
@@ -659,7 +666,7 @@ class Poe_Client:
                 quene_data.get("state") == "complete"
                 or quene_data.get("state") == "cancelled"
             ):
-                yield Text(content=plain_text[last_text_len:])
+                yield Text(content=plain_text[self.last_text_len_cache[chat_id] :])
                 yield End()
                 return
 
@@ -672,7 +679,10 @@ class Poe_Client:
         """
         停止生成回复
         """
-        if chat_id not in self.answer_msg_id_cache:
+        if (
+            chat_id not in self.answer_msg_id_cache
+            or chat_id not in self.last_text_len_cache
+        ):
             return
 
         msg_id = self.answer_msg_id_cache[chat_id]
@@ -680,9 +690,9 @@ class Poe_Client:
             await self.send_query(
                 "chatHelpers_messageCancel_Mutation",
                 {
-                    "linkifiedTextLength": 1,
+                    "linkifiedTextLength": self.last_text_len_cache[chat_id],
                     "messageId": msg_id,
-                    "textLength": 1,
+                    "textLength": self.last_text_len_cache[chat_id],
                 },
             )
         except Exception as e:
