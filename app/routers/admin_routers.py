@@ -23,10 +23,14 @@ router = APIRouter()
     summary="增加用户",
     responses={
         200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "增加成功",
+            "description": "返回用户uid",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {"uid": "用户uid"},
+                    ]
+                }
+            },
         },
     },
 )
@@ -50,7 +54,8 @@ async def _(
         body.level,
         4070880000000 if body.level == 0 else body.expire_date,
     )
-    return Response(status_code=204)
+    uid = await User.get_uid(body.user)
+    return JSONResponse({"uid": uid}, 200)
 
 
 @router.delete(

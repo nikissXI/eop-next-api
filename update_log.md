@@ -9,9 +9,13 @@
 
 ## 2023/9/20
 增加用户分级限制，普通用户无法调用限次数的模型
-/admin/updateSetting 接口增加群链接的参数
 
 ## 2023/9/21
-/admin/listUser 接口结果字段增加uid
-/admin/{uid}/resetPasswd 接口{user}改为{uid}
+/admin/user/add 接口创建用户成功后返回uid
 /admin/{uid}/delete 接口{user}改为{uid}
+/admin/{uid}/renew 接口{user}改为{uid}
+/admin/{uid}/resetPasswd 接口{user}改为{uid}
+/admin/listUser 接口结果字段增加uid
+/admin/getSetting 接口结果增加telegram_url, discord_url, weixin_url, qq_url字段
+/admin/updateSetting 接口请求体增加telegram_url, discord_url, weixin_url, qq_url字段
+/user/info 接口结果响应字段改为user, uid, level, expire_date
