@@ -152,22 +152,6 @@ async def _(
 
 
 @router.get(
-    "/loginPoe",
-    summary="重新登录Poe",
-    responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "登陆成功",
-        },
-    },
-)
-async def _(_: dict = Depends(verify_admin)):
-    return await login_poe()
-
-
-@router.get(
     "/listUser",
     summary="列出所有用户",
     responses={
@@ -297,4 +281,8 @@ async def _(
     await Config.update_setting(
         p_b, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
     )
+
+    if body.p_b or body.formkey or body.proxy:
+        return await login_poe()
+
     return Response(status_code=204)

@@ -2,31 +2,31 @@ from pydantic import BaseModel, Field
 
 
 class UpdateSettingBody(BaseModel):
-    p_b: str = Field(
+    p_b: str|None = Field(
         default=None,
         description="p_b值",
     )
-    formkey: str = Field(
+    formkey: str|None = Field(
         default=None,
         description="formkey值",
     )
-    proxy: str = Field(
+    proxy: str|None = Field(
         default=None,
         description="代理地址，支持http和socks",
     )
-    telegram_url: str = Field(
+    telegram_url: str|None = Field(
         default=None,
         description="telegram群链接",
     )
-    discord_url: str = Field(
+    discord_url: str|None = Field(
         default=None,
         description="discord群链接",
     )
-    weixin_url: str = Field(
+    weixin_url: str|None = Field(
         default=None,
         description="微信群链接",
     )
-    qq_url: str = Field(
+    qq_url: str|None = Field(
         default=None,
         description="QQ群链接",
     )
