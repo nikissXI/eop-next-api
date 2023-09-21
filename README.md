@@ -28,7 +28,6 @@ require Python environment >= 3.10
 
 
 # 登陆凭证获取
-在bot对应的.env文件修改，文档中的均是默认值。  
 poe登录凭证需要两个值，获取方法如下：  
 
 **p_b值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），依次点击应用程序、存储、Cookie，就可以看到p_b的值了  
