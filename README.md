@@ -25,3 +25,37 @@ require Python environment >= 3.10
 30XX 服务器处理错误
 - 3001    服务器出错
 - 3008    Poe登陆失败
+
+
+# 登陆凭证获取
+在bot对应的.env文件修改，文档中的均是默认值。  
+poe登录凭证需要两个值，获取方法如下：  
+
+**p_b值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），依次点击应用程序、存储、Cookie，就可以看到p_b的值了  
+<img width="100%" src="https://raw.githubusercontent.com/nikissXI/nonebot_plugins/main/nonebot_plugin_talk_with_poe_ai/readme_img/2.jpg"/>  
+
+**formkey值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），然后随便跟一个ai发一句话，点网络，选Fetch/XHR，随便一个请求，在标头那，往下找到请求标头那类，里面有一个Poe-Formkey字段，后面就是值了  
+<img width="100%" src="https://raw.githubusercontent.com/nikissXI/nonebot_plugins/main/nonebot_plugin_talk_with_poe_ai/readme_img/3.jpg"/>  
+
+# 更新日志
+## 2023/9/10
+/user/bots 接口内容增加了image字段，对应模型的头像链接
+
+## 2023/9/19
+原来的admin字段改为level，0是管理员，1是普通用户，2是高级用户
+/admin/user/add 接口变更，请求体中的admin字段改为level字段
+/user/info 接口变更，请响应体的is_admin字段改为level字段
+/admin/user/renew 请求体增加level字段
+
+## 2023/9/20
+增加用户分级限制，普通用户无法调用限次数的模型
+
+## 2023/9/21
+/admin/user/add 接口创建用户成功后返回uid
+/admin/{uid}/delete 接口{user}改为{uid}
+/admin/{uid}/renew 接口{user}改为{uid}
+/admin/{uid}/resetPasswd 接口{user}改为{uid}
+/admin/listUser 接口结果字段增加uid
+/admin/getSetting 接口结果增加telegram_url, discord_url, weixin_url, qq_url字段
+/admin/updateSetting 接口请求体增加telegram_url, discord_url, weixin_url, qq_url字段
+/user/info 接口结果响应字段改为user, uid, level, expire_date
