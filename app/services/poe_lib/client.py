@@ -123,7 +123,7 @@ class Poe_Client:
 
     async def explore_bot(self, category: str) -> tuple[list[str], str]:
         """
-        获取某个会话的历史记录
+        探索bot
 
         参数:
         - category 类别名称
@@ -415,33 +415,33 @@ class Poe_Client:
                     "subscriptions": [
                         {
                             "query": None,
-                            "queryHash": "4388f77d26d4fdf99ef6b0c2eaaddbc8f2de2785bb377bb318664144538dbeb5",
                             "subscriptionName": "messageAdded",
+                            "queryHash": "470215554ac82a1ea8af90c0dc938d2f35bd75b54dbcdaa781ec4ced74367ff6",
                         },
                         {
                             "query": None,
-                            "queryHash": "dfcedd9e0304629c22929725ff6544e1cb32c8f20b0c3fd54d966103ccbcf9d3",
                             "subscriptionName": "messageCancelled",
+                            "queryHash": "dfcedd9e0304629c22929725ff6544e1cb32c8f20b0c3fd54d966103ccbcf9d3",
                         },
                         {
                             "query": None,
-                            "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
                             "subscriptionName": "messageDeleted",
+                            "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
                         },
                         {
                             "query": None,
-                            "queryHash": "ee640951b5670b559d00b6928e20e4ac29e33d225237f5bdfcb043155f16ef54",
                             "subscriptionName": "viewerStateUpdated",
+                            "queryHash": "9c95362c04aa18518b7831ad1d59a5318fae14e63d1eda75493cdc0ebc4710c2",
                         },
                         {
                             "query": None,
-                            "queryHash": "80ccbe90cb2eb8f10c9847ce5bf05cb7f568c38f30e5e070f3d20c1dff02621a",
                             "subscriptionName": "messageLimitUpdated",
+                            "queryHash": "daec317b69fed95fd7bf1202c4eca0850e6a9740bc8412af636940227359a211",
                         },
                         {
                             "query": None,
-                            "queryHash": "8affa725ade31d757a31e9903e0c5d8759129829baab79c39732cdaa9cc4dde8",
                             "subscriptionName": "chatTitleUpdated",
+                            "queryHash": "e16a20dac5c35835c63dc615fe146fd0eb15138750ce58a5d972414dac2ccdb6",
                         },
                     ]
                 },
@@ -588,6 +588,7 @@ class Poe_Client:
             err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{e}"
             # print(format_exc())
             logger.error(err_msg)
+            yield TalkError(content=err_msg)
 
         # 如果不存在则创建答案生成队列
         if chat_id and chat_id not in self.ws_data_queue:
@@ -615,7 +616,7 @@ class Poe_Client:
 
             # 从队列拉取回复
             try:
-                quene_data = await wait_for(self.ws_data_queue[chat_id].get(), 2)
+                quene_data = await wait_for(self.ws_data_queue[chat_id].get(), 1)
             except TimeoutError:
                 retry -= 1
                 continue
@@ -670,6 +671,37 @@ class Poe_Client:
                 yield Text(content=plain_text[self.last_text_len_cache[chat_id] :])
                 yield End()
                 return
+
+        try:
+            # 判断bot是否被删了
+            result = await self.send_query(
+                "HandleBotLandingPageQuery",
+                {"botHandle": handle},
+            )
+            deletionState = result["data"]["bot"]["deletionState"]
+            if deletionState != "not_deleted":
+                yield SessionDeleted()
+                return
+
+            # 判断会话是否被删了
+            if chat_id:
+                result = await self.send_query(
+                    "ChatListPaginationQuery",
+                    {
+                        "count": 25,
+                        "cursor": "0",
+                        "id": base64_encode(f"Chat:{chat_id}"),
+                    },
+                )
+                # 没有聊天记录
+                if result["data"]["node"] == None:
+                    yield SessionDeleted()
+                    return
+
+        except Exception as e:
+            err_msg = f"执行bot【{handle}】chat【{chat_id}】查询会话状态出错，错误信息：{e}"
+            logger.error(err_msg)
+            yield TalkError(content=err_msg)
 
         err_msg = "获取回答超时"
         logger.error(err_msg)

@@ -37,47 +37,6 @@ async def _(
 
 
 @router.get(
-    "/bots",
-    summary="拉取用户可用会话",
-    responses={
-        200: {
-            "description": "会话列表",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "bots": [
-                            {
-                                "eop_id": "114514",
-                                "alias": "AAA",
-                                "model": "ChatGPT",
-                                "prompt": "prompt_A",
-                                "image": "https://xxx",
-                                "create_time": 1693230928703,
-                                "last_talk_time": 1693230928703,
-                            },
-                            {
-                                "eop_id": "415411",
-                                "alias": "BBB",
-                                "model": "ChatGPT4",
-                                "prompt": "",
-                                "image": "https://xxx",
-                                "create_time": 1693230928703,
-                                "last_talk_time": 1693230928703,
-                            },
-                        ]
-                    }
-                }
-            },
-        },
-    },
-)
-async def _(user_data: dict = Depends(verify_token)):
-    uid = user_data["uid"]
-    botList = await Bot.get_user_bot(uid)
-    return JSONResponse({"bots": botList}, 200)
-
-
-@router.get(
     "/info",
     summary="获取用户信息，包含是否为管理员以及过期日期",
     responses={

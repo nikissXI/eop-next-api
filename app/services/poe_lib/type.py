@@ -34,6 +34,12 @@ class TalkError(BaseModel):
     content: str
 
 
+class SessionDeleted(BaseModel):
+    """会话被删除"""
+
+    pass
+
+
 class ReachedLimit(BaseModel):
     """次数上限"""
 

@@ -136,6 +136,49 @@ async def _(
     return JSONResponse({"available_models": data}, 200)
 
 
+@router.get(
+    "/list",
+    summary="拉取用户可用会话",
+    responses={
+        200: {
+            "description": "会话列表",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "bots": [
+                            {
+                                "eop_id": "114514",
+                                "alias": "AAA",
+                                "model": "ChatGPT",
+                                "prompt": "prompt_A",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": False,
+                            },
+                            {
+                                "eop_id": "415411",
+                                "alias": "BBB",
+                                "model": "ChatGPT4",
+                                "prompt": "",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": True,
+                            },
+                        ]
+                    }
+                }
+            },
+        },
+    },
+)
+async def _(user_data: dict = Depends(verify_token)):
+    uid = user_data["uid"]
+    botList = await Bot.get_user_bot(uid)
+    return JSONResponse({"bots": botList}, 200)
+
+
 @router.post(
     "/create",
     summary="创建会话，prompt选填（不填留空），prompt仅支持diy的模型可用",
@@ -246,13 +289,20 @@ async def _(
 
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
 
     await check_user_level(uid, model)
 
     async def ai_reply():
         nonlocal chat_id
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
+            # 会话失效
+            if isinstance(data, SessionDeleted):
+                yield BytesIO(
+                    (dumps({"type": "deleted", "data": "该会话已失效"}) + "\n").encode(
+                        "utf-8"
+                    )
+                ).read()
             # 次数上限，有效性待测试
             if isinstance(data, ReachedLimit):
                 yield BytesIO(
@@ -334,7 +384,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -367,13 +417,13 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
 
     try:
         if chat_id:
             await poe.client.delete_chat_by_chat_id(handle, chat_id)
 
-        if diy:
+        if diy and not disable:
             await poe.client.delete_bot(handle, bot_id)
 
     except Exception as e:
@@ -405,7 +455,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -438,7 +488,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -485,13 +535,13 @@ async def _(
 )
 async def _(
     eop_id: str = Path(description="会话唯一标识", example="114514"),
-    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
+    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example="0"),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
     if not chat_id:
         return JSONResponse(
             {
@@ -571,7 +621,7 @@ async def _(
 
 @router.get(
     "/explore/{cursor}",
-    summary="探索bot",
+    summary="探索bot（todo）",
     responses={
         200: {
             "description": "返回历史记录和翻页光标，如果next_cursor为-1，则没有下一页",

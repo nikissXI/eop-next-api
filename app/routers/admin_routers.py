@@ -78,12 +78,12 @@ async def _(
 
     # 先把用户相关bot信息拉取并删除poe上的数据
     rows = await Bot.pre_remove_user_bots(uid)
-    for eop_id, handle, diy, bot_id, chat_id in rows:
+    for eop_id, handle, diy, bot_id, chat_id, disable in rows:
         try:
             if chat_id:
                 await poe.client.delete_chat_by_chat_id(handle, chat_id)
 
-            if diy:
+            if diy and not disable:
                 await poe.client.delete_bot(handle, bot_id)
 
         except Exception as e:
@@ -356,4 +356,5 @@ async def _(
         "HandleBotLandingPageQuery",
         {"botHandle": handle},
     )
-    return JSONResponse(result, 200)
+
+    return JSONResponse(result["data"]["bot"]["deletionState"], 200)

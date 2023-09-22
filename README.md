@@ -60,5 +60,5 @@ poe登录凭证需要两个值，获取方法如下：
 - /user/info 接口结果响应字段改为user, uid, level, expire_date
 
 ## 2023/9/22
-- /bot/limited 接口移除
-- /admin/accountInfo 接口新增
+- /bot/limited 接口移除，新增接口 /admin/accountInfo
+- 增加失效会话判断处理

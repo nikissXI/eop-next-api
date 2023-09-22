@@ -17,6 +17,7 @@ class Bot(Model):
     image_link = fields.TextField()
     create_time = fields.IntField()
     last_talk_time = fields.IntField()
+    disable = fields.BooleanField(default=0)
 
     # eop id是否存在
     @classmethod
@@ -71,6 +72,7 @@ class Bot(Model):
                 "image_link",
                 "create_time",
                 "last_talk_time",
+                "disable",
             )
         else:
             rows = await cls.filter(uid=uid).values_list(
@@ -81,6 +83,7 @@ class Bot(Model):
                 "image_link",
                 "create_time",
                 "last_talk_time",
+                "disable",
             )
         for (
             eop_id,
@@ -90,6 +93,7 @@ class Bot(Model):
             image_link,
             create_time,
             last_talk_time,
+            disable,
         ) in rows:
             data.append(
                 {
@@ -100,6 +104,7 @@ class Bot(Model):
                     "image": image_link,
                     "create_time": create_time,
                     "last_talk_time": last_talk_time,
+                    "disable": disable,
                 }
             )
         return data
@@ -108,9 +113,9 @@ class Bot(Model):
     @classmethod
     async def pre_remove_user_bots(
         cls, uid: int
-    ) -> list[tuple[str, str, bool, int, int]]:
+    ) -> list[tuple[str, str, bool, int, int, bool]]:
         return await cls.filter(uid=uid).values_list(
-            "eop_id", "handle", "diy", "bot_id", "chat_id"
+            "eop_id", "handle", "diy", "bot_id", "chat_id", "disable"
         )  # type: ignore
 
     # 删除某个用户相关bot
@@ -165,11 +170,11 @@ class Bot(Model):
 
     # 获取某个bot的handle、display name、bot id、chat id
     @classmethod
-    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int, bool]:
+    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int, bool, bool]:
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "handle", "display_name", "bot_id", "chat_id", "diy"
+            "handle", "display_name", "bot_id", "chat_id", "diy", "disable"
         )
-        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4]
+        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4], rows[0][5]
 
     # 更新某个bot的chat code和chat id
     @classmethod
@@ -184,3 +189,8 @@ class Bot(Model):
         for handle in rows:
             data.append(handle)
         return data
+
+    # 禁用bot
+    @classmethod
+    async def disable_bot(cls, eop_id: str):
+        await cls.filter(eop_id=eop_id).update(disable=True)
