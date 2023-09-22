@@ -6,11 +6,9 @@ class CreateBody(BaseModel):
         description="模型名称",
     )
     prompt: str = Field(
-        default="",
         description="预设内容",
     )
     alias: str = Field(
-        default="新会话",
         description="会话名",
     )
 
@@ -22,15 +20,12 @@ class TalkBody(BaseModel):
 
 
 class ModifyBotBody(BaseModel):
-    alias: str | None = Field(
-        default=None,
+    alias: str = Field(
         description="会话名",
     )
-    model: str | None = Field(
-        default=None,
+    model: str = Field(
         description="模型名称",
     )
-    prompt: str | None = Field(
-        default=None,
+    prompt: str = Field(
         description="预设内容",
     )

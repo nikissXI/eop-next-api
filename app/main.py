@@ -27,8 +27,9 @@ app = FastAPI(
 - 2005    会话不存在
 - 2006    尚未发起对话
 - 2009    用户过期，无法创建和对话
-- 2099    其他请求错误
 - 2010    用户等级不足
+- 2011    该会话已失效，无法使用
+- 2099    其他请求错误
   
 30XX 服务器处理错误
 - 3001    服务器出错
@@ -136,11 +137,22 @@ async def _(request: Request, exc: UserOutdate):
 
 
 @app.exception_handler(LevelError)
-async def _(request: Request, exc: UserOutdate):
+async def _(request: Request, exc: LevelError):
     return JSONResponse(
         {
             "code": 2010,
-            "msg": f"你的账号等级不足，需升级用户权限",
+            "msg": "你的账号等级不足，需升级用户权限",
+        },
+        402,
+    )
+
+
+@app.exception_handler(BotDisable)
+async def _(request: Request, exc: BotDisable):
+    return JSONResponse(
+        {
+            "code": 2011,
+            "msg": "该会话已失效，无法使用",
         },
         402,
     )

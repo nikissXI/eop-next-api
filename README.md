@@ -20,6 +20,7 @@ require Python environment >= 3.10
 - 2006    尚未发起对话
 - 2009    用户过期，无法创建和对话
 - 2010    用户等级不足
+- 2011    该会话已失效，无法使用
 - 2099    其他请求错误
   
 30XX 服务器处理错误
@@ -63,3 +64,5 @@ poe登录凭证需要两个值，获取方法如下：
 - /bot/limited 接口移除，新增接口 /admin/accountInfo
 - 会话列表接口 /user/bots 改为 /bot/list，且响应字段增加 disable 用于判断是否可用
 - talk的响应type增加 expired 账号过期，denied 权限不足，deleted 会话不存在，disable 会话无法使用
+- PATCH /bot/{eop_id} 接口增加 2011 响应码（会话失效）
+- 支持热更新最新模型

@@ -60,9 +60,9 @@ class UserInfo(BaseModel):
     """账号信息"""
 
     email: str = ""
-    subscription_actived: bool = False
+    subscription_activated: bool = False
     plan_type: str = ""
-    expire_time: str = ""
+    expire_time: int = 0
 
 
 class ServerError(Exception):

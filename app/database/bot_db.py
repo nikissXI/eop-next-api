@@ -162,11 +162,9 @@ class Bot(Model):
 
     # 获取某个bot信息
     @classmethod
-    async def pre_modify_bot_info(cls, eop_id: str) -> tuple[str, int, str, str, bool]:
-        rows = await cls.filter(eop_id=eop_id).values_list(
-            "handle", "bot_id", "display_name", "prompt", "diy"
-        )
-        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4]
+    async def pre_modify_bot_info(cls, eop_id: str) -> tuple[str, int, bool]:
+        rows = await cls.filter(eop_id=eop_id).values_list("handle", "bot_id", "diy")
+        return rows[0][0], rows[0][1], rows[0][2]
 
     # 获取某个bot的handle、display name、bot id、chat id
     @classmethod

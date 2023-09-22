@@ -5,7 +5,7 @@ from services import *
 from utils import *
 from utils.config import *
 from time import strftime, localtime
-from asyncio import create_task
+from asyncio import create_task, gather
 
 
 class BotNotFound(Exception):
@@ -23,6 +23,11 @@ class ModelNotFound(Exception):
         self.model = model
 
 
+class BotDisable(Exception):
+    def __init__(self):
+        pass
+
+
 class UserOutdate(Exception):
     def __init__(self, date: int):
         date_string = strftime("%Y-%m-%d %H:%M:%S", localtime(date / 1000))
@@ -36,9 +41,6 @@ class LevelError(Exception):
 
 def handle_exception(err_msg: str) -> JSONResponse:
     """处理poe请求错误"""
-    if "The bot doesn't exist or isn't accessible" in err_msg:
-        return JSONResponse({"code": 3002, "msg": "该会话已失效，请创建新会话"}, 500)
-
     logger.error(err_msg)
     return JSONResponse({"code": 3001, "msg": err_msg}, 500)
 
@@ -107,20 +109,47 @@ router = APIRouter()
 async def _(
     user_data: dict = Depends(verify_token),
 ):
-    model_list, next_cursor = await poe.client.explore_bot("Official")
-    for m in model_list:
+    model_result = {}
+
+    # 获取最新的官方模型列表
+    async def get_newest_offical_model_list():
+        try:
+            model_list, next_cursor = await poe.client.explore_bot("Official")
+        except Exception as e:
+            return handle_exception(str(e))
+        model_result["all"] = model_list
+
+    # 获取支持diy（create bot）的模型并标记
+    async def get_diy_model_list():
+        try:
+            result = await poe.client.send_query(
+                "createBotIndexPageQuery",
+                {"messageId": None},
+            )
+        except Exception as e:
+            return handle_exception(str(e))
+        model_result["diy"] = result["data"]["viewer"]["botsAllowedForUserCreation"]
+
+    task1 = create_task(get_newest_offical_model_list())
+    task2 = create_task(get_diy_model_list())
+    await gather(task1, task2)
+
+    for m in model_result["all"]:
         if m not in poe.client.offical_models:
             try:
                 await poe.client.cache_offical_bot_info(m)
             except Exception as e:
                 return handle_exception(str(e))
 
+    for m in [_["displayName"] for _ in model_result["diy"]]:
+        poe.client.offical_models[m].diy = True
+
     uid = user_data["uid"]
 
     level = await User.get_level(uid)
 
     data = []
-    for model in model_list:
+    for model in model_result["all"]:
         info = poe.client.offical_models[model]
         # 普通用户不返回限制模型
         if info.limited and level == 1:
@@ -134,6 +163,49 @@ async def _(
             }
         )
     return JSONResponse({"available_models": data}, 200)
+
+
+@router.get(
+    "/list",
+    summary="拉取用户可用会话",
+    responses={
+        200: {
+            "description": "会话列表",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "bots": [
+                            {
+                                "eop_id": "114514",
+                                "alias": "AAA",
+                                "model": "ChatGPT",
+                                "prompt": "prompt_A",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": False,
+                            },
+                            {
+                                "eop_id": "415411",
+                                "alias": "BBB",
+                                "model": "ChatGPT4",
+                                "prompt": "",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": True,
+                            },
+                        ]
+                    }
+                }
+            },
+        },
+    },
+)
+async def _(user_data: dict = Depends(verify_token)):
+    uid = user_data["uid"]
+    botList = await Bot.get_user_bot(uid)
+    return JSONResponse({"bots": botList}, 200)
 
 
 @router.post(
@@ -258,7 +330,6 @@ async def _(
                 ).encode("utf-8")
             ).read()
             return
-
         handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
 
         # 判断账号等级
@@ -599,9 +670,9 @@ async def _(
     # 更新缓存
     await Bot.modify_bot(eop_id, None, body.alias, None)
 
-    handle, bot_id, _model, _prompt, diy = await Bot.pre_modify_bot_info(eop_id)
+    handle, bot_id, diy = await Bot.pre_modify_bot_info(eop_id)
     # 只有支持diy的可以更新模型和预设
-    if diy and (body.model or body.prompt):
+    if diy:
         # 更新缓存
         await Bot.modify_bot(eop_id, body.model, None, body.prompt)
 
@@ -609,9 +680,22 @@ async def _(
             await poe.client.edit_bot(
                 handle,
                 bot_id,
-                poe.client.offical_models[body.model or _model].model,
-                body.prompt or _prompt,
+                poe.client.offical_models[body.model].model,
+                body.prompt,
             )
+        except ServerError as e:
+            # 判断bot是否被删了
+            result = await poe.client.send_query(
+                "HandleBotLandingPageQuery",
+                {"botHandle": handle},
+            )
+            deletionState = result["data"]["bot"]["deletionState"]
+            if deletionState != "not_deleted":
+                await Bot.disable_bot(eop_id)
+                raise BotDisable()
+
+            return handle_exception(str(e))
+
         except Exception as e:
             return handle_exception(str(e))
 

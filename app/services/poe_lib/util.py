@@ -5,6 +5,7 @@ except:
 from random import choice
 from string import ascii_letters, digits
 from base64 import b64encode, b64decode
+from time import localtime, strftime
 
 QUERIES = {
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
@@ -75,3 +76,7 @@ def base64_encode(text: str) -> str:
 
 def base64_decode(text: str) -> str:
     return b64decode(text).decode("utf-8")
+
+
+def str_time(t: int) -> str:
+    return strftime("%Y-%m-%d %H:%M:%S", localtime(t / 1000000))

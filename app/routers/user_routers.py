@@ -104,7 +104,6 @@ async def _(passwd: str = Query(description="明文密码", example="this_is_a_p
     return hash_value
 
 
-
 @router.get(
     "/bots",
     summary="拉取用户可用会话",

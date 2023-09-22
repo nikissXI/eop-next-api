@@ -2,7 +2,6 @@ from asyncio import Queue, TimeoutError, create_task, sleep, wait_for, gather
 from hashlib import md5
 from random import randint
 from secrets import token_hex
-from time import localtime, strftime
 from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
@@ -19,6 +18,7 @@ from .util import (
     base64_encode,
     generate_data,
     generate_random_handle,
+    str_time,
 )
 
 try:
@@ -73,18 +73,18 @@ class Poe_Client:
         logger.info("Poe登陆中。。。。。。")
 
         await self.get_user_info()
-        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_actived}"
-        if self.user_info.subscription_actived:
-            text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{self.user_info.expire_time}"
+        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
+        if self.user_info.subscription_activated:
+            text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
 
         limited_info = await self.get_limited_bots_info()
-        text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{limited_info['daily_refresh_time']}"
-        if self.user_info.subscription_actived:
-            text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}"
+        text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{str_time(limited_info['daily_refresh_time'])}"
+        if self.user_info.subscription_activated:
+            text += f"\n -- 月次数刷新时间：{str_time(limited_info['monthly_refresh_time'])}"
         for m in limited_info["models"]:
             text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
-            if self.user_info.subscription_actived:
+            if self.user_info.subscription_activated:
                 text += (
                     f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
                 )
@@ -111,13 +111,10 @@ class Poe_Client:
                 uuid5(UUID("98765432101234567898765432101234"), data["poeUser"]["id"])
             )
             self.user_info.email = data["primaryEmail"]
-            self.user_info.subscription_actived = data["subscription"]["isActive"]
-            if self.user_info.subscription_actived:
+            self.user_info.subscription_activated = data["subscription"]["isActive"]
+            if self.user_info.subscription_activated:
                 self.user_info.plan_type = data["subscription"]["planType"]
-                self.user_info.expire_time = strftime(
-                    "%Y-%m-%d %H:%M:%S",
-                    localtime(data["subscription"]["expiresTime"] / 1000000),
-                )
+                self.user_info.expire_time = data["subscription"]["expiresTime"]
         except Exception as e:
             raise e
 
@@ -181,24 +178,10 @@ class Poe_Client:
                 c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
             ]
 
-            # 获取支持diy（create bot）的模型
-            result = await self.send_query(
-                "createBotIndexPageQuery",
-                {"messageId": None},
-            )
-            diy_model_list: list[str] = [
-                _["displayName"]
-                for _ in result["data"]["viewer"]["botsAllowedForUserCreation"]
-            ]
-
             # 获取详细信息
             handle_list, _ = await self.explore_bot("Official")
             task_list = [self.cache_offical_bot_info(handle) for handle in handle_list]
             await gather(*task_list)
-
-            # 标记可创建自定义bot的模型
-            for m in diy_model_list:
-                self.offical_models[m].diy = True
 
             logger.info(f"当前发现{len(handle_list)}个官方模型：" + "、".join(handle_list))
         except Exception as e:
@@ -283,7 +266,7 @@ class Poe_Client:
                     "daily_available_times": daily_available_times,
                     "daily_total_times": daily_total_times,
                 }
-                if self.user_info.subscription_actived:
+                if self.user_info.subscription_activated:
                     output["monthly_refresh_time"] = m["messageLimit"][
                         "monthlyBalanceRefreshTime"
                     ]
@@ -297,15 +280,6 @@ class Poe_Client:
                     )
                 output["models"].append(tmp_data)
 
-            output["daily_refresh_time"] = strftime(
-                "%Y-%m-%d %H:%M:%S",
-                localtime(output["daily_refresh_time"] / 1000000),
-            )
-            if self.user_info.subscription_actived:
-                output["monthly_refresh_time"] = strftime(
-                    "%Y-%m-%d %H:%M:%S",
-                    localtime(output["monthly_refresh_time"] / 1000000),
-                )
             return output
         except Exception as e:
             raise e
@@ -673,35 +647,27 @@ class Poe_Client:
                 return
 
         try:
-            # 判断bot是否被删了
+            # 判断会话是否被删了
             result = await self.send_query(
-                "HandleBotLandingPageQuery",
-                {"botHandle": handle},
+                "ChatListPaginationQuery",
+                {
+                    "count": 25,
+                    "cursor": "0",
+                    "id": base64_encode(f"Chat:{chat_id}"),
+                },
             )
-            deletionState = result["data"]["bot"]["deletionState"]
-            if deletionState != "not_deleted":
+            deletionState = result["data"]["node"]["defaultBotObject"]
+            if (deletionState != "not_deleted") or (
+                chat_id and not result["data"]["node"]["messagesConnection"]["edges"]
+            ):
                 yield SessionDisable()
                 return
-
-            # 判断会话是否被删了
-            if chat_id:
-                result = await self.send_query(
-                    "ChatListPaginationQuery",
-                    {
-                        "count": 25,
-                        "cursor": "0",
-                        "id": base64_encode(f"Chat:{chat_id}"),
-                    },
-                )
-                # 没有聊天记录
-                if result["data"]["node"] == None:
-                    yield SessionDisable()
-                    return
 
         except Exception as e:
             err_msg = f"执行bot【{handle}】chat【{chat_id}】查询会话状态出错，错误信息：{e}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
+            return
 
         err_msg = "获取回答超时"
         logger.error(err_msg)

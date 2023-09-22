@@ -298,9 +298,9 @@ async def _(
                 "application/json": {
                     "example": {
                         "email": "xxx@gmail.com",
-                        "subscription_actived": True,
+                        "subscription_activated": True,
                         "plan_type": "Monthly",
-                        "expire_time": "1111-11-11 11:11:11",
+                        "expire_time": 1693230928703,
                         "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
                         "models": [
                             {
@@ -322,8 +322,8 @@ async def _(
                                 "monthly_total_times": 601,
                             },
                         ],
-                        "daily_refresh_time": "2023-08-30 08:00:00",
-                        "monthly_refresh_time": "2023-09-13 08:00:00",
+                        "daily_refresh_time": 1693230928703,
+                        "monthly_refresh_time": 1693230928703,
                     },
                 }
             },
@@ -335,26 +335,32 @@ async def _(
 ):
     data = await poe.client.get_limited_bots_info()
     data["email"] = poe.client.user_info.email
-    data["subscription_actived"] = poe.client.user_info.subscription_actived
+    data["subscription_activated"] = poe.client.user_info.subscription_activated
     data["plan_type"] = ""
     data["expire_time"] = ""
-    if poe.client.user_info.subscription_actived:
+    if poe.client.user_info.subscription_activated:
         data["plan_type"] = poe.client.user_info.plan_type
         data["expire_time"] = poe.client.user_info.expire_time
     return JSONResponse(data, 200)
 
 
 @router.get(
-    "/test/{handle}",
+    "/test/{id}",
     summary="测试接口，调试用的",
 )
 async def _(
-    handle: str = Path(),
+    id: str = Path(),
     _: dict = Depends(verify_admin),
 ):
-    result = await poe.client.send_query(
-        "HandleBotLandingPageQuery",
-        {"botHandle": handle},
-    )
+    from base64 import b64encode
 
-    return JSONResponse(result["data"]["bot"]["deletionState"], 200)
+    id = b64encode(f"Chat:{id}".encode("utf-8")).decode("utf-8")
+    result = await poe.client.send_query(
+        "ChatListPaginationQuery",
+        {
+            "count": 25,
+            "cursor": "0",
+            "id": id,
+        },
+    )
+    return JSONResponse(result, 200)
