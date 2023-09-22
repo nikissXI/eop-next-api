@@ -7,6 +7,7 @@ from utils.config import *
 from time import strftime, localtime
 from asyncio import create_task
 
+
 class BotNotFound(Exception):
     def __init__(self):
         pass
@@ -188,15 +189,17 @@ async def _(
             "description": "创建成功",
             "content": {
                 "application/json": {
-                    "bot_info": {
-                        "eop_id": "114514",
-                        "alias": "AAA",
-                        "model": "ChatGPT",
-                        "prompt": "prompt_A",
-                        "image": "https://xxx",
-                        "create_time": 1693230928703,
-                        "last_talk_time": 1693230928703,
-                    },
+                    "example": {
+                        "bot_info": {
+                            "eop_id": "114514",
+                            "alias": "AAA",
+                            "model": "ChatGPT",
+                            "prompt": "prompt_A",
+                            "image": "https://xxx",
+                            "create_time": 1693230928703,
+                            "last_talk_time": 1693230928703,
+                        },
+                    }
                 }
             },
         },
