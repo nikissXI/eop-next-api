@@ -54,7 +54,7 @@ class UserInfo(BaseModel):
     """账号信息"""
 
     email: str = ""
-    subscription_is_active: bool = False
+    subscription_actived: bool = False
     plan_type: str = ""
     expire_time: str = ""
 

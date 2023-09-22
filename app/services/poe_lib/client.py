@@ -26,7 +26,7 @@ try:
 except:
     from json import dump, loads
 try:
-    from utils import logger
+    from utils import logger, refresh_logger
 except:
     from loguru import logger
 
@@ -73,18 +73,18 @@ class Poe_Client:
         logger.info("Poe登陆中。。。。。。")
 
         await self.get_user_info()
-        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_is_active}"
-        if self.user_info.subscription_is_active:
+        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_actived}"
+        if self.user_info.subscription_actived:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{self.user_info.expire_time}"
         logger.info(text)
 
         limited_info = await self.get_limited_bots_info()
         text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{limited_info['daily_refresh_time']}"
-        if self.user_info.subscription_is_active:
+        if self.user_info.subscription_actived:
             text += f"\n -- 月次数刷新时间：{limited_info['monthly_refresh_time']}"
         for m in limited_info["models"]:
             text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
-            if self.user_info.subscription_is_active:
+            if self.user_info.subscription_actived:
                 text += (
                     f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
                 )
@@ -111,8 +111,8 @@ class Poe_Client:
                 uuid5(UUID("98765432101234567898765432101234"), data["poeUser"]["id"])
             )
             self.user_info.email = data["primaryEmail"]
-            self.user_info.subscription_is_active = data["subscription"]["isActive"]
-            if self.user_info.subscription_is_active:
+            self.user_info.subscription_actived = data["subscription"]["isActive"]
+            if self.user_info.subscription_actived:
                 self.user_info.plan_type = data["subscription"]["planType"]
                 self.user_info.expire_time = strftime(
                     "%Y-%m-%d %H:%M:%S",
@@ -283,7 +283,7 @@ class Poe_Client:
                     "daily_available_times": daily_available_times,
                     "daily_total_times": daily_total_times,
                 }
-                if self.user_info.subscription_is_active:
+                if self.user_info.subscription_actived:
                     output["monthly_refresh_time"] = m["messageLimit"][
                         "monthlyBalanceRefreshTime"
                     ]
@@ -301,7 +301,7 @@ class Poe_Client:
                 "%Y-%m-%d %H:%M:%S",
                 localtime(output["daily_refresh_time"] / 1000000),
             )
-            if self.user_info.subscription_is_active:
+            if self.user_info.subscription_actived:
                 output["monthly_refresh_time"] = strftime(
                     "%Y-%m-%d %H:%M:%S",
                     localtime(output["monthly_refresh_time"] / 1000000),
@@ -534,6 +534,7 @@ class Poe_Client:
 
                 except TimeoutError:
                     # logger.info("TimeoutError")
+                    refresh_logger.info("refresh")
                     create_task(self.refresh_channel(get_new_channel=False))
                     break
 

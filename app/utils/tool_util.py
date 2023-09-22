@@ -13,6 +13,14 @@ user_logger.addHandler(file_handler)
 user_logger.setLevel(DEBUG)
 
 
+
+refresh_logger = getLogger("user_action")
+file_handler = FileHandler("user_action.log")
+formatter = Formatter("%(asctime)s - %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+file_handler.setFormatter(formatter)
+refresh_logger.addHandler(file_handler)
+refresh_logger.setLevel(DEBUG)
+
 def generate_random_password(length=8) -> tuple[str, str]:
     characters = ascii_letters + digits
     passwd = "".join(choice(characters) for _ in range(length))

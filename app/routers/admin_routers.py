@@ -286,3 +286,59 @@ async def _(
         return await login_poe()
 
     return Response(status_code=204)
+
+
+@router.get(
+    "/accountInfo",
+    summary="获取Poe账号信息以及限制模型使用情况",
+    responses={
+        200: {
+            "description": "结果",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "email": "xxx@gmail.com",
+                        "subscription_actived": True,
+                        "plan_type": "Monthly",
+                        "expire_time": "1111-11-11 11:11:11",
+                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                        "models": [
+                            {
+                                "model": "Claude-instant-100k",
+                                "limit_type": "硬限制",
+                                "available": True,
+                                "daily_available_times": 30,
+                                "daily_total_times": 30,
+                                "monthly_available_times": 1030,
+                                "monthly_total_times": 1030,
+                            },
+                            {
+                                "model": "GPT-4",
+                                "limit_type": "软限制",
+                                "available": True,
+                                "daily_available_times": 1,
+                                "daily_total_times": 1,
+                                "monthly_available_times": 592,
+                                "monthly_total_times": 601,
+                            },
+                        ],
+                        "daily_refresh_time": "2023-08-30 08:00:00",
+                        "monthly_refresh_time": "2023-09-13 08:00:00",
+                    },
+                }
+            },
+        },
+    },
+)
+async def _(
+    _: dict = Depends(verify_token),
+):
+    data = await poe.client.get_limited_bots_info()
+    data["email"] = poe.client.user_info.email
+    data["subscription_actived"] = poe.client.user_info.subscription_actived
+    data["plan_type"] = ""
+    data["expire_time"] = ""
+    if poe.client.user_info.subscription_actived:
+        data["plan_type"] = poe.client.user_info.plan_type
+        data["expire_time"] = poe.client.user_info.expire_time
+    return JSONResponse(data, 200)

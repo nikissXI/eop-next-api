@@ -136,51 +136,6 @@ async def _(
     return JSONResponse({"available_models": data}, 200)
 
 
-@router.get(
-    "/limited",
-    summary="获取限制模型的使用情况",
-    responses={
-        200: {
-            "description": "结果",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
-                        "models": [
-                            {
-                                "model": "Claude-instant-100k",
-                                "limit_type": "硬限制",
-                                "available": True,
-                                "daily_available_times": 30,
-                                "daily_total_times": 30,
-                                "monthly_available_times": 1030,
-                                "monthly_total_times": 1030,
-                            },
-                            {
-                                "model": "GPT-4",
-                                "limit_type": "软限制",
-                                "available": True,
-                                "daily_available_times": 1,
-                                "daily_total_times": 1,
-                                "monthly_available_times": 592,
-                                "monthly_total_times": 601,
-                            },
-                        ],
-                        "daily_refresh_time": "2023-08-30 08:00:00",
-                        "monthly_refresh_time": "2023-09-13 08:00:00",
-                    },
-                }
-            },
-        },
-    },
-)
-async def _(
-    _: dict = Depends(verify_token),
-):
-    data = await poe.client.get_limited_bots_info()
-    return JSONResponse(data, 200)
-
-
 @router.post(
     "/create",
     summary="创建会话，prompt选填（不填留空），prompt仅支持diy的模型可用",

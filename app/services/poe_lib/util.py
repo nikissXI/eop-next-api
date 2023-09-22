@@ -50,6 +50,7 @@ CHINESE_DISCRIPTION = {
     "Code-Llama-13b": "Meta 的 Code-Llama-13b-instruct。擅长生成和讨论代码，并支持 16k 个标记的上下文窗口。",
     "Code-Llama-7b": "Meta 的 Code-Llama-7b-instruct。擅长生成和讨论代码，并支持 16k 个标记的上下文窗口。",
     "Solar-0-70b": "Upstage 的 Solar-0-70b-16bit 是 HuggingFace Open LLM 排行榜上排名靠前的模型，是 Llama 2 的微调版本。",
+    "GPT-3.5-Turbo-Instruct": "由 gpt-3.5-turbo-instruct 提供支持",
 }
 
 

@@ -58,3 +58,7 @@ poe登录凭证需要两个值，获取方法如下：
 - /admin/getSetting 接口结果增加telegram_url, discord_url, weixin_url, qq_url字段
 - /admin/updateSetting 接口请求体增加telegram_url, discord_url, weixin_url, qq_url字段
 - /user/info 接口结果响应字段改为user, uid, level, expire_date
+
+## 2023/9/22
+- /bot/limited 接口移除
+- /admin/accountInfo 接口新增
