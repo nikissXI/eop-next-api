@@ -14,8 +14,8 @@ user_logger.setLevel(DEBUG)
 
 
 
-refresh_logger = getLogger("user_action")
-file_handler = FileHandler("user_action.log")
+refresh_logger = getLogger("refresh_logger")
+file_handler = FileHandler("refresh_logger.log")
 formatter = Formatter("%(asctime)s - %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 refresh_logger.addHandler(file_handler)

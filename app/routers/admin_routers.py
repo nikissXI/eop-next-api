@@ -331,7 +331,7 @@ async def _(
     },
 )
 async def _(
-    _: dict = Depends(verify_token),
+    _: dict = Depends(verify_admin),
 ):
     data = await poe.client.get_limited_bots_info()
     data["email"] = poe.client.user_info.email
@@ -342,3 +342,18 @@ async def _(
         data["plan_type"] = poe.client.user_info.plan_type
         data["expire_time"] = poe.client.user_info.expire_time
     return JSONResponse(data, 200)
+
+
+@router.get(
+    "/test/{handle}",
+    summary="测试接口，调试用的",
+)
+async def _(
+    handle: str = Path(),
+    _: dict = Depends(verify_admin),
+):
+    result = await poe.client.send_query(
+        "HandleBotLandingPageQuery",
+        {"botHandle": handle},
+    )
+    return JSONResponse(result, 200)
