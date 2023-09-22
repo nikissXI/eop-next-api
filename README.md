@@ -62,3 +62,5 @@ poe登录凭证需要两个值，获取方法如下：
 ## 2023/9/22
 - /bot/limited 接口移除，新增接口 /admin/accountInfo
 - 增加失效会话判断处理
+- /user/bots 改为 /bot/list
+- talk的响应type增加 expired 账号过期，denied 权限不足，deleted 会话不存在，disable 会话无法使用

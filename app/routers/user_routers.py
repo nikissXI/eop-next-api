@@ -102,3 +102,47 @@ async def _(passwd: str = Query(description="明文密码", example="this_is_a_p
     hash_object.update(passwd.encode("utf-8"))
     hash_value = hash_object.hexdigest()
     return hash_value
+
+
+
+@router.get(
+    "/bots",
+    summary="拉取用户可用会话",
+    responses={
+        200: {
+            "description": "会话列表",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "bots": [
+                            {
+                                "eop_id": "114514",
+                                "alias": "AAA",
+                                "model": "ChatGPT",
+                                "prompt": "prompt_A",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": False,
+                            },
+                            {
+                                "eop_id": "415411",
+                                "alias": "BBB",
+                                "model": "ChatGPT4",
+                                "prompt": "",
+                                "image": "https://xxx",
+                                "create_time": 1693230928703,
+                                "last_talk_time": 1693230928703,
+                                "disable": True,
+                            },
+                        ]
+                    }
+                }
+            },
+        },
+    },
+)
+async def _(user_data: dict = Depends(verify_token)):
+    uid = user_data["uid"]
+    botList = await Bot.get_user_bot(uid)
+    return JSONResponse({"bots": botList}, 200)

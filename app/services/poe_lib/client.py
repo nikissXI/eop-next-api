@@ -680,7 +680,7 @@ class Poe_Client:
             )
             deletionState = result["data"]["bot"]["deletionState"]
             if deletionState != "not_deleted":
-                yield SessionDeleted()
+                yield SessionDisable()
                 return
 
             # 判断会话是否被删了
@@ -695,7 +695,7 @@ class Poe_Client:
                 )
                 # 没有聊天记录
                 if result["data"]["node"] == None:
-                    yield SessionDeleted()
+                    yield SessionDisable()
                     return
 
         except Exception as e:

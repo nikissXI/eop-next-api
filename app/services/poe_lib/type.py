@@ -34,7 +34,7 @@ class TalkError(BaseModel):
     content: str
 
 
-class SessionDeleted(BaseModel):
+class SessionDisable(BaseModel):
     """会话被删除"""
 
     pass

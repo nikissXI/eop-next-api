@@ -136,49 +136,6 @@ async def _(
     return JSONResponse({"available_models": data}, 200)
 
 
-@router.get(
-    "/list",
-    summary="拉取用户可用会话",
-    responses={
-        200: {
-            "description": "会话列表",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "bots": [
-                            {
-                                "eop_id": "114514",
-                                "alias": "AAA",
-                                "model": "ChatGPT",
-                                "prompt": "prompt_A",
-                                "image": "https://xxx",
-                                "create_time": 1693230928703,
-                                "last_talk_time": 1693230928703,
-                                "disable": False,
-                            },
-                            {
-                                "eop_id": "415411",
-                                "alias": "BBB",
-                                "model": "ChatGPT4",
-                                "prompt": "",
-                                "image": "https://xxx",
-                                "create_time": 1693230928703,
-                                "last_talk_time": 1693230928703,
-                                "disable": True,
-                            },
-                        ]
-                    }
-                }
-            },
-        },
-    },
-)
-async def _(user_data: dict = Depends(verify_token)):
-    uid = user_data["uid"]
-    botList = await Bot.get_user_bot(uid)
-    return JSONResponse({"bots": botList}, 200)
-
-
 @router.post(
     "/create",
     summary="创建会话，prompt选填（不填留空），prompt仅支持diy的模型可用",
@@ -285,22 +242,63 @@ async def _(
 ):
     uid = user_data["uid"]
 
-    await check_user_outdate(uid)
-
-    await check_bot_hoster(uid, eop_id)
-
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
-
-    await check_user_level(uid, model)
-
     async def ai_reply():
-        nonlocal chat_id
+        # 判断账号过期
+        if await User.is_outdate(uid):
+            expire_date = await User.get_expire_date(uid)
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "expired",
+                            "data": f"你的账号已过期，有效期至【{expire_date}】，无法对话",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
+
+        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+
+        # 判断账号等级
+        level = await User.get_level(uid)
+        info = poe.client.offical_models[model]
+        if info.limited and level == 1:
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "denied",
+                            "data": f"你的账号等级不足，无法使用该模型对话",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
+
+        # 判断会话是否存在
+        if not await Bot.check_bot_user(eop_id, uid):
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "deleted",
+                            "data": "会话不存在",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
+
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 会话失效
-            if isinstance(data, SessionDeleted):
+            if isinstance(data, SessionDisable):
                 await Bot.disable_bot(eop_id)
                 yield BytesIO(
-                    (dumps({"type": "deleted", "data": "该会话已失效"}) + "\n").encode(
+                    (dumps({"type": "disable", "data": "该会话已失效，无法使用"}) + "\n").encode(
                         "utf-8"
                     )
                 ).read()
