@@ -298,6 +298,7 @@ async def _(
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 会话失效
             if isinstance(data, SessionDeleted):
+                await Bot.disable_bot(eop_id)
                 yield BytesIO(
                     (dumps({"type": "deleted", "data": "该会话已失效"}) + "\n").encode(
                         "utf-8"
