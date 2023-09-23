@@ -35,23 +35,23 @@ BOT_IMAGE_LINK_CACHE = {
     "Google-PaLM": "https://psc2.cf2.poecdn.net/fab9eff39d9103cb5b73c37c950df83de29d8cf8/_next/static/media/googlePalmAvatar.5ca326b0.webp",
 }
 CHINESE_DISCRIPTION = {
-    "Assistant": "通用助手机器人，擅长编程相关任务和非英语语言。由 gpt-3.5-turbo 提供支持。曾被称为 Sage。",
-    "Claude-instant-100k": "Anthropic 最快的模型，具有增加的上下文窗口，可容纳 100k 个标记（约 75,000 个词）。可分析非常长的文档、代码等。",
-    "GPT-4": "OpenAI 最强大的模型。在定量问题（数学和物理）、创意写作和许多其他具有挑战性的任务方面比 ChatGPT 更强大。目前可用性有限。",
-    "Claude-2-100k": "Anthropic 最强大的模型，具有增加的上下文窗口，可容纳 100k 个标记（约 75,000 个词）。特别擅长创意写作。",
-    "Claude-instant": "Anthropic 最快的模型，擅长创意任务。具有 9k 个标记的上下文窗口（约 7,000 个词）。",
-    "ChatGPT": "由 gpt-3.5-turbo 提供支持。",
-    "ChatGPT-16k": "由 gpt-3.5-turbo-16k 提供支持。由于这是一个测试版模型，使用限制可能会发生变化。",
-    "GPT-4-32k": "由 gpt-4-32k 提供支持。由于这是一个测试版模型，使用限制可能会发生变化。",
-    "Google-PaLM": "由 Google 的 PaLM 2 chat-bison 模型提供支持。支持 8k 个标记的上下文窗口。",
-    "Llama-2-70b": "Meta 的 Llama-2-70b-chat。",
-    "Code-Llama-34b": "Meta 的 Code-Llama-34b-instruct。擅长生成和讨论代码，并支持 16k 个标记的上下文窗口。",
-    "Llama-2-13b": "Meta 的 Llama-2-13b-chat。",
-    "Llama-2-7b": "Meta 的 Llama-2-7b-chat。",
-    "Code-Llama-13b": "Meta 的 Code-Llama-13b-instruct。擅长生成和讨论代码，并支持 16k 个标记的上下文窗口。",
-    "Code-Llama-7b": "Meta 的 Code-Llama-7b-instruct。擅长生成和讨论代码，并支持 16k 个标记的上下文窗口。",
-    "Solar-0-70b": "Upstage 的 Solar-0-70b-16bit 是 HuggingFace Open LLM 排行榜上排名靠前的模型，是 Llama 2 的微调版本。",
-    "GPT-3.5-Turbo-Instruct": "由 gpt-3.5-turbo-instruct 提供支持",
+    "Assistant": "由ChatGPT模型提供支持。旧名Sage。擅长编程相关和科学逻辑相关任务，思维方式更接近人类。",
+    "Claude-instant-100k": "（该模型有使用次数限制）可分析非常长的文档、代码等，上下文支持约75k个词。",
+    "GPT-4": "（该模型有使用次数限制）在定量问题（数学和物理）、创意写作和许多其他具有挑战性的任务方面比ChatGPT更强大。上下文支持约8k个词。",
+    "Claude-2-100k": "（该模型有使用次数限制）特别擅长创意写作，上下文支持约75k个词。",
+    "Claude-instant": "擅长创意任务，上下文支持约7k个词。",
+    "ChatGPT": "比较出名以及常用的模型，上下文支持约4k个词。",
+    "ChatGPT-16k": "（该模型有使用次数限制）增强版ChatGPT，上下文支持约16k个词。",
+    "GPT-4-32k": "（该模型有使用次数限制）增强版GPT-4，上下文支持约32k个词。",
+    "Google-PaLM": "由PaLM2 chat-bison模型提供支持，上下文支持约8k个词。",
+    "Llama-2-70b": "Llama-2-70b-chat模型。",
+    "Code-Llama-34b": "Code-Llama-34b-instruct模型。擅长生成和讨论代码，上下文支持约16k个词。",
+    "Llama-2-13b": "Llama-2-13b-chat模型。",
+    "Llama-2-7b": "Llama-2-7b-chat模型。",
+    "Code-Llama-13b": "Code-Llama-13b-instruct。擅长生成和讨论代码，上下文支持约16k个词。",
+    "Code-Llama-7b": "Code-Llama-7b-instruct。擅长生成和讨论代码，上下文支持约16k个词。",
+    "Solar-0-70b": "Solar-0-70b-16bit是HuggingFace Open LLM排行榜上排名靠前的模型，是Llama 2的微调版本。",
+    "GPT-3.5-Turbo-Instruct": "新的指令语言模型，旨在有效地提供特定指令，类似于专注于聊天的ChatGPT。",
 }
 
 
@@ -79,4 +79,4 @@ def base64_decode(text: str) -> str:
 
 
 def str_time(t: int) -> str:
-    return strftime("%Y-%m-%d %H:%M:%S", localtime(t / 1000000))
+    return strftime("%Y-%m-%d %H:%M:%S", localtime(t / 1000))

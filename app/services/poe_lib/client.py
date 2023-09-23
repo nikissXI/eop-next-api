@@ -114,7 +114,7 @@ class Poe_Client:
             self.user_info.subscription_activated = data["subscription"]["isActive"]
             if self.user_info.subscription_activated:
                 self.user_info.plan_type = data["subscription"]["planType"]
-                self.user_info.expire_time = data["subscription"]["expiresTime"]
+                self.user_info.expire_time = data["subscription"]["expiresTime"]/1000
         except Exception as e:
             raise e
 
@@ -253,15 +253,13 @@ class Poe_Client:
                 "models": [],
             }
             for m in data:
-                output["daily_refresh_time"] = m["messageLimit"]["resetTime"]
+                output["daily_refresh_time"] = m["messageLimit"]["resetTime"]/1000
                 daily_available_times = m["messageLimit"]["dailyBalance"]
                 daily_total_times = m["messageLimit"]["dailyLimit"]
 
                 tmp_data = {
                     "model": m["displayName"],
-                    "limit_type": "软限制"
-                    if m["limitedAccessType"] == "soft_limit"
-                    else "硬限制",
+                    "limit_type": m["limitedAccessType"],
                     "available": m["messageLimit"]["canSend"],
                     "daily_available_times": daily_available_times,
                     "daily_total_times": daily_total_times,
@@ -269,7 +267,7 @@ class Poe_Client:
                 if self.user_info.subscription_activated:
                     output["monthly_refresh_time"] = m["messageLimit"][
                         "monthlyBalanceRefreshTime"
-                    ]
+                    ]/1000
                     monthly_available_times = m["messageLimit"]["monthlyBalance"]
                     monthly_total_times = m["messageLimit"]["monthlyLimit"]
                     tmp_data.update(

@@ -305,7 +305,7 @@ async def _(
                         "models": [
                             {
                                 "model": "Claude-instant-100k",
-                                "limit_type": "硬限制",
+                                "limit_type": "hard_limit",
                                 "available": True,
                                 "daily_available_times": 30,
                                 "daily_total_times": 30,
@@ -314,7 +314,7 @@ async def _(
                             },
                             {
                                 "model": "GPT-4",
-                                "limit_type": "软限制",
+                                "limit_type": "soft_limit",
                                 "available": True,
                                 "daily_available_times": 1,
                                 "daily_total_times": 1,
