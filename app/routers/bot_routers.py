@@ -316,9 +316,9 @@ async def _(
 
     handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
 
-    await check_user_outdate(uid)
-    await check_user_level(uid, model)
-    await check_bot_hoster(uid, eop_id)
+    # await check_user_outdate(uid)
+    # await check_user_level(uid, model)
+    # await check_bot_hoster(uid, eop_id)
 
     async def ai_reply():
         nonlocal chat_id

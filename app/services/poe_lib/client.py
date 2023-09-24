@@ -229,6 +229,7 @@ class Poe_Client:
             elif handle in BOT_IMAGE_LINK_CACHE:
                 image_link = BOT_IMAGE_LINK_CACHE[handle]
             else:
+                logger.warning(f"{handle}找不到头像链接")
                 image_link = ""
 
             bot_info = {
@@ -654,7 +655,7 @@ class Poe_Client:
                     "id": base64_encode(f"Chat:{chat_id}"),
                 },
             )
-            deletionState = result["data"]["node"]["defaultBotObject"]
+            deletionState = result["data"]["node"]["defaultBotObject"]["deletionState"]
             if (deletionState != "not_deleted") or (
                 chat_id and not result["data"]["node"]["messagesConnection"]["edges"]
             ):
