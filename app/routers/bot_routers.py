@@ -314,7 +314,14 @@ async def _(
 ):
     uid = user_data["uid"]
 
+    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+
+    await check_user_outdate(uid)
+    await check_user_level(uid, model)
+    await check_bot_hoster(uid, eop_id)
+
     async def ai_reply():
+        nonlocal chat_id
         # 判断账号过期
         if await User.is_outdate(uid):
             expire_date = await User.get_expire_date(uid)
@@ -330,7 +337,6 @@ async def _(
                 ).encode("utf-8")
             ).read()
             return
-        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
 
         # 判断账号等级
         level = await User.get_level(uid)
