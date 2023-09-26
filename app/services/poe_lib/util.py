@@ -21,7 +21,7 @@ QUERIES = {
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",  # 删除会话
     "ChatListPaginationQuery": "81d85f26b14aa782bef3ef617ce2222453f3b6ebc4dfaa1b50470a2fb157b58a",  # 查询聊天记录
     "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",  # 取消回答
-    "settingsPageQuery": "d81f0e97947680bef2fb6e0ac5947e9198b613575010351995ab565f9ae59cad",  # 获取账号信息
+    "settingsPageQuery": "faa6a828e2da41a3212827437562536671ab50d99e825e8399b649668ec1652a",  # 获取账号信息
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 SETTING_URL = "https://poe.com/api/settings"

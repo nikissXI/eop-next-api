@@ -114,7 +114,7 @@ class Poe_Client:
             self.user_info.subscription_activated = data["subscription"]["isActive"]
             if self.user_info.subscription_activated:
                 self.user_info.plan_type = data["subscription"]["planType"]
-                self.user_info.expire_time = data["subscription"]["expiresTime"]/1000
+                self.user_info.expire_time = data["subscription"]["expiresTime"] / 1000
         except Exception as e:
             raise e
 
@@ -248,35 +248,47 @@ class Poe_Client:
         """
         try:
             result = await self.send_query("settingsPageQuery", {})
-            data = result["data"]["viewer"]["subscriptionBots"]
+            data = result["data"]["viewer"]["messageLimitsConnection"]["edges"]
             output = {
                 "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
                 "models": [],
             }
-            for m in data:
-                output["daily_refresh_time"] = m["messageLimit"]["resetTime"]/1000
-                daily_available_times = m["messageLimit"]["dailyBalance"]
-                daily_total_times = m["messageLimit"]["dailyLimit"]
-
-                tmp_data = {
-                    "model": m["displayName"],
-                    "limit_type": m["limitedAccessType"],
-                    "available": m["messageLimit"]["canSend"],
-                    "daily_available_times": daily_available_times,
-                    "daily_total_times": daily_total_times,
-                }
+            for _ in data:
+                m = _["node"]
+                output["daily_refresh_time"] = m["freeLimitResetTime"] / 1000
+                if m["bot"]:
+                    tmp_data = {
+                        "model": m["bot"]["displayName"],
+                        "limit_type": m["bot"]["limitedAccessType"],
+                        "daily_available_times": m["freeLimitBalance"],
+                        "daily_total_times": m["freeLimit"],
+                    }
+                else:
+                    tmp_data = {
+                        "model": "All other messages",
+                        "limit_type": "hard_limit",
+                        "daily_available_times": m["freeLimitBalance"],
+                        "daily_total_times": m["freeLimit"],
+                    }
                 if self.user_info.subscription_activated:
-                    output["monthly_refresh_time"] = m["messageLimit"][
-                        "monthlyBalanceRefreshTime"
-                    ]/1000
-                    monthly_available_times = m["messageLimit"]["monthlyBalance"]
-                    monthly_total_times = m["messageLimit"]["monthlyLimit"]
+                    output["monthly_refresh_time"] = m["paidLimitResetTime"] / 1000
+
                     tmp_data.update(
                         {
-                            "monthly_available_times": monthly_available_times,
-                            "monthly_total_times": monthly_total_times,
+                            "monthly_available_times": m["paidLimitBalance"],
+                            "monthly_total_times": m["paidLimit"],
                         }
                     )
+                tmp_data["available"] = False
+                if (
+                    m["paidLimitBalance"]
+                    or m["freeLimitBalance"]
+                    or (
+                        self.user_info.subscription_activated
+                        and tmp_data["limit_type"] == "soft_limit"
+                    )
+                ):
+                    tmp_data["available"] = True
                 output["models"].append(tmp_data)
 
             return output
