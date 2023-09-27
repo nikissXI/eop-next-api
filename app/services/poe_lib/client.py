@@ -542,7 +542,7 @@ class Poe_Client:
             await sleep(1)
 
         question_md5 = ""
-        if not chat_id:
+        if chat_id == 0:
             question_md5 = md5(question.encode()).hexdigest()
             self.get_chat_code[question_md5] = 0
 
@@ -590,11 +590,12 @@ class Poe_Client:
                 if self.get_chat_code[question_md5]:
                     chat_id = self.get_chat_code[question_md5]
                     self.get_chat_code.pop(question_md5)
-                    yield NewChat(chat_id=chat_id)
                     retry = 10
 
                     if chat_id not in self.ws_data_queue:
                         self.ws_data_queue[chat_id] = Queue()
+
+                    yield NewChat(chat_id=chat_id)
                 else:
                     retry -= 1
                 continue
