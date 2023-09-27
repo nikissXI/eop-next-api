@@ -315,63 +315,56 @@ async def _(
     body: TalkBody = Body(example={"q": "你好啊"}),
     user_data: dict = Depends(verify_token),
 ):
-    uid = user_data["uid"]
-
-
-    await check_user_outdate(uid)
-    await check_bot_hoster(uid, eop_id)
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
-    await check_user_level(uid, model)
-
     async def ai_reply():
-        nonlocal chat_id
-        # # 判断账号过期
-        # if await User.is_outdate(uid):
-        #     expire_date = await User.get_expire_date(uid)
-        #     yield BytesIO(
-        #         (
-        #             dumps(
-        #                 {
-        #                     "type": "expired",
-        #                     "data": f"你的账号已过期，有效期至【{expire_date}】，无法对话",
-        #                 }
-        #             )
-        #             + "\n"
-        #         ).encode("utf-8")
-        #     ).read()
-        #     return
+        uid = user_data["uid"]
+        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+        # 判断账号过期
+        if await User.is_outdate(uid):
+            expire_date = await User.get_expire_date(uid)
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "expired",
+                            "data": f"你的账号已过期，有效期至【{expire_date}】，无法对话",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
 
-        # # 判断账号等级
-        # level = await User.get_level(uid)
-        # info = poe.client.offical_models[model]
-        # if info.limited and level == 1:
-        #     yield BytesIO(
-        #         (
-        #             dumps(
-        #                 {
-        #                     "type": "denied",
-        #                     "data": f"你的账号等级不足，无法使用该模型对话",
-        #                 }
-        #             )
-        #             + "\n"
-        #         ).encode("utf-8")
-        #     ).read()
-        #     return
+        # 判断账号等级
+        level = await User.get_level(uid)
+        info = poe.client.offical_models[model]
+        if info.limited and level == 1:
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "denied",
+                            "data": f"你的账号等级不足，无法使用该模型对话",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
 
-        # # 判断会话是否存在
-        # if not await Bot.check_bot_user(eop_id, uid):
-        #     yield BytesIO(
-        #         (
-        #             dumps(
-        #                 {
-        #                     "type": "deleted",
-        #                     "data": "会话不存在",
-        #                 }
-        #             )
-        #             + "\n"
-        #         ).encode("utf-8")
-        #     ).read()
-        #     return
+        # 判断会话是否存在
+        if not await Bot.check_bot_user(eop_id, uid):
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "deleted",
+                            "data": "会话不存在",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
 
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 会话失效
@@ -441,7 +434,9 @@ async def _(
                     )
                 ).read()
 
-    return StreamingResponse(ai_reply(), media_type="text/event-stream")
+    return StreamingResponse(
+        ai_reply(), media_type="text/event-stream", status_code=200
+    )
 
 
 @router.get(

@@ -53,6 +53,7 @@ CHINESE_DISCRIPTION = {
     "Code-Llama-7b": "Code-Llama-7b-instruct。擅长生成和讨论代码，上下文支持约16k个词。",
     "Solar-0-70b": "Solar-0-70b-16bit是HuggingFace Open LLM排行榜上排名靠前的模型，是Llama 2的微调版本。",
     "GPT-3.5-Turbo-Instruct": "新的指令语言模型，旨在有效地提供特定指令，类似于专注于聊天的ChatGPT。",
+    "Web-Search": "由ChatGPT模型提供支持。能够根据需要进行网络搜索以获取信息并提供回答。特别适用于与最新信息或具体事实相关的查询。",
 }
 
 
