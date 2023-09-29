@@ -331,6 +331,7 @@ async def _(
                 ).encode("utf-8")
             ).read()
             return
+        
         # 判断账号过期
         if await User.is_outdate(uid):
             expire_date = await User.get_expire_date(uid)
@@ -390,13 +391,13 @@ async def _(
                 )
                 await Bot.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
-            if isinstance(data, MsgId):
+            if isinstance(data, MsgInfo):
                 await Bot.update_bot_last_talk_time(eop_id, data.answer_create_time)
                 yield BytesIO(
                     (
                         dumps(
                             {
-                                "type": "start",
+                                "type": "msg_info",
                                 "data": {
                                     "question_msg_id": data.question_msg_id,
                                     "question_create_time": data.question_create_time,
@@ -410,17 +411,25 @@ async def _(
                 ).read()
             # ai的回答
             if isinstance(data, Text):
-                yield BytesIO(
-                    (dumps({"type": "response", "data": data.content}) + "\n").encode(
-                        "utf-8"
-                    )
-                ).read()
-            # 回答完毕，更新最后对话时间
-            if isinstance(data, End):
-                user_logger.info(
+                if data.complete:
+                    user_logger.info(
                     f"用户:{uid}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
-                yield BytesIO((dumps({"type": "end"}) + "\n").encode("utf-8")).read()
+                yield BytesIO(
+                    (
+                        dumps(
+                            {
+                                "type": "response",
+                                "data": {
+                                    "complete": data.complete,
+                                    "content": data.content,
+                                },
+                            }
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                ).read()
+
             # 出错
             if isinstance(data, TalkError):
                 user_logger.error(

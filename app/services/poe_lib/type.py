@@ -5,10 +5,11 @@ class Text(BaseModel):
     """文本信息"""
 
     content: str
+    complete: bool
 
 
-class MsgId(BaseModel):
-    """消息id"""
+class MsgInfo(BaseModel):
+    """响应信息"""
 
     question_msg_id: int
     question_create_time: int

@@ -3,7 +3,7 @@ from .type import (
     NewChat,
     End,
     TalkError,
-    MsgId,
+    MsgInfo,
     ReachedLimit,
     SessionDisable,
     ServerError,

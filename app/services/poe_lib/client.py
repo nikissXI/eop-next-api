@@ -582,7 +582,7 @@ class Poe_Client:
         question_msg_id = 0
         question_create_time = 0
 
-        yield_msg_id = False
+        yield_msg_info = False
         retry = 10
         while retry >= 0:
             if not chat_id:
@@ -614,7 +614,7 @@ class Poe_Client:
                 continue
 
             # 收到第一条生成的回复
-            if yield_msg_id == False:
+            if yield_msg_info == False:
                 answer_msg_id = quene_data.get("messageId")
                 # 判断是否为旧消息，有时候会拉取到之前的消息
                 if (
@@ -625,14 +625,13 @@ class Poe_Client:
                 answer_create_time = quene_data.get("creationTime")
 
                 self.answer_msg_id_cache[chat_id] = answer_msg_id
-                self.last_text_len_cache[chat_id] = 0
-                yield MsgId(
+                yield MsgInfo(
                     question_msg_id=question_msg_id,
                     question_create_time=question_create_time,
                     answer_msg_id=answer_msg_id,
                     answer_create_time=answer_create_time,
                 )
-                yield_msg_id = True
+                yield_msg_info = True
 
             # 取消回复
             if quene_data.get("state") == "cancelled":
@@ -645,7 +644,7 @@ class Poe_Client:
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
                 retry = 10
-                yield Text(content=plain_text[self.last_text_len_cache[chat_id] :])
+                yield Text(content=plain_text, complete=False)
                 self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
 
@@ -654,8 +653,7 @@ class Poe_Client:
                 quene_data.get("state") == "complete"
                 or quene_data.get("state") == "cancelled"
             ):
-                yield Text(content=plain_text[self.last_text_len_cache[chat_id] :])
-                yield End()
+                yield Text(content=plain_text, complete=True)
                 return
 
         try:

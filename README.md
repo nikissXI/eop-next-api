@@ -66,3 +66,6 @@ poe登录凭证需要两个值，获取方法如下：
 - talk的响应type增加 expired 账号过期，denied 权限不足，deleted 会话不存在，disable 会话无法使用
 - PATCH /bot/{eop_id} 接口增加 2011 响应码（会话失效）
 - 支持热更新最新模型
+
+## 2023/9/30
+- /bot/talk 接口，type：start改为type：msg_info，type：end移除，type：response的data改为{"complete": true/false,"content": 内容}
