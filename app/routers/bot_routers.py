@@ -317,7 +317,20 @@ async def _(
 ):
     async def ai_reply():
         uid = user_data["uid"]
-        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+        # 判断会话是否存在
+        if not await Bot.check_bot_user(eop_id, uid):
+            yield BytesIO(
+                (
+                    dumps(
+                        {
+                            "type": "deleted",
+                            "data": "会话不存在",
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            ).read()
+            return
         # 判断账号过期
         if await User.is_outdate(uid):
             expire_date = await User.get_expire_date(uid)
@@ -334,6 +347,8 @@ async def _(
             ).read()
             return
 
+        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+
         # 判断账号等级
         level = await User.get_level(uid)
         info = poe.client.offical_models[model]
@@ -344,21 +359,6 @@ async def _(
                         {
                             "type": "denied",
                             "data": f"你的账号等级不足，无法使用该模型对话",
-                        }
-                    )
-                    + "\n"
-                ).encode("utf-8")
-            ).read()
-            return
-
-        # 判断会话是否存在
-        if not await Bot.check_bot_user(eop_id, uid):
-            yield BytesIO(
-                (
-                    dumps(
-                        {
-                            "type": "deleted",
-                            "data": "会话不存在",
                         }
                     )
                     + "\n"
