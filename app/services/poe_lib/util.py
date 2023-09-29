@@ -41,7 +41,7 @@ CHINESE_DISCRIPTION = {
     "GPT-4": "（该模型有使用次数限制）在定量问题（数学和物理）、创意写作和许多其他具有挑战性的任务方面比ChatGPT更强大。上下文支持约8k个词。",
     "Claude-2-100k": "（该模型有使用次数限制）特别擅长创意写作，上下文支持约75k个词。",
     "Claude-instant": "擅长创意任务，上下文支持约7k个词。",
-    "ChatGPT": "比较出名以及常用的模型，上下文支持约4k个词。",
+    "ChatGPT": "比较出名以及常用的gpt-3.5-turbo模型，上下文支持约4k个词。",
     "ChatGPT-16k": "（该模型有使用次数限制）增强版ChatGPT，上下文支持约16k个词。",
     "GPT-4-32k": "（该模型有使用次数限制）增强版GPT-4，上下文支持约32k个词。",
     "Google-PaLM": "由PaLM2 chat-bison模型提供支持，上下文支持约8k个词。",
@@ -54,6 +54,8 @@ CHINESE_DISCRIPTION = {
     "Solar-0-70b": "Solar-0-70b-16bit是HuggingFace Open LLM排行榜上排名靠前的模型，是Llama 2的微调版本。",
     "GPT-3.5-Turbo-Instruct": "新的指令语言模型，旨在有效地提供特定指令，类似于专注于聊天的ChatGPT。",
     "Web-Search": "由ChatGPT模型提供支持。能够根据需要进行网络搜索以获取信息并提供回答。特别适用于与最新信息或具体事实相关的查询。",
+    "GPT-3.5-Turbo": "ChatGPT，但没有系统默认prompt。",
+    "StableDiffusionXL": "根据用户的提示生成高质量图像。用户可以使用提示末尾的“--no”参数指定图像中要避免的元素（例如：“Tall trees, daylight --no rain”）。",
 }
 
 
