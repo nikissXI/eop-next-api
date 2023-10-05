@@ -398,12 +398,12 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "messageAdded",
-                            "queryHash": "470215554ac82a1ea8af90c0dc938d2f35bd75b54dbcdaa781ec4ced74367ff6",
+                            "queryHash": "b705e2a7a4bfb067078fd059f06ecf247be12d527398065443a50006e48f9191",
                         },
                         {
                             "query": None,
                             "subscriptionName": "messageCancelled",
-                            "queryHash": "dfcedd9e0304629c22929725ff6544e1cb32c8f20b0c3fd54d966103ccbcf9d3",
+                            "queryHash": "14647e90e5960ec81fa83ae53d270462c3743199fbb6c4f26f40f4c83116d2ff",
                         },
                         {
                             "query": None,
@@ -413,7 +413,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "viewerStateUpdated",
-                            "queryHash": "9c95362c04aa18518b7831ad1d59a5318fae14e63d1eda75493cdc0ebc4710c2",
+                            "queryHash": "b048e00b3069f53e4b543844053ecd617e08b75b20df44e76e4d2bc6593e3764",
                         },
                         {
                             "query": None,
@@ -592,9 +592,11 @@ class Poe_Client:
 
             # 从队列拉取回复
             try:
-                if chat_id not in self.ws_data_queue:
-                    continue
                 quene_data = await wait_for(self.ws_data_queue[chat_id].get(), 1)
+            except KeyError:
+                retry -= 1
+                await sleep(1)
+                continue
             except TimeoutError:
                 retry -= 1
                 continue
@@ -647,7 +649,7 @@ class Poe_Client:
             ):
                 yield Text(content=plain_text, complete=True)
                 return
-
+        
         try:
             # 判断会话是否被删了
             result = await self.send_query(

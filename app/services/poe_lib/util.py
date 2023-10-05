@@ -8,20 +8,20 @@ from base64 import b64encode, b64decode
 from time import localtime, strftime
 
 QUERIES = {
+    "settingsPageQuery": "fb7225e76758a8ace2afb2266b92f6c5412fab4a96cd1a6eb450aa2950a7155a",  # 获取账号信息
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
-    "exploreBotsIndexPageQuery": "b6b0fb768c7727b57f4cb51489a3850ded36d1b96e27c1346f04171db0b2cf25",  # 探索某类bot
-    "ExploreBotsListPaginationQuery": "983be13fda71b7926b77f461ae7e8925c4e696cdd578fbfd42cb0d14103993ac",  # 查询具体类别bot列表
-    "createBotIndexPageQuery": "3925692460e7c12565a722f1f934620ff5190c6023b80c86c7529159953ef73c",  # 创建自定义bot时可选的模型
-    "HandleBotLandingPageQuery": "9f8049fbcbd162ac0121cee1014290c81671673fa2466b4ebd14e33c4f8e155f",  # 查询bot信息
-    "sendMessageMutation": "f7887d68040b45a71d92c46b067fd88539d5d4a51dd9102bde3a4f4fe109bc56",  # 发送消息
-    "sendChatBreakMutation": "f392431130dd344ef7ca7409699ebb312a12f581a046a403f26c2657101f7fce",  # 重置记忆
-    "BotInfoCardActionBar_poeBotDelete_Mutation": "08da8a2ff41d15ccd6da7488e1c5ae94101c6037f84505845f43c3526de315f9",  # 删除bot
-    "CreateBotMain_poeBotCreate_Mutation": "916833ab4558f9afbfdf8e7f181514dda8ab2f77e07a7ef6a6cb75ea83c41e6e",  # 创建bot
-    "EditBotMain_poeBotEdit_Mutation": "7a04278f837f1c61321e35b70513166fc8bf93d7f551eaa6a6675774ea190a25",  # 编辑自定义bot
+    "exploreBotsIndexPageQuery": "96026f5201635559989830b63ec55dcf6080abe8152a52f39ffb98b46d6850d4",  # 探索某类bot
+    "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
+    "HandleBotLandingPageQuery": "7f06985a6204b906a804e8c597058106d1e9d4b305bf0cb95e3c50e5caaa88ac",  # 查询bot信息
+    "sendMessageMutation": "96452f18e0379f7a1c2af2e380fe56a8f758688124cd21430c871eb6858f77e3",  # 发送消息
+    "sendChatBreakMutation": "62e344f18eb96c781f6560a42ef101287b3564b5d6acfb5190773342c71a043e",  # 重置记忆
+    "createBotIndexPageQuery": "c5319f60766dcdff8c4f9fc92767c0d9226c3e8b796a30fe92afa6f4c3b0c9f8",  # 创建自定义bot时可选的模型
+    "CreateBotMain_poeBotCreate_Mutation": "bb796e46ed9e50e8d040d6e22a1471f6853991d01f852eb7eb594a8a6b85bcb7",  # 创建自定义bot
+    "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
+    "BotInfoCardActionBar_poeBotDelete_Mutation": "b446d0e94980e36d9ba7a5bc3188850186069d529b4c337fb9e91b9ead876c12",  # 删除bot
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",  # 删除会话
-    "ChatListPaginationQuery": "81d85f26b14aa782bef3ef617ce2222453f3b6ebc4dfaa1b50470a2fb157b58a",  # 查询聊天记录
-    "chatHelpers_messageCancel_Mutation": "59b10f19930cf95d3120612e72d271e3346a7fc9599e47183a593a05b68c617e",  # 取消回答
-    "settingsPageQuery": "faa6a828e2da41a3212827437562536671ab50d99e825e8399b649668ec1652a",  # 获取账号信息
+    "ChatListPaginationQuery": "43d655f35f164654f7a04a577065e5dcd00ca68d235473a8d08872c330bc565c",  # 查询聊天记录
+    "chatHelpers_messageCancel_Mutation": "33ae28dd801cbaeb3e988a9db5097b065329af60b99f6de710ffd1fae5ce995e",  # 取消回答
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 SETTING_URL = "https://poe.com/api/settings"
@@ -45,17 +45,18 @@ CHINESE_DISCRIPTION = {
     "ChatGPT-16k": "（该模型有使用次数限制）增强版ChatGPT，上下文支持约16k个词。",
     "GPT-4-32k": "（该模型有使用次数限制）增强版GPT-4，上下文支持约32k个词。",
     "Google-PaLM": "由PaLM2 chat-bison模型提供支持，上下文支持约8k个词。",
-    "Llama-2-70b": "Llama-2-70b-chat模型。",
+    "Llama-2-70b": "由Llama-2-70b-chat模型提供支持。",
     "Code-Llama-34b": "Code-Llama-34b-instruct模型。擅长生成和讨论代码，上下文支持约16k个词。",
-    "Llama-2-13b": "Llama-2-13b-chat模型。",
-    "Llama-2-7b": "Llama-2-7b-chat模型。",
-    "Code-Llama-13b": "Code-Llama-13b-instruct。擅长生成和讨论代码，上下文支持约16k个词。",
-    "Code-Llama-7b": "Code-Llama-7b-instruct。擅长生成和讨论代码，上下文支持约16k个词。",
+    "Llama-2-13b": "由Llama-2-13b-chat模型提供支持。",
+    "Llama-2-7b": "由Llama-2-7b-chat模型提供支持。",
+    "Code-Llama-13b": "由Code-Llama-13b-instruct模型提供支持。擅长生成和讨论代码，上下文支持约16k个词。",
+    "Code-Llama-7b": "由Code-Llama-7b-instruct模型提供支持。擅长生成和讨论代码，上下文支持约16k个词。",
     "Solar-0-70b": "Solar-0-70b-16bit是HuggingFace Open LLM排行榜上排名靠前的模型，是Llama 2的微调版本。",
     "GPT-3.5-Turbo-Instruct": "新的指令语言模型，旨在有效地提供特定指令，类似于专注于聊天的ChatGPT。",
     "Web-Search": "由ChatGPT模型提供支持。能够根据需要进行网络搜索以获取信息并提供回答。特别适用于与最新信息或具体事实相关的查询。",
     "GPT-3.5-Turbo": "ChatGPT，但没有系统默认prompt。",
     "StableDiffusionXL": "根据用户的提示生成高质量图像。用户可以使用提示末尾的“--no”参数指定图像中要避免的元素（例如：“Tall trees, daylight --no rain”）。",
+    "fw-mistral-7b": "由Mistral-7b-instruct模型提供支持。官网地址：https://app.fireworks.ai/models/fireworks/mistral-7b-instruct-4k。",
 }
 
 
