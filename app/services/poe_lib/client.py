@@ -59,9 +59,9 @@ class Poe_Client:
         self.refresh_channel_lock = False
         self.last_min_seq = 0
         self.ws_data_queue: dict[int, Queue] = {}
-        self.get_chat_code = {}
-        self.answer_msg_id_cache = {}
-        self.last_text_len_cache = {}
+        self.get_chat_code: dict[str, int] = {}
+        self.answer_msg_id_cache: dict[int, int] = {}
+        self.last_text_len_cache: dict[int, int] = {}
 
     async def login(self):
         """
@@ -376,9 +376,6 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
-        self.ws_data_queue.clear()
-        self.get_chat_code.clear()
-        self.answer_msg_id_cache.clear()
         try:
             resp = await self.httpx_client.get(SETTING_URL)
             json_data = loads(resp.text)
@@ -575,10 +572,6 @@ class Poe_Client:
             logger.error(err_msg)
             yield TalkError(content=err_msg)
 
-        # 如果不存在则创建答案生成队列
-        if chat_id and chat_id not in self.ws_data_queue:
-            self.ws_data_queue[chat_id] = Queue()
-
         question_msg_id = 0
         question_create_time = 0
 
@@ -592,9 +585,6 @@ class Poe_Client:
                     self.get_chat_code.pop(question_md5)
                     retry = 10
 
-                    if chat_id not in self.ws_data_queue:
-                        self.ws_data_queue[chat_id] = Queue()
-
                     yield NewChat(chat_id=chat_id)
                 else:
                     retry -= 1
@@ -602,6 +592,8 @@ class Poe_Client:
 
             # 从队列拉取回复
             try:
+                if chat_id not in self.ws_data_queue:
+                    continue
                 quene_data = await wait_for(self.ws_data_queue[chat_id].get(), 1)
             except TimeoutError:
                 retry -= 1
