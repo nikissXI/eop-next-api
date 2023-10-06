@@ -32,12 +32,15 @@ require Python environment >= 3.10
 poe登录凭证需要两个值，获取方法如下：  
 
 **p_b值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），依次点击应用程序、存储、Cookie，就可以看到p_b的值了  
-<img width="100%" src="https://raw.githubusercontent.com/nikissXI/nonebot_plugins/main/nonebot_plugin_talk_with_poe_ai/readme_img/2.jpg"/>  
+<img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/1.jpg"/>  
 
 **formkey值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），然后随便跟一个ai发一句话，点网络，选Fetch/XHR，随便一个请求，在标头那，往下找到请求标头那类，里面有一个Poe-Formkey字段，后面就是值了  
-<img width="100%" src="https://raw.githubusercontent.com/nikissXI/nonebot_plugins/main/nonebot_plugin_talk_with_poe_ai/readme_img/3.jpg"/>  
+<img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/2.jpg"/>  
 
 # 更新日志
+## 2023/10/6
+- /bot/talk 接口改动，还有挺多东西改动（反正没啥人用，随便啦~
+
 ## 2023/9/10
 - /user/bots 接口内容增加了image字段，对应模型的头像链接
 
