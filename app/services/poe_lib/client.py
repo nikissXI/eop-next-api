@@ -26,7 +26,7 @@ try:
 except:
     from json import dump, loads
 try:
-    from utils import logger, refresh_logger
+    from utils import logger, debug_logger
 except:
     from loguru import logger
 
@@ -331,7 +331,7 @@ class Poe_Client:
         except Exception as e:
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
-            raise Exception(f"执行请求【{query_name}】失败，错误信息：{e}")
+            raise Exception(f"执行请求【{query_name}】失败，错误信息：{repr(e)}")
 
     async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
         """
@@ -386,7 +386,7 @@ class Poe_Client:
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
             self.last_min_seq = int(tchannel_data["minSeq"])
         except Exception as e:
-            err_msg = f"获取channel address失败，错误信息：{e}"
+            err_msg = f"获取channel address失败，错误信息：{repr(e)}"
             logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -429,7 +429,7 @@ class Poe_Client:
                 },
             )
         except Exception as e:
-            raise Exception(f"subscribe执行失败，错误信息：{e}")
+            raise Exception(f"subscribe执行失败，错误信息：{repr(e)}")
 
     async def refresh_channel(self, get_new_channel: bool = True):
         """
@@ -516,7 +516,7 @@ class Poe_Client:
 
                 except TimeoutError:
                     # logger.info("TimeoutError")
-                    refresh_logger.info("refresh")
+                    # debug_logger.info("refresh")
                     create_task(self.refresh_channel(get_new_channel=False))
                     break
 
@@ -567,7 +567,7 @@ class Poe_Client:
         except ServerError:
             pass
         except Exception as e:
-            err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{e}"
+            err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
             # print(format_exc())
             logger.error(err_msg)
             yield TalkError(content=err_msg)
@@ -668,7 +668,7 @@ class Poe_Client:
                 return
 
         except Exception as e:
-            err_msg = f"执行bot【{handle}】chat【{chat_id}】查询会话状态出错，错误信息：{e}"
+            err_msg = f"执行bot【{handle}】chat【{chat_id}】查询会话状态出错，错误信息：{repr(e)}"
             logger.error(err_msg)
             yield TalkError(content=err_msg)
             return
@@ -699,7 +699,7 @@ class Poe_Client:
                 },
             )
         except Exception as e:
-            raise Exception(f"停止bot【{handle}】生成回答失败，错误信息：{e}")
+            raise Exception(f"停止bot【{handle}】生成回答失败，错误信息：{repr(e)}")
 
     async def edit_bot(self, handle: str, bot_id: int, model: str, prompt: str):
         """
@@ -744,7 +744,7 @@ class Poe_Client:
                 },
             )
         except Exception as e:
-            raise Exception(f"bot【{handle}】重置对话失败，错误信息：{e}")
+            raise Exception(f"bot【{handle}】重置对话失败，错误信息：{repr(e)}")
 
     async def delete_chat_by_chat_id(self, handle: str, chat_id: int):
         """
@@ -755,7 +755,7 @@ class Poe_Client:
                 "useDeleteChat_deleteChat_Mutation", {"chatId": chat_id}
             )
         except Exception as e:
-            raise Exception(f"删除chat【{handle}】失败，错误信息：{e}")
+            raise Exception(f"删除chat【{handle}】失败，错误信息：{repr(e)}")
 
     async def delete_bot(self, handle: str, bot_id: int):
         """
@@ -766,7 +766,7 @@ class Poe_Client:
                 "BotInfoCardActionBar_poeBotDelete_Mutation", {"botId": bot_id}
             )
         except Exception as e:
-            raise Exception(f"删除bot【{handle}】失败，错误信息：{e}")
+            raise Exception(f"删除bot【{handle}】失败，错误信息：{repr(e)}")
 
         if resp["data"] is None and resp["errors"]:
             raise Exception(f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['message']}")
@@ -819,6 +819,6 @@ class Poe_Client:
                     }
                 )
         except Exception as e:
-            raise Exception(f"拉取bot【{handle}】历史记录失败，错误信息：{e}")
+            raise Exception(f"拉取bot【{handle}】历史记录失败，错误信息：{repr(e)}")
 
         return result_list, next_cursor

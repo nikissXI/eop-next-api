@@ -87,7 +87,7 @@ async def _(
                 await poe.client.delete_bot(handle, bot_id)
 
         except Exception as e:
-            logger.error(f"删除相关bot时出错，错误信息：{e}")
+            logger.error(f"删除相关bot时出错，错误信息：{repr(e)}")
     # 把数据库的相关bot信息删掉
     await Bot.remove_user_bots(uid)
     # 把用户删掉

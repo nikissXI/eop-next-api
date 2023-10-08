@@ -1,4 +1,4 @@
-from .tool_util import logger, user_logger, refresh_logger, generate_random_password
+from .tool_util import logger, user_logger, debug_logger, generate_random_password
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi import (
     APIRouter,
