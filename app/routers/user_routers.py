@@ -143,5 +143,5 @@ async def _(passwd: str = Query(description="明文密码", example="this_is_a_p
 )
 async def _(user_data: dict = Depends(verify_token)):
     uid = user_data["uid"]
-    botList = await Bot.get_user_bot(uid)
+    botList = await Chat.get_user_bot(uid)
     return JSONResponse({"bots": botList}, 200)

@@ -77,7 +77,7 @@ async def _(
     await check_user_exist(uid)
 
     # 先把用户相关bot信息拉取并删除poe上的数据
-    rows = await Bot.pre_remove_user_bots(uid)
+    rows = await Chat.pre_remove_user_bots(uid)
     for eop_id, handle, diy, bot_id, chat_id, disable in rows:
         try:
             if chat_id:
@@ -89,7 +89,7 @@ async def _(
         except Exception as e:
             logger.error(f"删除相关bot时出错，错误信息：{repr(e)}")
     # 把数据库的相关bot信息删掉
-    await Bot.remove_user_bots(uid)
+    await Chat.remove_user_bots(uid)
     # 把用户删掉
     await User.remove_user(uid)
     return Response(status_code=204)

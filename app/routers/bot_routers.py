@@ -46,7 +46,7 @@ def handle_exception(err_msg: str) -> JSONResponse:
 
 
 async def check_bot_hoster(uid: int, eop_id: str):
-    if not await Bot.check_bot_user(eop_id, uid):
+    if not await Chat.check_bot_user(eop_id, uid):
         raise BotNotFound()
 
 
@@ -207,7 +207,7 @@ async def _(
 )
 async def _(user_data: dict = Depends(verify_token)):
     uid = user_data["uid"]
-    botList = await Bot.get_user_bot(uid)
+    botList = await Chat.get_user_bot(uid)
     return JSONResponse({"bots": botList}, 200)
 
 
@@ -273,7 +273,7 @@ async def _(
         # 获取bot头像
         bot_data = await poe.client.get_bot_info(body.model)
         image_link = bot_data["image_link"]
-        eop_id = await Bot.create_bot(
+        eop_id = await Chat.create_bot(
             uid,
             can_diy,
             handle,
@@ -286,7 +286,7 @@ async def _(
         user_logger.info(
             f"用户:{uid}  动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
         )
-        bot_info = await Bot.get_user_bot(uid, eop_id)
+        bot_info = await Chat.get_user_bot(uid, eop_id)
         return JSONResponse({"bot_info": bot_info[0]}, 200)
 
     except Exception as e:
@@ -318,7 +318,7 @@ async def _(
     async def ai_reply():
         uid = user_data["uid"]
         # 判断会话是否存在
-        if not await Bot.check_bot_user(eop_id, uid):
+        if not await Chat.check_bot_user(eop_id, uid):
             yield BytesIO(
                 (
                     dumps(
@@ -348,7 +348,7 @@ async def _(
             ).read()
             return
 
-        handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+        handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
 
         # 判断账号等级
         level = await User.get_level(uid)
@@ -370,7 +370,7 @@ async def _(
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 会话失效
             if isinstance(data, SessionDisable):
-                await Bot.disable_bot(eop_id)
+                await Chat.disable_bot(eop_id)
                 yield BytesIO(
                     (dumps({"type": "disable", "data": "该会话已失效，无法使用"}) + "\n").encode(
                         "utf-8"
@@ -390,11 +390,11 @@ async def _(
                     f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
                 debug_logger.info(f"eop_id:{eop_id}  动作:新会话")
-                await Bot.update_bot_chat_id(eop_id, chat_id)
+                await Chat.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgInfo):
                 debug_logger.info(f"eop_id:{eop_id}  动作:响应msg_info")
-                await Bot.update_bot_last_talk_time(eop_id, data.answer_create_time)
+                await Chat.update_bot_last_talk_time(eop_id, data.answer_create_time)
                 yield BytesIO(
                     (
                         dumps(
@@ -472,7 +472,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -505,7 +505,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
 
     try:
         if chat_id:
@@ -517,7 +517,7 @@ async def _(
     except Exception as e:
         return handle_exception(str(e))
 
-    await Bot.delete_bot(eop_id)
+    await Chat.delete_bot(eop_id)
     user_logger.info(
         f"用户:{uid}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
     )
@@ -543,7 +543,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
@@ -576,12 +576,12 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
-        await Bot.update_bot_chat_id(eop_id)
+        await Chat.update_bot_chat_id(eop_id)
         user_logger.info(
             f"用户:{uid}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
         )
@@ -629,7 +629,7 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Bot.get_bot_data(eop_id)
+    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
     if not chat_id:
         return JSONResponse(
             {
@@ -686,13 +686,13 @@ async def _(
         raise ModelNotFound(body.model)
 
     # 更新缓存
-    await Bot.modify_bot(eop_id, None, body.alias, None)
+    await Chat.modify_bot(eop_id, None, body.alias, None)
 
-    handle, bot_id, diy = await Bot.pre_modify_bot_info(eop_id)
+    handle, bot_id, diy = await Chat.pre_modify_bot_info(eop_id)
     # 只有支持diy的可以更新模型和预设
     if diy:
         # 更新缓存
-        await Bot.modify_bot(eop_id, body.model, None, body.prompt)
+        await Chat.modify_bot(eop_id, body.model, None, body.prompt)
 
         try:
             await poe.client.edit_bot(
@@ -709,7 +709,7 @@ async def _(
             )
             deletionState = result["data"]["bot"]["deletionState"]
             if deletionState != "not_deleted":
-                await Bot.disable_bot(eop_id)
+                await Chat.disable_bot(eop_id)
                 raise BotDisable()
 
             return handle_exception(str(e))
@@ -754,7 +754,7 @@ async def _(
     cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
     _: dict = Depends(verify_token),
 ):
-    # handle, chat_id = await Bot.get_bot_handle_and_chat_id(eop_id)
+    # handle, chat_id = await Chat.get_bot_handle_and_chat_id(eop_id)
     # if not chat_id:
     #     return JSONResponse(
     #         {
