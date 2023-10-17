@@ -5,7 +5,7 @@ from secrets import token_hex
 from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
-from httpx import AsyncClient
+from httpx import AsyncClient, ReadTimeout
 from websockets.client import connect as ws_connect
 from re import sub
 from .type import *
@@ -564,7 +564,7 @@ class Poe_Client:
             if resp["data"]["messageEdgeCreate"]["status"] == "reached_limit":
                 yield ReachedLimit()
                 return
-        except ServerError:
+        except (ServerError, ReadTimeout):
             pass
         except Exception as e:
             err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
@@ -649,7 +649,7 @@ class Poe_Client:
             ):
                 yield Text(content=plain_text, complete=True)
                 return
-        
+
         try:
             # 判断会话是否被删了
             result = await self.send_query(
