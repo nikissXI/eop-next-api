@@ -329,6 +329,8 @@ class Poe_Client:
         except ServerError:
             raise ServerError("server error")
         except Exception as e:
+            if isinstance(e, ReadTimeout) and query_name == "sendMessageMutation":
+                raise ServerError("server error")
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
             raise Exception(f"执行请求【{query_name}】失败，错误信息：{repr(e)}")
@@ -564,7 +566,7 @@ class Poe_Client:
             if resp["data"]["messageEdgeCreate"]["status"] == "reached_limit":
                 yield ReachedLimit()
                 return
-        except (ServerError, ReadTimeout):
+        except ServerError:
             pass
         except Exception as e:
             err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
