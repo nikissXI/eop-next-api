@@ -163,6 +163,16 @@ class Poe_Client:
 
         return handle_list, next_cursor
 
+    async def creatable_model_list(self) -> list[str]:
+        """
+        支持创建自定义bot的列表
+        """
+        result = await self.send_query(
+            "createBotIndexPageQuery",
+            {"messageId": None},
+        )
+        return result["data"]["viewer"]["botsAllowedForUserCreation"]
+
     async def cache_offical_models(self):
         """
         缓存官方模型信息
@@ -170,8 +180,7 @@ class Poe_Client:
         try:
             # 获取category可选项
             result = await self.send_query(
-                "exploreBotsIndexPageQuery",
-                {"categoryName": "Official"},
+                "exploreBotsIndexPageQuery", {"categoryName": "Official"}
             )
 
             self.category_list = [
@@ -415,7 +424,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "viewerStateUpdated",
-                            "queryHash": "b048e00b3069f53e4b543844053ecd617e08b75b20df44e76e4d2bc6593e3764",
+                            "queryHash": "660eb03494259b476dd2384deeb7324a4c5f84f5210fa09f90409a41c94c1eb3",
                         },
                         {
                             "query": None,
@@ -425,7 +434,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "chatTitleUpdated",
-                            "queryHash": "e16a20dac5c35835c63dc615fe146fd0eb15138750ce58a5d972414dac2ccdb6",
+                            "queryHash": "e3e94635eee720dd9b8f8b7bdf69e840f2659db5a02a2a4745c54cee23037d0f",
                         },
                     ]
                 },
