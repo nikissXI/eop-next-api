@@ -17,9 +17,9 @@ QUERIES = {
     "editBotIndexPageQuery": "e3ff9a95e121979be704ad7d2710e3f4dd590bae4aace961131a5f9f8cf22047",  # 获取自定义bot的资料 todo
     "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
     "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
-    "HandleBotLandingPageQuery": "7f06985a6204b906a804e8c597058106d1e9d4b305bf0cb95e3c50e5caaa88ac",  # 查询bot信息
+    "HandleBotLandingPageQuery": "419ec9b64012509ef0e0f7180909b87f70124ba10a1c2c3d898522708ea4a236",  # 查询bot信息
     "sendChatBreakMutation": "62e344f18eb96c781f6560a42ef101287b3564b5d6acfb5190773342c71a043e",  # 重置记忆
-    "sendMessageMutation": "68abf0770b03c1cc21828dd88b9921e09797b7a9e3a17dfb674592082ba8800b",  # 发送消息
+    "sendMessageMutation": "2a3fda864652df1320f2e8d50576bf8bf85d1a78b130ecae98f1afd88c182608",  # 发送消息
     "settingsPageQuery": "7590b13df7602b9fbc393a67204b5e70d1e5630ac376fea0fd9aa678addd25aa",  # 获取账号信息
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",  # 删除会话

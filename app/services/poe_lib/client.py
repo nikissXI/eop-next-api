@@ -434,7 +434,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "chatTitleUpdated",
-                            "queryHash": "e3e94635eee720dd9b8f8b7bdf69e840f2659db5a02a2a4745c54cee23037d0f",
+                            "queryHash": "96f3018ba280f4d28c0e88da675779bf37f95b7bd7f3b503ae0df8759069dff3",
                         },
                     ]
                 },
