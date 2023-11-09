@@ -400,7 +400,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "messageAdded",
-                            "queryHash": "b705e2a7a4bfb067078fd059f06ecf247be12d527398065443a50006e48f9191",
+                            "queryHash": "a99cd01500e0c731d94b45872a2bcd8b3127d47f2cb4358b37d86462d5915e97",
                         },
                         {
                             "query": None,
@@ -414,8 +414,13 @@ class Poe_Client:
                         },
                         {
                             "query": None,
+                            "subscriptionName": "messageCreated",
+                            "queryHash": "6737fea2407ec3472663b6ae10aef001c2d5da490ec3b925a043237e66802d07",
+                        },
+                        {
+                            "query": None,
                             "subscriptionName": "viewerStateUpdated",
-                            "queryHash": "b048e00b3069f53e4b543844053ecd617e08b75b20df44e76e4d2bc6593e3764",
+                            "queryHash": "f4726e4c5a2d8106b5363a2c8cef1daaa268df2778e6eafade78af3175d1981a",
                         },
                         {
                             "query": None,
@@ -425,7 +430,12 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "chatTitleUpdated",
-                            "queryHash": "e16a20dac5c35835c63dc615fe146fd0eb15138750ce58a5d972414dac2ccdb6",
+                            "queryHash": "ee062b1f269ecd02ea4c2a3f1e4b2f222f7574c43634a2da4ebeb616d8647e06",
+                        },
+                        {
+                            "query": None,
+                            "subscriptionName": "knowledgeSourceUpdated",
+                            "queryHash": "8b0a03dd752936ba38ec7b6a3609b587dde4fed8823ef97b40f058c73a6f2f0f",
                         },
                     ]
                 },

@@ -8,20 +8,21 @@ from base64 import b64encode, b64decode
 from time import localtime, strftime
 
 QUERIES = {
-    "settingsPageQuery": "fb7225e76758a8ace2afb2266b92f6c5412fab4a96cd1a6eb450aa2950a7155a",  # 获取账号信息
+    "settingsPageQuery": "7590b13df7602b9fbc393a67204b5e70d1e5630ac376fea0fd9aa678addd25aa",  # 获取账号信息
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
     "exploreBotsIndexPageQuery": "96026f5201635559989830b63ec55dcf6080abe8152a52f39ffb98b46d6850d4",  # 探索某类bot
     "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
-    "HandleBotLandingPageQuery": "7f06985a6204b906a804e8c597058106d1e9d4b305bf0cb95e3c50e5caaa88ac",  # 查询bot信息
-    "sendMessageMutation": "96452f18e0379f7a1c2af2e380fe56a8f758688124cd21430c871eb6858f77e3",  # 发送消息
-    "sendChatBreakMutation": "62e344f18eb96c781f6560a42ef101287b3564b5d6acfb5190773342c71a043e",  # 重置记忆
-    "createBotIndexPageQuery": "c5319f60766dcdff8c4f9fc92767c0d9226c3e8b796a30fe92afa6f4c3b0c9f8",  # 创建自定义bot时可选的模型
-    "CreateBotMain_poeBotCreate_Mutation": "bb796e46ed9e50e8d040d6e22a1471f6853991d01f852eb7eb594a8a6b85bcb7",  # 创建自定义bot
-    "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
+    "HandleBotLandingPageQuery": "8aad112da559e2ff16e4dcd803a763dee6021f2e7e25e6858a0e37c5227799a6",  # 查询bot信息
+    "sendMessageMutation": "8ae0175cf4c78eeef4f8f49d78aa2708dee474f5cbd62c485278db9ba9e8d91e",  # 发送消息
+    "regenerateMessageMutation": "e47594b6c7e06d4f957f998f60e7d57e7dc68d0fe80ce6d1447a24fd72598568",  # 重新回答（好没做）
+    "chatHelpers_messageCancel_Mutation": "33ae28dd801cbaeb3e988a9db5097b065329af60b99f6de710ffd1fae5ce995e",  # 打断回答
+    "sendChatBreakMutation": "3d42e8224395626001dbd4e65a4b49c7eef93c4370405e73a1fa77749f61952c",  # 重置记忆
+    "createBotIndexPageQuery": "61134731fa4e4cc9b2006b6a819f343dc91876f91a6e1cd28d49826bba79e4e7",  # 创建自定义bot时可选的模型
+    "CreateBotMain_poeBotCreate_Mutation": "384184cd2e904bb0da2ce55ad2b36fd320463e52572147f6663aa53be26cc8e7",  # 创建自定义bot
+    "EditBotMain_poeBotEdit_Mutation": "715949794448a572858f879b09730008f41cbea1c1934f4b53268d8ffc97c6e0",  # 编辑自定义bot
     "BotInfoCardActionBar_poeBotDelete_Mutation": "b446d0e94980e36d9ba7a5bc3188850186069d529b4c337fb9e91b9ead876c12",  # 删除bot
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18",  # 删除会话
-    "ChatListPaginationQuery": "43d655f35f164654f7a04a577065e5dcd00ca68d235473a8d08872c330bc565c",  # 查询聊天记录
-    "chatHelpers_messageCancel_Mutation": "33ae28dd801cbaeb3e988a9db5097b065329af60b99f6de710ffd1fae5ce995e",  # 取消回答
+    "ChatListPaginationQuery": "83d4d44b83d416de3d396b61132e55ed4103fd073b5f18aff76317e2451cc692",  # 查询聊天记录
 }
 GQL_URL = "https://poe.com/api/gql_POST"
 SETTING_URL = "https://poe.com/api/settings"
