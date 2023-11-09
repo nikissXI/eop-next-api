@@ -11,13 +11,13 @@ QUERIES = {
     "settingsPageQuery": "fb7225e76758a8ace2afb2266b92f6c5412fab4a96cd1a6eb450aa2950a7155a",  # 获取账号信息
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
     "exploreBotsIndexPageQuery": "96026f5201635559989830b63ec55dcf6080abe8152a52f39ffb98b46d6850d4",  # 探索某类bot
+    "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
     "editBotIndexPageQuery": "e3ff9a95e121979be704ad7d2710e3f4dd590bae4aace961131a5f9f8cf22047",  # 获取自定义bot的资料 todo
     "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
-    "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
     "HandleBotLandingPageQuery": "7f06985a6204b906a804e8c597058106d1e9d4b305bf0cb95e3c50e5caaa88ac",  # 查询bot信息
     "sendMessageMutation": "96452f18e0379f7a1c2af2e380fe56a8f758688124cd21430c871eb6858f77e3",  # 发送消息
     "sendChatBreakMutation": "62e344f18eb96c781f6560a42ef101287b3564b5d6acfb5190773342c71a043e",  # 重置记忆
-    "createBotIndexPageQuery": "c5319f60766dcdff8c4f9fc92767c0d9226c3e8b796a30fe92afa6f4c3b0c9f8",  # 创建自定义bot时可选的模型
+    "createBotIndexPageQuery": "61134731fa4e4cc9b2006b6a819f343dc91876f91a6e1cd28d49826bba79e4e7",  # 创建自定义bot时可选的模型
     "CreateBotMain_poeBotCreate_Mutation": "bb796e46ed9e50e8d040d6e22a1471f6853991d01f852eb7eb594a8a6b85bcb7",  # 创建自定义bot
     "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
     "BotInfoCardActionBar_poeBotDelete_Mutation": "b446d0e94980e36d9ba7a5bc3188850186069d529b4c337fb9e91b9ead876c12",  # 删除bot

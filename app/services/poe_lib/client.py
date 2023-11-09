@@ -163,7 +163,7 @@ class Poe_Client:
 
         return handle_list, next_cursor
 
-    async def creatable_model_list(self) -> list[str]:
+    async def creatable_model_list(self) -> list[dict]:
         """
         支持创建自定义bot的列表
         """

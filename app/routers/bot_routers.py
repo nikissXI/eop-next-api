@@ -109,38 +109,38 @@ router = APIRouter()
 async def _(
     user_data: dict = Depends(verify_token),
 ):
-    model_result = {}
+    # model_result = {}
 
     # 获取最新的官方模型列表
-    async def get_newest_offical_model_list():
+    async def get_newest_offical_model_list() -> list[str]:
         try:
             model_list, next_cursor = await poe.client.explore_bot("Official")
         except Exception as e:
             raise e
-        model_result["all"] = model_list
+        return model_list
 
     # 获取支持diy（create bot）的模型并标记
-    async def get_diy_model_list():
+    async def get_diy_model_list() -> list[dict]:
         try:
-            model_result["diy"] = await poe.client.creatable_model_list()
+            model_dict = await poe.client.creatable_model_list()
         except Exception as e:
             raise e
+        return model_dict
 
     task1 = create_task(get_newest_offical_model_list())
     task2 = create_task(get_diy_model_list())
     try:
-        await gather(task1, task2)
+        all_result, diy_result = await gather(task1, task2)
     except Exception as e:
         return handle_exception(str(e))
-
-    for m in model_result["all"]:
+    for m in all_result:
         if m not in poe.client.offical_models:
             try:
                 await poe.client.cache_offical_bot_info(m)
             except Exception as e:
                 return handle_exception(str(e))
 
-    for m in [_["displayName"] for _ in model_result["diy"]]:
+    for m in [_["displayName"] for _ in diy_result]:
         poe.client.offical_models[m].diy = True
 
     uid = user_data["uid"]
@@ -148,7 +148,7 @@ async def _(
     level = await User.get_level(uid)
 
     data = []
-    for model in model_result["all"]:
+    for model in all_result:
         info = poe.client.offical_models[model]
         # 普通用户不返回限制模型
         if info.limited and level == 1:
