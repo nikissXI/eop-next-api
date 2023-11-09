@@ -163,6 +163,16 @@ class Poe_Client:
 
         return handle_list, next_cursor
 
+    async def creatable_model_list(self) -> list[str]:
+        """
+        支持创建自定义bot的列表
+        """
+        result = await self.send_query(
+            "createBotIndexPageQuery",
+            {"messageId": None},
+        )
+        return result["data"]["viewer"]["botsAllowedForUserCreation"]
+
     async def cache_offical_models(self):
         """
         缓存官方模型信息
@@ -170,8 +180,7 @@ class Poe_Client:
         try:
             # 获取category可选项
             result = await self.send_query(
-                "exploreBotsIndexPageQuery",
-                {"categoryName": "Official"},
+                "exploreBotsIndexPageQuery", {"categoryName": "Official"}
             )
 
             self.category_list = [
@@ -420,7 +429,11 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "viewerStateUpdated",
+<<<<<<< HEAD
                             "queryHash": "f4726e4c5a2d8106b5363a2c8cef1daaa268df2778e6eafade78af3175d1981a",
+=======
+                            "queryHash": "660eb03494259b476dd2384deeb7324a4c5f84f5210fa09f90409a41c94c1eb3",
+>>>>>>> e6a55c66c233bc621d6bbc3ba7bb3122c1158177
                         },
                         {
                             "query": None,
@@ -430,12 +443,16 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "chatTitleUpdated",
+<<<<<<< HEAD
                             "queryHash": "ee062b1f269ecd02ea4c2a3f1e4b2f222f7574c43634a2da4ebeb616d8647e06",
                         },
                         {
                             "query": None,
                             "subscriptionName": "knowledgeSourceUpdated",
                             "queryHash": "8b0a03dd752936ba38ec7b6a3609b587dde4fed8823ef97b40f058c73a6f2f0f",
+=======
+                            "queryHash": "96f3018ba280f4d28c0e88da675779bf37f95b7bd7f3b503ae0df8759069dff3",
+>>>>>>> e6a55c66c233bc621d6bbc3ba7bb3122c1158177
                         },
                     ]
                 },

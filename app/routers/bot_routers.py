@@ -122,13 +122,9 @@ async def _(
     # 获取支持diy（create bot）的模型并标记
     async def get_diy_model_list():
         try:
-            result = await poe.client.send_query(
-                "createBotIndexPageQuery",
-                {"messageId": None},
-            )
+            model_result["diy"] = await poe.client.creatable_model_list()
         except Exception as e:
             raise e
-        model_result["diy"] = result["data"]["viewer"]["botsAllowedForUserCreation"]
 
     task1 = create_task(get_newest_offical_model_list())
     task2 = create_task(get_diy_model_list())
@@ -389,11 +385,11 @@ async def _(
                 user_logger.info(
                     f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
-                debug_logger.info(f"eop_id:{eop_id}  动作:新会话")
+                # debug_logger.info(f"eop_id:{eop_id}  动作:新会话")
                 await Chat.update_bot_chat_id(eop_id, chat_id)
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgInfo):
-                debug_logger.info(f"eop_id:{eop_id}  动作:响应msg_info")
+                # debug_logger.info(f"eop_id:{eop_id}  动作:响应msg_info")
                 await Chat.update_bot_last_talk_time(eop_id, data.answer_create_time)
                 yield BytesIO(
                     (
@@ -413,12 +409,12 @@ async def _(
                 ).read()
             # ai的回答
             if isinstance(data, Text):
-                debug_logger.info(f"eop_id:{eop_id}  动作:回答ing")
+                # debug_logger.info(f"eop_id:{eop_id}  动作:回答ing")
                 if data.complete:
                     user_logger.info(
                         f"用户:{uid}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                     )
-                    debug_logger.info(f"eop_id:{eop_id}  动作:回答完毕")
+                    # debug_logger.info(f"eop_id:{eop_id}  动作:回答完毕")
 
                 yield BytesIO(
                     (
