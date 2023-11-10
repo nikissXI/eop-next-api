@@ -131,6 +131,9 @@ async def _(
     task2 = create_task(get_diy_model_list())
     try:
         all_result, diy_result = await gather(task1, task2)
+        print(all_result)
+        print("")
+        print(diy_result)
     except Exception as e:
         return handle_exception(str(e))
     for m in all_result:
@@ -140,8 +143,8 @@ async def _(
             except Exception as e:
                 return handle_exception(str(e))
 
-    for m in [_["displayName"] for _ in diy_result]:
-        poe.client.offical_models[m].diy = True
+    for displayName in [_["displayName"] for _ in diy_result]:
+        poe.client.offical_models[displayName].diy = True
 
     uid = user_data["uid"]
 

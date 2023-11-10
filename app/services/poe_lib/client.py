@@ -38,6 +38,8 @@ class Poe_Client:
         self.sdid = ""
         self.user_info = UserInfo()
         self.offical_models: dict[str, ModelInfo] = {}
+        # model: botId
+        self.diy_models: dict[str, int] = {}
         self.category_list: list[str] = []
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
@@ -171,7 +173,11 @@ class Poe_Client:
             "createBotIndexPageQuery",
             {"messageId": None},
         )
-        return result["data"]["viewer"]["botsAllowedForUserCreation"]
+        data = result["data"]["viewer"]["botsAllowedForUserCreation"]
+        for _ in data:
+            self.diy_models[_["model"]] = _["botId"]
+
+        return data
 
     async def cache_offical_models(self):
         """
@@ -353,24 +359,29 @@ class Poe_Client:
             result = await self.send_query(
                 "CreateBotMain_poeBotCreate_Mutation",
                 {
-                    "handle": handle,
-                    "prompt": prompt,
-                    "model": model,
-                    "hasSuggestedReplies": False,
-                    "displayName": None,
-                    "isPromptPublic": True,
-                    "introduction": "",
-                    "description": "",
-                    "profilePictureUrl": "",
+                    "apiKey": "abkvhRhm9Qob5nBoKOPf8pRRl33R9V7j",
                     "apiUrl": None,
-                    "apiKey": None,
-                    "isApiBot": False,
-                    "hasLinkification": False,
+                    "baseBotId": self.diy_models[model],
+                    "customMessageLimit": None,
+                    "description": "",
+                    "displayName": None,
+                    "handle": handle,
                     "hasMarkdownRendering": True,
+                    "hasSuggestedReplies": False,
+                    "introduction": "",
+                    "isApiBot": False,
                     "isPrivateBot": True,
+                    "isPromptPublic": True,
+                    "knowledgeSourceIds": [],
+                    "messagePriceCc": None,
+                    "model": model,
+                    "profilePictureUrl": "",
+                    "prompt": prompt,
+                    "shouldCiteSources": True,
                     "temperature": None,
                 },
             )
+            logger.error(str(result))
             json_data = result["data"]["poeBotCreate"]
             status = json_data["status"]
             if status != "success":
