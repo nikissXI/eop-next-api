@@ -71,10 +71,10 @@ def generate_data(query_name, variables) -> str:
     return dumps(data, separators=(",", ":"))
 
 
-def generate_random_handle() -> str:
+def generate_random_handle(c) -> str:
     """生成随机handle"""
     letters = ascii_letters + digits
-    return "".join(choice(letters) for _ in range(20))
+    return "".join(choice(letters) for _ in range(c))
 
 
 def base64_encode(text: str) -> str:

@@ -55,7 +55,7 @@ class Poe_Client:
             "Origin": "https://poe.com",
             "Referer": "https://poe.com",
         }
-        self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
+        self.httpx_client = AsyncClient(headers=headers, proxies=proxy, timeout=10)
         self.channel_url = ""
         self.ws_client_task = None
         self.refresh_channel_lock = False
@@ -129,55 +129,63 @@ class Poe_Client:
         """
         handle_list = []
         next_cursor = "0"
-        while True:
-            result = await self.send_query(
-                "ExploreBotsListPaginationQuery",
-                {
-                    "categoryName": category,
-                    "count": 25,
-                    "cursor": next_cursor,
-                },
-            )
-            data = result["data"]["exploreBotsConnection"]
-            handle_list.extend([m["node"]["handle"] for m in data["edges"]])
+        try:
+            while True:
+                result = await self.send_query(
+                    "ExploreBotsListPaginationQuery",
+                    {
+                        "categoryName": category,
+                        "count": 25,
+                        "cursor": next_cursor,
+                    },
+                )
+                data = result["data"]["exploreBotsConnection"]
+                handle_list.extend([m["node"]["handle"] for m in data["edges"]])
 
-            # for m in data["edges"]:
-            #     handle: str = m["node"]["handle"]
-            #     bot_id: int = m["node"]["botId"]
-            #     description: str = m["node"]["description"]
-            #     if m["node"]["image"]["__typename"] == "UrlBotImage":
-            #         image_link: str = m["node"]["image"]["url"]
-            #     elif handle in BOT_IMAGE_LINK_CACHE:
-            #         image_link = BOT_IMAGE_LINK_CACHE[handle]
-            #     else:
-            #         raise Exception("image_link不存在")
+                # for m in data["edges"]:
+                #     handle: str = m["node"]["handle"]
+                #     bot_id: int = m["node"]["botId"]
+                #     description: str = m["node"]["description"]
+                #     if m["node"]["image"]["__typename"] == "UrlBotImage":
+                #         image_link: str = m["node"]["image"]["url"]
+                #     elif handle in BOT_IMAGE_LINK_CACHE:
+                #         image_link = BOT_IMAGE_LINK_CACHE[handle]
+                #     else:
+                #         raise Exception("image_link不存在")
 
-            if data["pageInfo"]["hasNextPage"]:
-                next_cursor: str = data["pageInfo"]["endCursor"]
-            else:
-                next_cursor = "-1"
+                if data["pageInfo"]["hasNextPage"]:
+                    next_cursor: str = data["pageInfo"]["endCursor"]
+                else:
+                    next_cursor = "-1"
 
-            # 如果获取官方模型信息就拉全部（因为数量有限）
-            if category == "Official" and data["pageInfo"]["hasNextPage"]:
-                continue
-            else:
-                break
+                # 如果获取官方模型信息就拉全部（因为数量有限）
+                if category == "Official" and data["pageInfo"]["hasNextPage"]:
+                    continue
+                else:
+                    break
+
+        except Exception as e:
+            raise e
 
         return handle_list, next_cursor
 
-    async def creatable_model_list(self) -> list[dict]:
+    async def cache_diy_model_list(self):
         """
         支持创建自定义bot的列表
         """
-        result = await self.send_query(
-            "createBotIndexPageQuery",
-            {"messageId": None},
-        )
-        data = result["data"]["viewer"]["botsAllowedForUserCreation"]
-        for _ in data:
-            self.diy_models[_["model"]] = _["botId"]
+        try:
+            result = await self.send_query(
+                "createBotIndexPageQuery",
+                {"messageId": None},
+            )
+            data = result["data"]["viewer"]["botsAllowedForUserCreation"]
+            for _ in data:
+                self.diy_models[_["model"]] = _["botId"]
 
-        return data
+            # for displayName in [_["displayName"] for _ in data]:
+            #     self.offical_models[displayName].diy = True
+        except Exception as e:
+            raise e
 
     async def cache_offical_models(self):
         """
@@ -192,7 +200,8 @@ class Poe_Client:
             self.category_list = [
                 c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
             ]
-
+            # 缓存可自定义的model
+            await self.cache_diy_model_list()
             # 获取详细信息
             handle_list, _ = await self.explore_bot("Official")
             task_list = [self.cache_offical_bot_info(handle) for handle in handle_list]
@@ -221,7 +230,7 @@ class Poe_Client:
             self.offical_models[info["displayName"]] = ModelInfo(
                 model=info["model"],
                 description=description,
-                diy=False,
+                diy=True if info["model"] in self.diy_models else False,
                 limited=False if info["limitedAccessType"] == "no_limit" else True,
                 bot_id=info["botId"],
             )
@@ -355,11 +364,11 @@ class Poe_Client:
         创建bot
         """
         while True:
-            handle = generate_random_handle()
+            handle = generate_random_handle(20)
             result = await self.send_query(
                 "CreateBotMain_poeBotCreate_Mutation",
                 {
-                    "apiKey": "abkvhRhm9Qob5nBoKOPf8pRRl33R9V7j",
+                    "apiKey": generate_random_handle(32),
                     "apiUrl": None,
                     "baseBotId": self.diy_models[model],
                     "customMessageLimit": None,
@@ -381,7 +390,6 @@ class Poe_Client:
                     "temperature": None,
                 },
             )
-            logger.error(str(result))
             json_data = result["data"]["poeBotCreate"]
             status = json_data["status"]
             if status != "success":

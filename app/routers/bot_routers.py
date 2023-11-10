@@ -109,49 +109,26 @@ router = APIRouter()
 async def _(
     user_data: dict = Depends(verify_token),
 ):
-    # model_result = {}
-
-    # 获取最新的官方模型列表
-    async def get_newest_offical_model_list() -> list[str]:
-        try:
-            model_list, next_cursor = await poe.client.explore_bot("Official")
-        except Exception as e:
-            raise e
-        return model_list
-
-    # 获取支持diy（create bot）的模型并标记
-    async def get_diy_model_list() -> list[dict]:
-        try:
-            model_dict = await poe.client.creatable_model_list()
-        except Exception as e:
-            raise e
-        return model_dict
-
-    task1 = create_task(get_newest_offical_model_list())
-    task2 = create_task(get_diy_model_list())
+    task1 = create_task(poe.client.explore_bot("Official"))
+    task2 = create_task(poe.client.cache_diy_model_list())
     try:
-        all_result, diy_result = await gather(task1, task2)
-        print(all_result)
-        print("")
-        print(diy_result)
+        all_result, x = await gather(task1, task2)
     except Exception as e:
         return handle_exception(str(e))
-    for m in all_result:
-        if m not in poe.client.offical_models:
-            try:
+    # 判断是否有新的模型
+    try:
+        for m in all_result[0]:
+            if m not in poe.client.offical_models:
                 await poe.client.cache_offical_bot_info(m)
-            except Exception as e:
-                return handle_exception(str(e))
-
-    for displayName in [_["displayName"] for _ in diy_result]:
-        poe.client.offical_models[displayName].diy = True
+    except Exception as e:
+        return handle_exception(str(e))
 
     uid = user_data["uid"]
 
     level = await User.get_level(uid)
 
     data = []
-    for model in all_result:
+    for model in all_result[0]:
         info = poe.client.offical_models[model]
         # 普通用户不返回限制模型
         if info.limited and level == 1:
@@ -160,7 +137,7 @@ async def _(
             {
                 "model": model,
                 "description": info.description,
-                "diy": info.diy,
+                "diy": True if model in poe.client.diy_models else False,
                 "limited": info.limited,
             }
         )
@@ -252,6 +229,10 @@ async def _(
 
     if body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
+
+    logger.error(body.model)
+    logger.error(poe.client.offical_models[body.model])
+    logger.error(poe.client.offical_models[body.model].diy)
 
     can_diy = poe.client.offical_models[body.model].diy
 
