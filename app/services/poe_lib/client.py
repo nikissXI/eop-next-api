@@ -55,7 +55,7 @@ class Poe_Client:
             "Origin": "https://poe.com",
             "Referer": "https://poe.com",
         }
-        self.httpx_client = AsyncClient(headers=headers, proxies=proxy, timeout=10)
+        self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
         self.channel_url = ""
         self.ws_client_task = None
         self.refresh_channel_lock = False
@@ -333,6 +333,9 @@ class Poe_Client:
                     "content-type": "application/json",
                     "poe-tag-id": md5(base_string.encode()).hexdigest(),
                 },
+                timeout=15
+                if query_name == "CreateBotMain_poeBotCreate_Mutation"
+                else 5,
             )
             json_data = loads(resp.text)
 
@@ -407,7 +410,7 @@ class Poe_Client:
         此函数从设置_URL获取通道数据，获取channel地址，对话用的
         """
         try:
-            resp = await self.httpx_client.get(SETTING_URL)
+            resp = await self.httpx_client.get(SETTING_URL, timeout=5)
             json_data = loads(resp.text)
 
             tchannel_data = json_data["tchannelData"]
