@@ -8,14 +8,14 @@ from base64 import b64encode, b64decode
 from time import localtime, strftime
 
 QUERIES = {
-    "settingsPageQuery": "fb7225e76758a8ace2afb2266b92f6c5412fab4a96cd1a6eb450aa2950a7155a",  # 获取账号信息
+    "settingsPageQuery": "6d3480bc9f0edc5470c755bc245593d120e8c3741d3b8448828d03015131055e",  # 获取账号信息
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",  # 订阅ws
     "exploreBotsIndexPageQuery": "96026f5201635559989830b63ec55dcf6080abe8152a52f39ffb98b46d6850d4",  # 探索某类bot
     "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",  # 查询具体类别bot列表
     "editBotIndexPageQuery": "e3ff9a95e121979be704ad7d2710e3f4dd590bae4aace961131a5f9f8cf22047",  # 获取自定义bot的资料 todo
     "EditBotMain_poeBotEdit_Mutation": "b4378a80d21017d3e3788945b7648f8164e699d69878e3384bbd5dc127f159e6",  # 编辑自定义bot
     "HandleBotLandingPageQuery": "7f06985a6204b906a804e8c597058106d1e9d4b305bf0cb95e3c50e5caaa88ac",  # 查询bot信息
-    "sendMessageMutation": "96452f18e0379f7a1c2af2e380fe56a8f758688124cd21430c871eb6858f77e3",  # 发送消息
+    "sendMessageMutation": "645db20c90c19cbf3524a969912325cae0838f0e7a6422a623d06de0de7dcda8",  # 发送消息
     "sendChatBreakMutation": "62e344f18eb96c781f6560a42ef101287b3564b5d6acfb5190773342c71a043e",  # 重置记忆
     "createBotIndexPageQuery": "61134731fa4e4cc9b2006b6a819f343dc91876f91a6e1cd28d49826bba79e4e7",  # 创建自定义bot时可选的模型
     "CreateBotMain_poeBotCreate_Mutation": "384184cd2e904bb0da2ce55ad2b36fd320463e52572147f6663aa53be26cc8e7",  # 创建自定义bot

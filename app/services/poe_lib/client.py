@@ -431,7 +431,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "messageAdded",
-                            "queryHash": "a99cd01500e0c731d94b45872a2bcd8b3127d47f2cb4358b37d86462d5915e97",
+                            "queryHash": "5e0e802178e334d3ed79f075ea5c3333ae065313691811942ccefe065d3cbd97",
                         },
                         {
                             "query": None,
@@ -446,7 +446,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "messageCreated",
-                            "queryHash": "6737fea2407ec3472663b6ae10aef001c2d5da490ec3b925a043237e66802d07",
+                            "queryHash": "9f8d6206db8e8c813f1d0adf727d42f00b84de2729bbbaa505f87d61ddccf574",
                         },
                         {
                             "query": None,
@@ -466,7 +466,7 @@ class Poe_Client:
                         {
                             "query": None,
                             "subscriptionName": "knowledgeSourceUpdated",
-                            "queryHash": "8b0a03dd752936ba38ec7b6a3609b587dde4fed8823ef97b40f058c73a6f2f0f",
+                            "queryHash": "7de63f89277bcf54f2323008850573809595dcef687f26a78561910cfd4f6c37",
                         },
                     ]
                 },

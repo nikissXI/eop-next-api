@@ -6,6 +6,7 @@ from utils import *
 from utils.config import *
 from time import strftime, localtime
 from asyncio import create_task, gather
+from datetime import datetime
 
 
 class BotNotFound(Exception):
@@ -315,12 +316,15 @@ async def _(
         # 判断账号过期
         if await User.is_outdate(uid):
             expire_date = await User.get_expire_date(uid)
+            exp_date = datetime.fromtimestamp(expire_date / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             yield BytesIO(
                 (
                     dumps(
                         {
                             "type": "expired",
-                            "data": f"你的账号已过期，有效期至【{expire_date}】，无法对话",
+                            "data": f"你的账号已过期，有效期至【{exp_date}】，无法对话",
                         }
                     )
                     + "\n"
