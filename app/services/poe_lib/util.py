@@ -37,29 +37,6 @@ BOT_IMAGE_LINK_CACHE = {
     "GPT-3.5-Turbo-Instruct": "https://psc2.cf2.poecdn.net/a5b9fd229f21a733a02fe04c2b9ccc3af7f8239b/_next/static/media/chatGPTAvatar.04ed8443.png",
     "Google-PaLM": "https://psc2.cf2.poecdn.net/fab9eff39d9103cb5b73c37c950df83de29d8cf8/_next/static/media/googlePalmAvatar.5ca326b0.webp",
 }
-CHINESE_DISCRIPTION = {
-    "Assistant": "由ChatGPT模型提供支持。旧名Sage。擅长编程相关和科学逻辑相关任务，思维方式更接近人类。",
-    "Claude-instant-100k": "（该模型有使用次数限制）可分析非常长的文档、代码等，上下文支持约75k个词。",
-    "GPT-4": "（该模型有使用次数限制）在定量问题（数学和物理）、创意写作和许多其他具有挑战性的任务方面比ChatGPT更强大。上下文支持约8k个词。",
-    "Claude-2-100k": "（该模型有使用次数限制）特别擅长创意写作，上下文支持约75k个词。",
-    "Claude-instant": "擅长创意任务，上下文支持约7k个词。",
-    "ChatGPT": "比较出名以及常用的gpt-3.5-turbo模型，上下文支持约4k个词。",
-    "ChatGPT-16k": "（该模型有使用次数限制）增强版ChatGPT，上下文支持约16k个词。",
-    "GPT-4-32k": "（该模型有使用次数限制）增强版GPT-4，上下文支持约32k个词。",
-    "Google-PaLM": "由PaLM2 chat-bison模型提供支持，上下文支持约8k个词。",
-    "Llama-2-70b": "由Llama-2-70b-chat模型提供支持。",
-    "Code-Llama-34b": "Code-Llama-34b-instruct模型。擅长生成和讨论代码，上下文支持约16k个词。",
-    "Llama-2-13b": "由Llama-2-13b-chat模型提供支持。",
-    "Llama-2-7b": "由Llama-2-7b-chat模型提供支持。",
-    "Code-Llama-13b": "由Code-Llama-13b-instruct模型提供支持。擅长生成和讨论代码，上下文支持约16k个词。",
-    "Code-Llama-7b": "由Code-Llama-7b-instruct模型提供支持。擅长生成和讨论代码，上下文支持约16k个词。",
-    "Solar-0-70b": "Solar-0-70b-16bit是HuggingFace Open LLM排行榜上排名靠前的模型，是Llama 2的微调版本。",
-    "GPT-3.5-Turbo-Instruct": "新的指令语言模型，旨在有效地提供特定指令，类似于专注于聊天的ChatGPT。",
-    "Web-Search": "由ChatGPT模型提供支持。能够根据需要进行网络搜索以获取信息并提供回答。特别适用于与最新信息或具体事实相关的查询。",
-    "GPT-3.5-Turbo": "ChatGPT，但没有系统默认prompt。",
-    "StableDiffusionXL": "根据用户的提示生成高质量图像。用户可以使用提示末尾的“--no”参数指定图像中要避免的元素（例如：“Tall trees, daylight --no rain”）。",
-    "fw-mistral-7b": "由Mistral-7b-instruct模型提供支持。官网地址：https://app.fireworks.ai/models/fireworks/mistral-7b-instruct-4k。",
-}
 
 
 def generate_data(query_name, variables) -> str:

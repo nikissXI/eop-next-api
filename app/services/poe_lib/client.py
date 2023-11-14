@@ -13,7 +13,6 @@ from .util import (
     GQL_URL,
     SETTING_URL,
     BOT_IMAGE_LINK_CACHE,
-    CHINESE_DISCRIPTION,
     base64_decode,
     base64_encode,
     generate_data,
@@ -37,6 +36,7 @@ class Poe_Client:
         self.p_b = p_b
         self.sdid = ""
         self.user_info = UserInfo()
+        # display name: ModelInfo
         self.offical_models: dict[str, ModelInfo] = {}
         # model: botId
         self.diy_models: dict[str, int] = {}
@@ -182,8 +182,6 @@ class Poe_Client:
             for _ in data:
                 self.diy_models[_["model"]] = _["botId"]
 
-            # for displayName in [_["displayName"] for _ in data]:
-            #     self.offical_models[displayName].diy = True
         except Exception as e:
             raise e
 
@@ -207,7 +205,18 @@ class Poe_Client:
             task_list = [self.cache_offical_bot_info(handle) for handle in handle_list]
             await gather(*task_list)
 
-            logger.info(f"当前发现{len(handle_list)}个官方模型：" + "、".join(handle_list))
+            text = []
+            x = 1
+            for display_name, info in self.offical_models.items():
+                text.append(
+                    f"{x}: {display_name} {'(可自定义)' if info.diy else ''}  {'(有限制)' if info.limited else ''}\n\t{info.description}"
+                )
+                x += 1
+
+            logger.info(
+                f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n" + "\n".join(text)
+            )
+
         except Exception as e:
             raise e
 
@@ -222,11 +231,7 @@ class Poe_Client:
             )
 
             info: dict = result["data"]["bot"]
-            if info["displayName"] in CHINESE_DISCRIPTION:
-                description = CHINESE_DISCRIPTION[info["displayName"]]
-            else:
-                logger.warning(f"模型{info['displayName']}的介绍未作汉化")
-                description = info["description"]
+            description = info["description"].replace("\n", "")
             self.offical_models[info["displayName"]] = ModelInfo(
                 model=info["model"],
                 description=description,
