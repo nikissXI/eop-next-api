@@ -677,7 +677,7 @@ class Poe_Client:
 
             # 取消回复
             if quene_data.get("state") == "cancelled":
-                yield End()
+                yield End(reason="cancelled")
                 return
 
             # 获取内容
@@ -686,7 +686,7 @@ class Poe_Client:
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
                 retry = 10
-                yield Text(content=plain_text, complete=False)
+                yield Text(content=plain_text)
                 self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
 
@@ -695,7 +695,8 @@ class Poe_Client:
                 quene_data.get("state") == "complete"
                 or quene_data.get("state") == "cancelled"
             ):
-                yield Text(content=plain_text, complete=True)
+                yield Text(content=plain_text)
+                yield End(reason="complete")
                 return
 
         try:

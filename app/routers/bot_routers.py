@@ -296,21 +296,14 @@ async def _(
     body: TalkBody = Body(example={"q": "你好啊"}),
     user_data: dict = Depends(verify_token),
 ):
+    def _yield_data(json_data: dict) -> bytes:
+        return BytesIO((dumps(json_data) + "\n").encode("utf-8")).read()
+
     async def ai_reply():
         uid = user_data["uid"]
         # 判断会话是否存在
         if not await Chat.check_bot_user(eop_id, uid):
-            yield BytesIO(
-                (
-                    dumps(
-                        {
-                            "type": "deleted",
-                            "data": "会话不存在",
-                        }
-                    )
-                    + "\n"
-                ).encode("utf-8")
-            ).read()
+            yield _yield_data({"type": "deleted", "data": "会话不存在"})
             return
 
         # 判断账号过期
@@ -319,17 +312,9 @@ async def _(
             exp_date = datetime.fromtimestamp(expire_date / 1000).strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
-            yield BytesIO(
-                (
-                    dumps(
-                        {
-                            "type": "expired",
-                            "data": f"你的账号已过期，有效期至【{exp_date}】，无法对话",
-                        }
-                    )
-                    + "\n"
-                ).encode("utf-8")
-            ).read()
+            yield _yield_data(
+                {"type": "expired", "data": f"你的账号已过期，有效期至【{exp_date}】，无法对话"}
+            )
             return
 
         handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
@@ -338,86 +323,52 @@ async def _(
         level = await User.get_level(uid)
         info = poe.client.offical_models[model]
         if info.limited and level == 1:
-            yield BytesIO(
-                (
-                    dumps(
-                        {
-                            "type": "denied",
-                            "data": f"你的账号等级不足，无法使用该模型对话",
-                        }
-                    )
-                    + "\n"
-                ).encode("utf-8")
-            ).read()
+            yield _yield_data({"type": "denied", "data": f"你的账号等级不足，无法使用该模型对话"})
             return
 
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
             # 会话失效
             if isinstance(data, SessionDisable):
                 await Chat.disable_bot(eop_id)
-                yield BytesIO(
-                    (dumps({"type": "disable", "data": "该会话已失效，无法使用"}) + "\n").encode(
-                        "utf-8"
-                    )
-                ).read()
+                yield _yield_data({"type": "disable", "data": "该会话已失效，无法使用"})
+
             # 次数上限，有效性待测试
             if isinstance(data, ReachedLimit):
-                yield BytesIO(
-                    (dumps({"type": "limited", "data": "该模型使用次数已耗尽"}) + "\n").encode(
-                        "utf-8"
-                    )
-                ).read()
+                yield _yield_data({"type": "limited", "data": "该模型使用次数已耗尽"})
+
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
                 chat_id = data.chat_id
                 user_logger.info(
                     f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
                 )
-                # debug_logger.info(f"eop_id:{eop_id}  动作:新会话")
                 await Chat.update_bot_chat_id(eop_id, chat_id)
+
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgInfo):
-                # debug_logger.info(f"eop_id:{eop_id}  动作:响应msg_info")
                 await Chat.update_bot_last_talk_time(eop_id, data.answer_create_time)
-                yield BytesIO(
-                    (
-                        dumps(
-                            {
-                                "type": "msg_info",
-                                "data": {
-                                    "question_msg_id": data.question_msg_id,
-                                    "question_create_time": data.question_create_time,
-                                    "answer_msg_id": data.answer_msg_id,
-                                    "answer_create_time": data.answer_create_time,
-                                },
-                            }
-                        )
-                        + "\n"
-                    ).encode("utf-8")
-                ).read()
+                yield _yield_data(
+                    {
+                        "type": "msg_info",
+                        "data": {
+                            "question_msg_id": data.question_msg_id,
+                            "question_create_time": data.question_create_time,
+                            "answer_msg_id": data.answer_msg_id,
+                            "answer_create_time": data.answer_create_time,
+                        },
+                    }
+                )
+
             # ai的回答
             if isinstance(data, Text):
-                # debug_logger.info(f"eop_id:{eop_id}  动作:回答ing")
-                if data.complete:
-                    user_logger.info(
-                        f"用户:{uid}  动作:回答完毕  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
-                    )
-                    # debug_logger.info(f"eop_id:{eop_id}  动作:回答完毕")
+                yield _yield_data({"type": "response", "data": data.content})
 
-                yield BytesIO(
-                    (
-                        dumps(
-                            {
-                                "type": "response",
-                                "data": {
-                                    "complete": data.complete,
-                                    "content": data.content,
-                                },
-                            }
-                        )
-                        + "\n"
-                    ).encode("utf-8")
-                ).read()
+            # 取消回答或回答结束
+            if isinstance(data, End):
+                user_logger.info(
+                    f"用户:{uid}  动作:回答{data.reason}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                )
+                yield _yield_data({"type": "end", "data": data.reason})
 
             # 出错
             if isinstance(data, TalkError):
@@ -426,11 +377,7 @@ async def _(
                 )
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
-                yield BytesIO(
-                    (dumps({"type": "error", "data": data.content}) + "\n").encode(
-                        "utf-8"
-                    )
-                ).read()
+                yield _yield_data({"type": "error", "data": data.content})
 
     return StreamingResponse(
         ai_reply(), media_type="text/event-stream", status_code=200

@@ -5,7 +5,6 @@ class Text(BaseModel):
     """文本信息"""
 
     content: str
-    complete: bool
 
 
 class MsgInfo(BaseModel):
@@ -20,7 +19,7 @@ class MsgInfo(BaseModel):
 class End(BaseModel):
     """回答完毕"""
 
-    pass
+    reason: str
 
 
 class NewChat(BaseModel):
