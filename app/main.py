@@ -73,7 +73,7 @@ async def _():
 ################
 @app.exception_handler(RequestValidationError)
 async def _(request: Request, exc: RequestValidationError):
-    return JSONResponse({"code": 2001, "msg": str(exc)}, 422)
+    return JSONResponse({"code": 2001, "msg": repr(exc)}, 422)
 
 
 @app.exception_handler(AuthFailed)

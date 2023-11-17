@@ -30,7 +30,7 @@ try:
     from utils import logger, debug_logger
 except:
     from loguru import logger
-from os import stat, stat_result, path
+from os import stat, stat_result
 
 
 class Poe_Client:
@@ -81,6 +81,9 @@ class Poe_Client:
             raise Exception(f"p_b和formkey未正确填写，不登陆")
 
         logger.info("Poe登陆中。。。。。。")
+        self.read_sub_hash()
+        self.read_query_hash()
+        self.hash_file_watch_task = create_task(self.watch_hash_file())
 
         await self.get_user_info()
         text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
@@ -108,8 +111,6 @@ class Poe_Client:
             self.ws_client_task.cancel()
         create_task(self.refresh_channel())
 
-        self.hash_file_watch_task = create_task(self.watch_hash_file())
-
         return self
 
     def read_sub_hash(self):
@@ -117,23 +118,21 @@ class Poe_Client:
         读取sub_hash
         """
         self.sub_hash_file_stat = stat(SUB_HASH_PATH)
-        with open(SUB_HASH_PATH, "w", encoding="utf-8") as w:
-            self.sub_hash = load(w)
+        with open(SUB_HASH_PATH, "r", encoding="utf-8") as r:
+            self.sub_hash = load(r)
 
     def read_query_hash(self):
         """
         读取query_hash
         """
         self.query_hash_file_stat = stat(QUERY_HASH_PATH)
-        with open(QUERY_HASH_PATH, "w", encoding="utf-8") as w:
-            self.query_hash = load(w)
+        with open(QUERY_HASH_PATH, "r", encoding="utf-8") as r:
+            self.query_hash = load(r)
 
     async def watch_hash_file(self):
         """
         监听hash文件，热更新
         """
-        self.read_sub_hash()
-        self.read_query_hash()
         while True:
             await sleep(1)
             _stat = stat(SUB_HASH_PATH)

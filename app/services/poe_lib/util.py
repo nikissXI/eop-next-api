@@ -1,7 +1,7 @@
 try:
-    from ujson import dumps, load
+    from ujson import dumps
 except:
-    from json import dumps, load
+    from json import dumps
 from random import choice
 from string import ascii_letters, digits
 from base64 import b64encode, b64decode

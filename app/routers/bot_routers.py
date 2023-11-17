@@ -115,14 +115,14 @@ async def _(
     try:
         all_result, x = await gather(task1, task2)
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
     # 判断是否有新的模型
     try:
         for m in all_result[0]:
             if m not in poe.client.offical_models:
                 await poe.client.cache_offical_bot_info(m)
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
     uid = user_data["uid"]
 
@@ -271,7 +271,7 @@ async def _(
         return JSONResponse({"bot_info": bot_info[0]}, 200)
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
 
 @router.post(
@@ -414,7 +414,7 @@ async def _(
         return Response(status_code=204)
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
 
 @router.delete(
@@ -446,7 +446,7 @@ async def _(
             await poe.client.delete_bot(handle, bot_id)
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
     await Chat.delete_bot(eop_id)
     user_logger.info(
@@ -485,7 +485,7 @@ async def _(
         return Response(status_code=204)
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
 
 @router.delete(
@@ -519,7 +519,7 @@ async def _(
         return Response(status_code=204)
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
 
 @router.get(
@@ -584,7 +584,7 @@ async def _(
         )
 
     except Exception as e:
-        return handle_exception(str(e))
+        return handle_exception(repr(e))
 
 
 @router.patch(
@@ -643,10 +643,10 @@ async def _(
                 await Chat.disable_bot(eop_id)
                 raise BotDisable()
 
-            return handle_exception(str(e))
+            return handle_exception(repr(e))
 
         except Exception as e:
-            return handle_exception(str(e))
+            return handle_exception(repr(e))
 
     return Response(status_code=204)
 
@@ -709,5 +709,5 @@ async def _(
     #     )
 
     # except Exception as e:
-    #     return handle_exception(str(e))
+    #     return handle_exception(repr(e))
     pass
