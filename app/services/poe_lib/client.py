@@ -10,6 +10,8 @@ from websockets.client import connect as ws_connect
 from re import sub
 from .type import *
 from .util import (
+    SUB_HASH_PATH,
+    QUERY_HASH_PATH,
     GQL_URL,
     SETTING_URL,
     BOT_IMAGE_LINK_CACHE,
@@ -21,13 +23,14 @@ from .util import (
 )
 
 try:
-    from ujson import dump, loads
+    from ujson import dump, loads, load
 except:
-    from json import dump, loads
+    from json import dump, loads, load
 try:
     from utils import logger, debug_logger
 except:
     from loguru import logger
+from os import stat, stat_result, path
 
 
 class Poe_Client:
@@ -57,6 +60,7 @@ class Poe_Client:
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
         self.channel_url = ""
+        self.hash_file_watch_task = None
         self.ws_client_task = None
         self.refresh_channel_lock = False
         self.last_min_seq = 0
@@ -64,6 +68,10 @@ class Poe_Client:
         self.get_chat_code: dict[str, int] = {}
         self.answer_msg_id_cache: dict[int, int] = {}
         self.last_text_len_cache: dict[int, int] = {}
+        self.sub_hash: dict[str, str] = {}
+        self.sub_hash_file_stat: stat_result
+        self.query_hash: dict[str, str] = {}
+        self.query_hash_file_stat: stat_result
 
     async def login(self):
         """
@@ -100,7 +108,43 @@ class Poe_Client:
             self.ws_client_task.cancel()
         create_task(self.refresh_channel())
 
+        self.hash_file_watch_task = create_task(self.watch_hash_file())
+
         return self
+
+    def read_sub_hash(self):
+        """
+        读取sub_hash
+        """
+        self.sub_hash_file_stat = stat(SUB_HASH_PATH)
+        with open(SUB_HASH_PATH, "w", encoding="utf-8") as w:
+            self.sub_hash = load(w)
+
+    def read_query_hash(self):
+        """
+        读取query_hash
+        """
+        self.query_hash_file_stat = stat(QUERY_HASH_PATH)
+        with open(QUERY_HASH_PATH, "w", encoding="utf-8") as w:
+            self.query_hash = load(w)
+
+    async def watch_hash_file(self):
+        """
+        监听hash文件，热更新
+        """
+        self.read_sub_hash()
+        self.read_query_hash()
+        while True:
+            await sleep(1)
+            _stat = stat(SUB_HASH_PATH)
+            if _stat.st_mtime != self.sub_hash_file_stat.st_mtime:
+                self.read_sub_hash()
+                logger.warning("更新sub_hash")
+
+            _stat = stat(QUERY_HASH_PATH)
+            if _stat.st_mtime != self.query_hash_file_stat.st_mtime:
+                self.read_query_hash()
+                logger.warning("query_hash")
 
     async def get_user_info(self):
         """
@@ -328,7 +372,7 @@ class Poe_Client:
         """
         发送请求
         """
-        data = generate_data(query_name, variables)
+        data = generate_data(query_name, variables, self.query_hash[query_name])
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
         try:
             resp = await self.httpx_client.post(
@@ -429,53 +473,7 @@ class Poe_Client:
             raise Exception(err_msg)
 
         try:
-            await self.send_query(
-                "subscriptionsMutation",
-                {
-                    "subscriptions": [
-                        {
-                            "query": None,
-                            "subscriptionName": "messageAdded",
-                            "queryHash": "5e0e802178e334d3ed79f075ea5c3333ae065313691811942ccefe065d3cbd97",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "messageCancelled",
-                            "queryHash": "14647e90e5960ec81fa83ae53d270462c3743199fbb6c4f26f40f4c83116d2ff",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "messageDeleted",
-                            "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "messageCreated",
-                            "queryHash": "9f8d6206db8e8c813f1d0adf727d42f00b84de2729bbbaa505f87d61ddccf574",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "viewerStateUpdated",
-                            "queryHash": "f4726e4c5a2d8106b5363a2c8cef1daaa268df2778e6eafade78af3175d1981a",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "messageLimitUpdated",
-                            "queryHash": "daec317b69fed95fd7bf1202c4eca0850e6a9740bc8412af636940227359a211",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "chatTitleUpdated",
-                            "queryHash": "ee062b1f269ecd02ea4c2a3f1e4b2f222f7574c43634a2da4ebeb616d8647e06",
-                        },
-                        {
-                            "query": None,
-                            "subscriptionName": "knowledgeSourceUpdated",
-                            "queryHash": "7de63f89277bcf54f2323008850573809595dcef687f26a78561910cfd4f6c37",
-                        },
-                    ]
-                },
-            )
+            await self.send_query("subscriptionsMutation", self.sub_hash)
         except Exception as e:
             raise Exception(f"subscribe执行失败，错误信息：{repr(e)}")
 
@@ -740,9 +738,8 @@ class Poe_Client:
         msg_id = self.answer_msg_id_cache[chat_id]
         try:
             await self.send_query(
-                "chatHelpers_messageCancel_Mutation",
+                "stopMessage_messageCancel_Mutation",
                 {
-                    "linkifiedTextLength": self.last_text_len_cache[chat_id],
                     "messageId": msg_id,
                     "textLength": self.last_text_len_cache[chat_id],
                 },
