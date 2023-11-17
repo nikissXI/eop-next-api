@@ -41,8 +41,7 @@ class Poe_Client:
         self.user_info = UserInfo()
         # display name: ModelInfo
         self.offical_models: dict[str, ModelInfo] = {}
-        # model: botId
-        self.diy_models: dict[str, int] = {}
+        self.diy_displayName_list: set[str] = set()
         self.category_list: list[str] = []
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
@@ -143,7 +142,7 @@ class Poe_Client:
             _stat = stat(QUERY_HASH_PATH)
             if _stat.st_mtime != self.query_hash_file_stat.st_mtime:
                 self.read_query_hash()
-                logger.warning("query_hash")
+                logger.warning("更新query_hash")
 
     async def get_user_info(self):
         """
@@ -223,7 +222,7 @@ class Poe_Client:
             )
             data = result["data"]["viewer"]["botsAllowedForUserCreation"]
             for _ in data:
-                self.diy_models[_["model"]] = _["botId"]
+                self.diy_displayName_list.add(_["displayName"])
 
         except Exception as e:
             raise e
@@ -245,20 +244,27 @@ class Poe_Client:
             await self.cache_diy_model_list()
             # 获取详细信息
             handle_list, _ = await self.explore_bot("Official")
-            task_list = [self.cache_offical_bot_info(handle) for handle in handle_list]
+            task_list = [
+                self.cache_offical_bot_info(handle)
+                for handle in handle_list
+                if handle not in self.offical_models
+            ]
             await gather(*task_list)
 
-            text = []
-            x = 1
-            for display_name, info in self.offical_models.items():
-                text.append(
-                    f"{x}: {display_name} {'(可自定义)' if info.diy else ''}  {'(有限制)' if info.limited else ''}\n\t{info.description}"
-                )
-                x += 1
+            if self.ws_client_task == None:
+                text = []
+                x = 1
+                for display_name, info in self.offical_models.items():
+                    text.append(
+                        f"{x}: {display_name} {'(可自定义)' if info.diy else ''}  {'(有限制)' if info.limited else ''}\n\t{info.description}"
+                    )
+                    x += 1
 
-            logger.info(
-                f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n" + "\n".join(text)
-            )
+                logger.info(
+                    f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n" + "\n".join(text)
+                )
+            else:
+                logger.info("已同步最新官方模型数据")
 
         except Exception as e:
             raise e
@@ -278,7 +284,7 @@ class Poe_Client:
             self.offical_models[info["displayName"]] = ModelInfo(
                 model=info["model"],
                 description=description,
-                diy=True if info["model"] in self.diy_models else False,
+                diy=True if info["displayName"] in self.diy_displayName_list else False,
                 limited=False if info["limitedAccessType"] == "no_limit" else True,
                 bot_id=info["botId"],
             )
@@ -404,13 +410,18 @@ class Poe_Client:
         except ServerError:
             raise ServerError("server error")
         except Exception as e:
-            if isinstance(e, ReadTimeout) and query_name == "sendMessageMutation":
-                raise ServerError("server error")
+            if isinstance(e, ReadTimeout):
+                if query_name == "sendMessageMutation":
+                    raise ServerError("server error")
+                else:
+                    logger.error(f"执行请求【{query_name}】发送ReadTimeout，自动重试")
+                    await self.send_query(query_name, variables)
+
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
             raise Exception(f"执行请求【{query_name}】失败，错误信息：{repr(e)}")
 
-    async def create_bot(self, model: str, prompt: str) -> tuple[str, int]:
+    async def create_bot(self, display_name: str, prompt: str) -> tuple[str, int]:
         """
         创建bot
         """
@@ -421,7 +432,7 @@ class Poe_Client:
                 {
                     "apiKey": generate_random_handle(32),
                     "apiUrl": None,
-                    "baseBotId": self.diy_models[model],
+                    "baseBotId": self.offical_models[display_name].bot_id,
                     "customMessageLimit": None,
                     "description": "",
                     "displayName": None,
@@ -434,7 +445,7 @@ class Poe_Client:
                     "isPromptPublic": True,
                     "knowledgeSourceIds": [],
                     "messagePriceCc": None,
-                    "model": model,
+                    "model": self.offical_models[display_name].model,
                     "profilePictureUrl": "",
                     "prompt": prompt,
                     "shouldCiteSources": True,

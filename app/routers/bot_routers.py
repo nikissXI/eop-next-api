@@ -110,35 +110,18 @@ router = APIRouter()
 async def _(
     user_data: dict = Depends(verify_token),
 ):
-    task1 = create_task(poe.client.explore_bot("Official"))
-    task2 = create_task(poe.client.cache_diy_model_list())
-    try:
-        all_result, x = await gather(task1, task2)
-    except Exception as e:
-        return handle_exception(repr(e))
-    # 判断是否有新的模型
-    try:
-        for m in all_result[0]:
-            if m not in poe.client.offical_models:
-                await poe.client.cache_offical_bot_info(m)
-    except Exception as e:
-        return handle_exception(repr(e))
-
     uid = user_data["uid"]
-
     level = await User.get_level(uid)
-
     data = []
-    for model in all_result[0]:
-        info = poe.client.offical_models[model]
+    for display_name, info in poe.client.offical_models.items():
         # 普通用户不返回限制模型
         if info.limited and level == 1:
             continue
         data.append(
             {
-                "model": model,
+                "model": display_name,
                 "description": info.description,
-                "diy": True if model in poe.client.diy_models else False,
+                "diy": info.diy,
                 "limited": info.limited,
             }
         )
@@ -231,18 +214,12 @@ async def _(
     if body.model not in poe.client.offical_models:
         raise ModelNotFound(body.model)
 
-    logger.error(body.model)
-    logger.error(poe.client.offical_models[body.model])
-    logger.error(poe.client.offical_models[body.model].diy)
-
     can_diy = poe.client.offical_models[body.model].diy
 
     try:
         # 如果是自定义prompt需要创建新的bot
         if can_diy and body.prompt:
-            handle, bot_id = await poe.client.create_bot(
-                poe.client.offical_models[body.model].model, body.prompt
-            )
+            handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
             can_diy = True
         else:
             handle, bot_id = (

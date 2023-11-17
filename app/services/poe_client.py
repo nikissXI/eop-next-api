@@ -1,6 +1,7 @@
 from .poe_lib import Poe_Client
 from database import Config
 from utils import *
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 class Poe:
@@ -8,6 +9,14 @@ class Poe:
 
 
 poe = Poe()
+scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
+
+
+@scheduler.scheduled_job("cron", hour=3)
+async def _():
+    poe.client.diy_displayName_list.clear()
+    poe.client.offical_models.clear()
+    await poe.client.cache_offical_models()
 
 
 async def login_poe(
