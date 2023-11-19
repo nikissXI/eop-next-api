@@ -21,6 +21,7 @@ from .util import (
     generate_random_handle,
     str_time,
 )
+from copy import copy
 
 try:
     from ujson import dump, loads, load
@@ -250,6 +251,12 @@ class Poe_Client:
                 if handle not in self.offical_models
             ]
             await gather(*task_list)
+
+            # 按官方bot列表的顺序排序
+            _tmp = copy(self.offical_models)
+            self.offical_models.clear()
+            for handle in handle_list:
+                self.offical_models[handle] = _tmp[handle]
 
             if self.ws_client_task == None:
                 text = []
