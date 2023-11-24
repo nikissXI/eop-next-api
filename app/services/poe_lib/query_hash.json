@@ -1,17 +1,17 @@
 {
     "BotInfoCardActionBar_poeBotDelete_Mutation": "b446d0e94980e36d9ba7a5bc3188850186069d529b4c337fb9e91b9ead876c12",
     "createBotIndexPageQuery": "61134731fa4e4cc9b2006b6a819f343dc91876f91a6e1cd28d49826bba79e4e7",
-    "ChatListPaginationQuery": "72fb0a0c78c62be91cabddf7b0c4fe0541f9b546f0a12c3d4ac263a4f1742413",
+    "ChatListPaginationQuery": "cfcd7d91a7f6de7899022a368fb816a07d369a18729e6e2d24d889ed3211992f",
     "CreateBotMain_poeBotCreate_Mutation": "384184cd2e904bb0da2ce55ad2b36fd320463e52572147f6663aa53be26cc8e7",
     "exploreBotsIndexPageQuery": "96026f5201635559989830b63ec55dcf6080abe8152a52f39ffb98b46d6850d4",
     "EditBotMain_poeBotEdit_Mutation": "715949794448a572858f879b09730008f41cbea1c1934f4b53268d8ffc97c6e0",
     "ExploreBotsListPaginationQuery": "91c2b3d288db2bd7018f954414a12123f745c243709b02a9216d575d2c0fe8c9",
-    "HandleBotLandingPageQuery": "c2cec439e7a87693ef29d72816a53326e74992494bec88ce4e8330eb9e329823",
+    "HandleBotLandingPageQuery": "18c8cd1a9e0707e93cf44d31e909809b05ceedcd2d10cdf7d1c49a82f6718e09",
     "regenerateMessageMutation": "e47594b6c7e06d4f957f998f60e7d57e7dc68d0fe80ce6d1447a24fd72598568",
     "subscriptionsMutation": "5a7bfc9ce3b4e456cd05a537cfa27096f08417593b8d9b53f57587f3b7b63e99",
     "settingsPageQuery": "6d3480bc9f0edc5470c755bc245593d120e8c3741d3b8448828d03015131055e",
-    "sendMessageMutation": "2ae11cfb7f35c75874e66cf2e96a0955d1d35d682590a81f089bfb8f5c07e6b3",
-    "sendChatBreakMutation": "8b0e01e9ffca66a71452662149202304cffb09c1810cb835b57dc13278fe8894",
+    "sendMessageMutation": "53a8dcf49abbcd0cb4ffa8d85de8ed2a3bcf41018492eec2b4f78623c0e1dda6",
+    "sendChatBreakMutation": "7835c29dbad714f59b888162f897acd4787c8fcf6ed5f1fb4f1a58d05b650e8e",
     "stopMessage_messageCancel_Mutation": "d2d75098e1878758a5bcd39c89ff6c8c7f5fd633a4f432c234fede8cb743c2e6",
     "useDeleteChat_deleteChat_Mutation": "5df4cb75c0c06e086b8949890b1871a9f8b9e431a930d5894d08ca86e9260a18"
 }
