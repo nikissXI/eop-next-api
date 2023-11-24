@@ -12,6 +12,6 @@ from fastapi import (
 )
 
 try:
-    from ujson import dumps, loads
+    from ujson import dumps, loads, dump
 except:
-    from json import dumps, loads
+    from json import dumps, loads, dump
