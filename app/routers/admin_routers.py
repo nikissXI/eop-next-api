@@ -364,3 +364,33 @@ async def _(
         },
     )
     return JSONResponse(result, 200)
+
+
+@router.post(
+    "/hash_upload",
+    summary="更新hash",
+    responses={
+        200: {
+            "description": "无相关响应",
+        },
+        204: {
+            "description": "更新成功",
+        },
+    },
+)
+async def _(
+    body: HashUploadBody = Body(
+        example={
+            "upload_key": "upload_key",
+            "query_hash": "data",
+            "sub_hash": "data",
+        },
+    ),
+):
+    if body.upload_key != UPLOAD_KEY:
+        return JSONResponse({"code": 2000, "msg": "upload_key error"}, 401)
+    with open("services/poe_lib/query_hash.json", "w", encoding="utf-8") as w:
+        dump(body.query_hash, w, indent=4)
+    with open("services/poe_lib/sub_hash.json", "w", encoding="utf-8") as w:
+        dump(body.sub_hash, w, indent=4)
+    return Response(status_code=204)

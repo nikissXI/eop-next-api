@@ -37,3 +37,8 @@ if _ := getenv("ALGORITHM"):
     ALGORITHM = _
 else:
     ALGORITHM = "HS256"
+
+if _ := getenv("UPLOAD_KEY"):
+    UPLOAD_KEY = _
+else:
+    UPLOAD_KEY = "UPLOAD_KEY"
