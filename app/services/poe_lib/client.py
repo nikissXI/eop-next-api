@@ -501,6 +501,7 @@ class Poe_Client:
         self.refresh_channel_lock = True
 
         if get_new_channel:
+            logger.info("订阅ws")
             await self.get_new_channel()
         else:
             self.channel_url = sub(
@@ -586,9 +587,9 @@ class Poe_Client:
                 except Exception as e:
                     print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
-                    with open("error.json", "a") as a:
-                        a.write(str(data) + "\n")  # type: ignore
-                    create_task(self.refresh_channel(get_new_channel=True))
+                    # with open("error.json", "a") as a:
+                    #     a.write(str(data) + "\n")  # type: ignore
+                    create_task(self.refresh_channel())
                     break
 
     async def talk_to_bot(
