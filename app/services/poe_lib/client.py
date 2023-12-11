@@ -549,7 +549,11 @@ class Poe_Client:
 
             data = (payload.get("data", {})).get("messageAdded", {})
             # 去掉空内容和带建议的
-            if not data or data["suggestedReplies"]:
+            if (
+                not data
+                or data["suggestedReplies"]
+                or data.get("author") == "chat_break"
+            ):
                 continue
 
             chat_id: int = int(payload.get("unique_id")[13:])
