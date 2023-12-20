@@ -1,13 +1,12 @@
 try:
     from ujson import dumps
-except:
+except Exception:
     from json import dumps
+from base64 import b64decode, b64encode
+from os import path
 from random import choice
 from string import ascii_letters, digits
-from base64 import b64encode, b64decode
 from time import localtime, strftime
-from os import path
-
 
 SUB_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "sub_hash.json")
 QUERY_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "query_hash.json")

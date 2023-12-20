@@ -1,37 +1,50 @@
-from asyncio import Queue, TimeoutError, create_task, sleep, wait_for, gather
+from asyncio import Queue, TimeoutError, create_task, gather, sleep, wait_for
+from copy import copy
 from hashlib import md5
+from os import stat, stat_result
 from random import randint
+from re import sub
 from secrets import token_hex
 from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
+
 from httpx import AsyncClient, ReadTimeout
 from websockets.client import connect as ws_connect
-from re import sub
-from .type import *
+
+from .type import (
+    End,
+    ModelInfo,
+    MsgInfo,
+    NewChat,
+    ReachedLimit,
+    ServerError,
+    SessionDisable,
+    TalkError,
+    Text,
+    UserInfo,
+)
 from .util import (
-    SUB_HASH_PATH,
-    QUERY_HASH_PATH,
-    GQL_URL,
-    SETTING_URL,
     BOT_IMAGE_LINK_CACHE,
+    GQL_URL,
+    QUERY_HASH_PATH,
+    SETTING_URL,
+    SUB_HASH_PATH,
     base64_decode,
     base64_encode,
     generate_data,
     generate_random_handle,
     str_time,
 )
-from copy import copy
 
 try:
-    from ujson import dump, loads, load
-except:
-    from json import dump, loads, load
+    from ujson import load, loads
+except Exception:
+    from json import load, loads
 try:
-    from utils import logger, debug_logger
-except:
+    from utils.tool_util import logger
+except Exception:
     from loguru import logger
-from os import stat, stat_result
 
 
 class Poe_Client:
@@ -78,7 +91,7 @@ class Poe_Client:
         创建poe请求实例，可用于验证凭证是否有效，并拉取用户数据。
         """
         if not (self.p_b and self.formkey):
-            raise Exception(f"p_b和formkey未正确填写，不登陆")
+            raise Exception("p_b和formkey未正确填写，不登陆")
 
         logger.info("Poe登陆中。。。。。。")
         self.read_sub_hash()
@@ -258,7 +271,7 @@ class Poe_Client:
             for handle in handle_list:
                 self.offical_models[handle] = _tmp[handle]
 
-            if self.ws_client_task == None:
+            if self.ws_client_task is None:
                 text = []
                 x = 1
                 for display_name, info in self.offical_models.items():
@@ -675,7 +688,7 @@ class Poe_Client:
                 continue
 
             # 收到第一条生成的回复
-            if yield_msg_info == False:
+            if yield_msg_info is False:
                 answer_msg_id = quene_data.get("messageId")
                 # 判断是否为旧消息，有时候会拉取到之前的消息
                 if (
@@ -860,7 +873,7 @@ class Poe_Client:
             )
 
             # 没有聊天记录
-            if result["data"]["node"] == None:
+            if result["data"]["node"] is None:
                 return [], "-1"
 
             _history = result["data"]["node"]["messagesConnection"]

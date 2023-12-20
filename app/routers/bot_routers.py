@@ -1,12 +1,37 @@
-from io import BytesIO
-from database import *
-from models import *
-from services import *
-from utils import *
-from utils.config import *
-from time import strftime, localtime
-from asyncio import create_task, gather
+from asyncio import create_task
 from datetime import datetime
+from io import BytesIO
+from time import localtime, strftime
+
+from database.chat_db import Chat
+from database.user_db import User
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    Path,
+    Response,
+)
+from fastapi.responses import JSONResponse, StreamingResponse
+from models.bot_models import CreateBody, ModifyBotBody, TalkBody
+from services.jwt_auth import verify_token
+from services.poe_client import poe
+from services.poe_lib.type import (
+    End,
+    MsgInfo,
+    NewChat,
+    ReachedLimit,
+    ServerError,
+    SessionDisable,
+    TalkError,
+    Text,
+)
+from utils.tool_util import logger, user_logger
+
+try:
+    from ujson import dumps
+except Exception:
+    from json import dumps
 
 
 class BotNotFound(Exception):
@@ -300,7 +325,7 @@ async def _(
         level = await User.get_level(uid)
         info = poe.client.offical_models[model]
         if info.limited and level == 1:
-            yield _yield_data({"type": "denied", "data": f"你的账号等级不足，无法使用该模型对话"})
+            yield _yield_data({"type": "denied", "data": "你的账号等级不足，无法使用该模型对话"})
             return
 
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):

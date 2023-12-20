@@ -1,7 +1,7 @@
+from hashlib import sha256
+from logging import DEBUG, FileHandler, Formatter, getLogger
 from random import choice
 from string import ascii_letters, digits
-from hashlib import sha256
-from logging import getLogger, FileHandler, Formatter, DEBUG
 
 logger = getLogger("uvicorn.error")
 

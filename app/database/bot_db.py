@@ -1,7 +1,6 @@
 from tortoise import fields
+
 from .db import Model
-from time import time
-from random import randint
 
 
 class Bot(Model):

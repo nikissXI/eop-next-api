@@ -18,7 +18,7 @@ class Model(Model_):
 
 async def db_init():
     try:
-        await Tortoise.init(db_url=f"sqlite://data.db", modules={"models": MODELS})
+        await Tortoise.init(db_url="sqlite://data.db", modules={"models": MODELS})
         await Tortoise.generate_schemas()
     except Exception as e:
         raise Exception(f"数据库连接错误... {type(e)}: {e}")

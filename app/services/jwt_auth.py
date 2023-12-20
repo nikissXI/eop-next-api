@@ -1,11 +1,14 @@
+from database.user_db import User
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 from jwt import decode as jwtDecode
 from jwt import encode as jwtEncode
 from passlib.context import CryptContext
-from utils.config import *
-from database import *
+from app.utils.env_util import (
+    ALGORITHM,
+    SECRET_KEY,
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()

@@ -1,16 +1,38 @@
-from database import *
-from fastapi import FastAPI
+from database.config_db import Config
+from database.db import db_close, db_init
+from database.user_db import User
+from fastapi import (
+    FastAPI,
+    Request,
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-
-# from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
-from models import *
-from routers import *
-from services import *
-from utils import *
-from utils.config import *
+from fastapi.responses import JSONResponse
+from models.error_models import Response422
+from routers.admin_routers import UserNotExist
+from routers.admin_routers import router as admin_router
+from routers.bot_routers import (
+    BotDisable,
+    BotNotFound,
+    LevelError,
+    ModelNotFound,
+    NoChat,
+    UserOutdate,
+)
+from routers.bot_routers import router as bot_router
+from routers.user_routers import router as user_router
+from services.jwt_auth import AuthFailed
+from services.poe_client import login_poe, scheduler
 from uvicorn import run
 
+from app.utils.env_util import (
+    API_PATH,
+    HOST,
+    ORIGINS,
+    PORT,
+    SSL_CERTFILE_PATH,
+    SSL_KEYFILE_PATH,
+)
 
 ################
 ### 后端定义
@@ -120,7 +142,7 @@ async def _(request: Request, exc: UserNotExist):
     return JSONResponse(
         {
             "code": 2003,
-            "msg": f"用户不存在",
+            "msg": "用户不存在",
         },
         402,
     )
@@ -162,9 +184,9 @@ async def _(request: Request, exc: BotDisable):
 ################
 ### 添加路由
 ################
-app.include_router(user_routers.router, prefix=f"{API_PATH}/user", tags=["用户模块"])
-app.include_router(bot_routers.router, prefix=f"{API_PATH}/bot", tags=["会话模块"])
-app.include_router(admin_routers.router, prefix=f"{API_PATH}/admin", tags=["管理员模块"])
+app.include_router(user_router, prefix=f"{API_PATH}/user", tags=["用户模块"])
+app.include_router(bot_router, prefix=f"{API_PATH}/bot", tags=["会话模块"])
+app.include_router(admin_router, prefix=f"{API_PATH}/admin", tags=["管理员模块"])
 
 ################
 ### 日志配置

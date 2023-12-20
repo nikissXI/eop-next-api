@@ -1,7 +1,9 @@
-from tortoise import fields
-from .db import Model
-from time import time
 from random import randint
+from time import time
+
+from tortoise import fields
+
+from .db import Model
 
 
 class Chat(Model):
