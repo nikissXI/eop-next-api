@@ -23,9 +23,7 @@ from routers.bot_routers import router as bot_router
 from routers.user_routers import router as user_router
 from services.jwt_auth import AuthFailed
 from services.poe_client import login_poe, scheduler
-from uvicorn import run
-
-from app.utils.env_util import (
+from utils.env_util import (
     API_PATH,
     HOST,
     ORIGINS,
@@ -33,6 +31,7 @@ from app.utils.env_util import (
     SSL_CERTFILE_PATH,
     SSL_KEYFILE_PATH,
 )
+from uvicorn import run
 
 ################
 ### 后端定义
