@@ -19,16 +19,8 @@ from models.user_models import (
     UpdatePasswdBody,
 )
 from services.jwt_auth import create_token, verify_token
+from services.poe_client import poe
 
-try:
-    pass
-except Exception:
-    pass
-
-try:
-    pass
-except Exception:
-    pass
 router = APIRouter()
 
 
@@ -169,3 +161,48 @@ async def _(user_data: dict = Depends(verify_token)):
     uid = user_data["uid"]
     botList = await Chat.get_user_bot(uid)
     return JSONResponse({"bots": botList}, 200)
+
+
+@router.get(
+    "/LimitedModelsInfo",
+    summary="获取模型次数刷新时间以及限制模型使用情况",
+    responses={
+        200: {
+            "description": "结果",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
+                        "models": [
+                            {
+                                "model": "Claude-instant-100k",
+                                "limit_type": "hard_limit",
+                                "available": True,
+                                "daily_available_times": 30,
+                                "daily_total_times": 30,
+                                "monthly_available_times": 1030,
+                                "monthly_total_times": 1030,
+                            },
+                            {
+                                "model": "GPT-4",
+                                "limit_type": "soft_limit",
+                                "available": True,
+                                "daily_available_times": 1,
+                                "daily_total_times": 1,
+                                "monthly_available_times": 592,
+                                "monthly_total_times": 601,
+                            },
+                        ],
+                        "daily_refresh_time": 1693230928703,
+                        "monthly_refresh_time": 1693230928703,
+                    },
+                }
+            },
+        },
+    },
+)
+async def _(
+    _: dict = Depends(verify_token),
+):
+    data = await poe.client.get_limited_bots_info()
+    return JSONResponse(data, 200)
