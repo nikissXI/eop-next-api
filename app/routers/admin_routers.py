@@ -17,7 +17,7 @@ from models.admin_models import (
 )
 from services.jwt_auth import verify_admin
 from services.poe_client import login_poe, poe
-from app.utils.env_util import UPLOAD_KEY
+from utils.env_util import UPLOAD_KEY
 from utils.tool_util import generate_random_password, logger
 
 try:

@@ -5,10 +5,7 @@ from jwt import PyJWTError
 from jwt import decode as jwtDecode
 from jwt import encode as jwtEncode
 from passlib.context import CryptContext
-from app.utils.env_util import (
-    ALGORITHM,
-    SECRET_KEY,
-)
+from utils.env_util import ALGORITHM, SECRET_KEY
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
