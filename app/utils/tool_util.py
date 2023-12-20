@@ -14,12 +14,12 @@ user_logger.setLevel(DEBUG)
 
 
 
-debug_logger = getLogger("debug_logger")
-file_handler = FileHandler("debug_logger.log")
-formatter = Formatter("%(asctime)s - %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S")
-file_handler.setFormatter(formatter)
-debug_logger.addHandler(file_handler)
-debug_logger.setLevel(DEBUG)
+# debug_logger = getLogger("debug_logger")
+# file_handler = FileHandler("debug_logger.log")
+# formatter = Formatter("%(asctime)s - %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+# file_handler.setFormatter(formatter)
+# debug_logger.addHandler(file_handler)
+# debug_logger.setLevel(DEBUG)
 
 def generate_random_password(length=8) -> tuple[str, str]:
     characters = ascii_letters + digits
