@@ -164,7 +164,7 @@ async def _(user_data: dict = Depends(verify_token)):
 
 
 @router.get(
-    "/LimitedModelsInfo",
+    "/limitedModelsInfo",
     summary="获取模型次数刷新时间以及限制模型使用情况",
     responses={
         200: {
