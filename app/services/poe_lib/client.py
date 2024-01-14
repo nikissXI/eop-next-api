@@ -104,6 +104,8 @@ class Poe_Client:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
 
+        await sleep(1)
+
         limited_info = await self.get_limited_bots_info()
         text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{str_time(limited_info['daily_refresh_time'])}"
         if self.user_info.subscription_activated:
@@ -111,14 +113,14 @@ class Poe_Client:
         for m in limited_info["models"]:
             text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
             if self.user_info.subscription_activated:
-                text += (
-                    f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
-                )
+                text += f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
         logger.info(text)
 
+        await sleep(1)
         # 获取官方模型
         await self.cache_offical_models()
 
+        await sleep(1)
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
@@ -216,6 +218,7 @@ class Poe_Client:
 
                 # 如果获取官方模型信息就拉全部（因为数量有限）
                 if category == "Official" and data["pageInfo"]["hasNextPage"]:
+                    await sleep(2)
                     continue
                 else:
                     break
@@ -255,14 +258,18 @@ class Poe_Client:
                 c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
             ]
             # 缓存可自定义的model
+            await sleep(2)
             await self.cache_diy_model_list()
+            await sleep(2)
             # 获取详细信息
             handle_list, _ = await self.explore_bot("Official")
-            task_list = [
-                self.cache_offical_bot_info(handle)
-                for handle in handle_list
-                if handle not in self.offical_models
-            ]
+            task_list = []
+            for x, handle in enumerate(handle_list):
+                if handle not in self.offical_models:
+                    task_list.append(
+                        self.cache_offical_bot_info(handle, randint(x * 1, x * 3))
+                    )
+            logger.info("正在缓存官方模型信息，请稍后。。。")
             await gather(*task_list)
 
             # 按官方bot列表的顺序排序
@@ -281,7 +288,8 @@ class Poe_Client:
                     x += 1
 
                 logger.info(
-                    f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n" + "\n".join(text)
+                    f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n"
+                    + "\n".join(text)
                 )
             else:
                 logger.info("已同步最新官方模型数据")
@@ -289,16 +297,17 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def cache_offical_bot_info(self, handle: str):
+    async def cache_offical_bot_info(self, handle: str, delay: int = 0):
         """
         缓存官方bot详细信息
         """
+        # logger.warning(f"delay {delay}")
+        await sleep(delay)
         try:
             result = await self.send_query(
                 "HandleBotLandingPageQuery",
                 {"botHandle": handle},
             )
-
             info: dict = result["data"]["bot"]
             description = info["description"].replace("\n", "")
             self.offical_models[info["displayName"]] = ModelInfo(
@@ -321,7 +330,7 @@ class Poe_Client:
                 {"botHandle": handle},
             )
             info: dict = result["data"]["bot"]
-            if info["picture"]["__typename"] == "UrlBotImage":
+            if info["picture"]["__typename"] == "URLBotImage":
                 image_link = info["picture"]["url"]
             elif handle in BOT_IMAGE_LINK_CACHE:
                 image_link = BOT_IMAGE_LINK_CACHE[handle]
@@ -398,6 +407,7 @@ class Poe_Client:
         """
         data = generate_data(query_name, variables, self.query_hash[query_name])
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
+        status_code = 0
         try:
             resp = await self.httpx_client.post(
                 GQL_URL,
@@ -410,6 +420,7 @@ class Poe_Client:
                 if query_name == "CreateBotMain_poeBotCreate_Mutation"
                 else 5,
             )
+            status_code = resp.status_code
             json_data = loads(resp.text)
 
             if (
@@ -438,7 +449,10 @@ class Poe_Client:
 
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
-            raise Exception(f"执行请求【{query_name}】失败，错误信息：{repr(e)}")
+            err_code = f"status_code:{status_code}，" if status_code else ""
+            raise Exception(
+                f"执行请求【{query_name}】失败，{err_code}错误信息：{repr(e)}"
+            )
 
     async def create_bot(self, display_name: str, prompt: str) -> tuple[str, int]:
         """
@@ -475,6 +489,7 @@ class Poe_Client:
             status = json_data["status"]
             if status != "success":
                 if status == "handle_already_taken":
+                    await sleep(2)
                     continue
 
                 raise Exception(f"创建bot失败，错误信息：{status}")
@@ -647,7 +662,9 @@ class Poe_Client:
         except ServerError:
             pass
         except Exception as e:
-            err_msg = f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
+            err_msg = (
+                f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
+            )
             # print(format_exc())
             logger.error(err_msg)
             yield TalkError(content=err_msg)
@@ -849,7 +866,9 @@ class Poe_Client:
             raise Exception(f"删除bot【{handle}】失败，错误信息：{repr(e)}")
 
         if resp["data"] is None and resp["errors"]:
-            raise Exception(f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['message']}")
+            raise Exception(
+                f"删除bot【{handle}】失败，错误信息：{resp['errors'][0]['message']}"
+            )
 
     async def get_chat_history(
         self, handle: str, chat_id: int, cursor: str
