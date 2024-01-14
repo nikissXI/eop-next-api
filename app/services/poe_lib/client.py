@@ -321,8 +321,8 @@ class Poe_Client:
                 {"botHandle": handle},
             )
             info: dict = result["data"]["bot"]
-            if info["image"]["__typename"] == "UrlBotImage":
-                image_link = info["image"]["url"]
+            if info["picture"]["__typename"] == "UrlBotImage":
+                image_link = info["picture"]["url"]
             elif handle in BOT_IMAGE_LINK_CACHE:
                 image_link = BOT_IMAGE_LINK_CACHE[handle]
             else:
