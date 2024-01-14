@@ -267,7 +267,7 @@ class Poe_Client:
             for x, handle in enumerate(handle_list):
                 if handle not in self.offical_models:
                     task_list.append(
-                        self.cache_offical_bot_info(handle, randint(x * 1, x * 3))
+                        self.cache_offical_bot_info(handle, randint(x * 2, x * 3))
                     )
             logger.info("正在缓存官方模型信息，请稍后。。。")
             await gather(*task_list)
@@ -401,10 +401,16 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def send_query(self, query_name: str, variables: dict) -> dict:
+    async def send_query(
+        self, query_name: str, variables: dict, forbidden_times: int = 0
+    ) -> dict:
         """
         发送请求
         """
+        if forbidden_times > 0:
+            logger.warning(f"forbidden_times:{forbidden_times}")
+            await sleep(randint(2, 3))
+
         data = generate_data(query_name, variables, self.query_hash[query_name])
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
         status_code = 0
@@ -445,10 +451,12 @@ class Poe_Client:
                     raise ServerError("server error")
                 else:
                     logger.error(f"执行请求【{query_name}】发送ReadTimeout，自动重试")
-                    await self.send_query(query_name, variables)
+                    return await self.send_query(query_name, variables)
 
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
+            if status_code == 503 and forbidden_times < 3:
+                return await self.send_query(query_name, variables, forbidden_times + 1)
             err_code = f"status_code:{status_code}，" if status_code else ""
             raise Exception(
                 f"执行请求【{query_name}】失败，{err_code}错误信息：{repr(e)}"
