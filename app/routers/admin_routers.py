@@ -26,7 +26,6 @@ except Exception:
     from json import dump
 
 
-
 class UserNotExist(Exception):
     def __init__(self):
         pass
@@ -58,12 +57,14 @@ router = APIRouter()
 )
 async def _(
     body: AddUserBody = Body(
-        example={
-            "user": "username",
-            "passwd": "hashed_password",
-            "level": 1,
-            "expire_date": 1693230928703,
-        },
+        examples=[
+            {
+                "user": "username",
+                "passwd": "hashed_password",
+                "level": 1,
+                "expire_date": 1693230928703,
+            }
+        ],
     ),
     _: dict = Depends(verify_admin),
 ):
@@ -93,7 +94,7 @@ async def _(
     },
 )
 async def _(
-    uid: int = Path(description="uid", example="1"),
+    uid: int = Path(description="uid", examples=["1"]),
     _: dict = Depends(verify_admin),
 ):
     await check_user_exist(uid)
@@ -130,12 +131,14 @@ async def _(
     },
 )
 async def _(
-    uid: int = Path(description="uid", example="1"),
+    uid: int = Path(description="uid", examples=["1"]),
     body: RenewUserBody = Body(
-        example={
-            "level": 1,
-            "expire_date": 1693230928703,
-        }
+        examples=[
+            {
+                "level": 1,
+                "expire_date": 1693230928703,
+            }
+        ]
     ),
     _: dict = Depends(verify_admin),
 ):
@@ -163,7 +166,7 @@ async def _(
     },
 )
 async def _(
-    uid: int = Path(description="uid", example="1"),
+    uid: int = Path(description="uid", examples=["1"]),
     _: dict = Depends(verify_admin),
 ):
     await check_user_exist(uid)
@@ -270,15 +273,17 @@ async def _(_: dict = Depends(verify_admin)):
 )
 async def _(
     body: UpdateSettingBody = Body(
-        example={
-            "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
-            "formkey": "2cf072difnsie23f7892divd0380e3f7",
-            "proxy": "http://xxx",
-            "telegram_url": "https://xxx",
-            "discord_url": "https://xxx",
-            "weixin_url": "https://xxx",
-            "qq_url": "https://xxx",
-        }
+        examples=[
+            {
+                "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
+                "formkey": "2cf072difnsie23f7892divd0380e3f7",
+                "proxy": "http://xxx",
+                "telegram_url": "https://xxx",
+                "discord_url": "https://xxx",
+                "weixin_url": "https://xxx",
+                "qq_url": "https://xxx",
+            }
+        ]
     ),
     _: dict = Depends(verify_admin),
 ):
@@ -402,11 +407,13 @@ async def _(
 )
 async def _(
     body: HashUploadBody = Body(
-        example={
-            "upload_key": "upload_key",
-            "query_hash": "data",
-            "sub_hash": "data",
-        },
+        examples=[
+            {
+                "upload_key": "upload_key",
+                "query_hash": "data",
+                "sub_hash": "data",
+            }
+        ],
     ),
 ):
     if body.upload_key != UPLOAD_KEY:

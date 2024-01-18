@@ -221,11 +221,13 @@ async def _(user_data: dict = Depends(verify_token)):
 )
 async def _(
     body: CreateBody = Body(
-        example={
-            "model": "ChatGPT",
-            "prompt": "",
-            "alias": "新会话",
-        }
+        examples=[
+            {
+                "model": "ChatGPT",
+                "prompt": "",
+                "alias": "新会话",
+            }
+        ]
     ),
     user_data: dict = Depends(verify_token),
 ):
@@ -293,8 +295,8 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
-    body: TalkBody = Body(example={"q": "你好啊"}),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
+    body: TalkBody = Body(examples=[{"q": "你好啊"}]),
     user_data: dict = Depends(verify_token),
 ):
     def _yield_data(json_data: dict) -> bytes:
@@ -402,7 +404,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
@@ -435,7 +437,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
@@ -473,7 +475,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
@@ -506,7 +508,7 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
@@ -558,8 +560,8 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
-    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example="0"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
+    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", examples=["0"]),
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
@@ -605,13 +607,15 @@ async def _(
     },
 )
 async def _(
-    eop_id: str = Path(description="会话唯一标识", example="114514"),
+    eop_id: str = Path(description="会话唯一标识", examples=["114514"]),
     body: ModifyBotBody = Body(
-        example={
-            "alias": "智能傻逼",
-            "model": "ChatGPT",
-            "prompt": "You are a large language model. Follow the user's instructions carefully.",
-        }
+        examples=[
+            {
+                "alias": "智能傻逼",
+                "model": "ChatGPT",
+                "prompt": "You are a large language model. Follow the user's instructions carefully.",
+            }
+        ]
     ),
     user_data: dict = Depends(verify_token),
 ):
@@ -690,7 +694,7 @@ async def _(
     },
 )
 async def _(
-    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", example=0),
+    cursor: str = Path(description="光标，用于翻页，写0则从最新的拉取", examples=[0]),
     _: dict = Depends(verify_token),
 ):
     # handle, chat_id = await Chat.get_bot_handle_and_chat_id(eop_id)
