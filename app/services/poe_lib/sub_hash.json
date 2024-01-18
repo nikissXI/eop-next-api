@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "358b85dc5628fff5ec560f5c22d40c3478820d38fa4420debb52613e3358ac9b"
+            "queryHash": "e558108660a6760196bdb1bac686d653f6a6fbc2dc9a8ed3b2ccd940035ffab1"
         },
         {
             "subscriptionName": "messageCancelled",
@@ -18,12 +18,12 @@
         {
             "subscriptionName": "messageCreated",
             "query": null,
-            "queryHash": "01c403582b4bcc61f8e0c4ec49c6513cbfc471c9bc0b5fd66f00ecf8adcad012"
+            "queryHash": "d8610fc3788beaf643fcb8b12a7c52963e5ac51ccb5c1349731c9577edef4ddf"
         },
         {
             "subscriptionName": "viewerStateUpdated",
             "query": null,
-            "queryHash": "7781cedde76baa4f56d418f2cfa1b3d79ebce191570966128782423f92a1d177"
+            "queryHash": "a0892af0d13331f5e71fe1e0179fed421fa0c1498f1fd5fa753536ce3124dbf1"
         },
         {
             "subscriptionName": "messageLimitUpdated",
@@ -39,6 +39,11 @@
             "subscriptionName": "knowledgeSourceUpdated",
             "query": null,
             "queryHash": "7de63f89277bcf54f2323008850573809595dcef687f26a78561910cfd4f6c37"
+        },
+        {
+            "subscriptionName": "messagePointLimitUpdated",
+            "query": null,
+            "queryHash": "94789388515b3c125c4a45d3c5112edffd102f8b72d4f152404f58e2aed9ec6d"
         }
     ]
 }

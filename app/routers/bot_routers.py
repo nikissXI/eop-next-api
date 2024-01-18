@@ -83,8 +83,7 @@ async def check_chat_exist(id: int):
 
 async def check_user_level(uid: int, model: str):
     level = await User.get_level(uid)
-    info = poe.client.offical_models[model]
-    if info.limited and level == 1:
+    if model in poe.client.limited_displayName_list and level == 1:
         raise LevelError()
 
 
@@ -138,16 +137,16 @@ async def _(
     uid = user_data["uid"]
     level = await User.get_level(uid)
     data = []
-    for display_name, info in poe.client.offical_models.items():
+    for display_name, description in poe.client.offical_model_list.items():
         # 普通用户不返回限制模型
-        if info.limited and level == 1:
+        if display_name in poe.client.limited_displayName_list and level == 1:
             continue
         data.append(
             {
                 "model": display_name,
-                "description": info.description,
-                "diy": info.diy,
-                "limited": info.limited,
+                "description": description,
+                "diy": display_name in poe.client.diy_displayName_list,
+                "limited": display_name in poe.client.limited_displayName_list,
             }
         )
     return JSONResponse({"available_models": data}, 200)
@@ -236,26 +235,26 @@ async def _(
 
     await check_user_level(uid, body.model)
 
-    if body.model not in poe.client.offical_models:
+    if body.model not in poe.client.offical_model_list:
         raise ModelNotFound(body.model)
 
-    can_diy = poe.client.offical_models[body.model].diy
+    can_diy = body.model in poe.client.diy_displayName_list
 
     try:
+        # 获取bot信息
+        bot_info = await poe.client.get_bot_info(body.model)
+
         # 如果是自定义prompt需要创建新的bot
         if can_diy and body.prompt:
-            handle, bot_id = await poe.client.create_bot(body.model, body.prompt)
+            handle, bot_id = await poe.client.create_bot(
+                bot_info["handle"], bot_info["bot_id"], body.prompt
+            )
             can_diy = True
         else:
-            handle, bot_id = (
-                poe.client.offical_models[body.model].model,
-                poe.client.offical_models[body.model].bot_id,
-            )
+            handle, bot_id = bot_info["handle"], bot_info["bot_id"]
             can_diy = False
 
-        # 获取bot头像
-        bot_data = await poe.client.get_bot_info(body.model)
-        image_link = bot_data["image_link"]
+        image_link = bot_info["image_link"]
         eop_id = await Chat.create_bot(
             uid,
             can_diy,
@@ -315,7 +314,10 @@ async def _(
                 "%Y-%m-%d %H:%M:%S"
             )
             yield _yield_data(
-                {"type": "expired", "data": f"你的账号已过期，有效期至【{exp_date}】，无法对话"}
+                {
+                    "type": "expired",
+                    "data": f"你的账号已过期，有效期至【{exp_date}】，无法对话",
+                }
             )
             return
 
@@ -323,9 +325,10 @@ async def _(
 
         # 判断账号等级
         level = await User.get_level(uid)
-        info = poe.client.offical_models[model]
-        if info.limited and level == 1:
-            yield _yield_data({"type": "denied", "data": "你的账号等级不足，无法使用该模型对话"})
+        if model in poe.client.limited_displayName_list and level == 1:
+            yield _yield_data(
+                {"type": "denied", "data": "你的账号等级不足，无法使用该模型对话"}
+            )
             return
 
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
@@ -615,24 +618,27 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    if body.model and body.model not in poe.client.offical_models:
+    if body.model and body.model not in poe.client.offical_model_list:
         raise ModelNotFound(body.model)
 
     # 更新缓存
-    await Chat.modify_bot(eop_id, None, body.alias, None)
+    await Chat.modify_bot(eop_id, None, body.alias, None, None)
 
     handle, bot_id, diy = await Chat.pre_modify_bot_info(eop_id)
     # 只有支持diy的可以更新模型和预设
     if diy:
-        # 更新缓存
-        await Chat.modify_bot(eop_id, body.model, None, body.prompt)
-
         try:
+            # 获取bot信息
+            bot_info = await poe.client.get_bot_info(body.model)
             await poe.client.edit_bot(
                 handle,
                 bot_id,
-                poe.client.offical_models[body.model].model,
+                bot_info["handle"],
                 body.prompt,
+            )
+            # 更新缓存
+            await Chat.modify_bot(
+                eop_id, body.model, None, body.prompt, bot_info["image_link"]
             )
         except ServerError as e:
             # 判断bot是否被删了
