@@ -49,11 +49,7 @@ class ReachedLimit(BaseModel):
 class ModelInfo(BaseModel):
     """模型信息"""
 
-    model: str
     description: str
-    diy: bool
-    limited: bool
-    bot_id: int
 
 
 class UserInfo(BaseModel):

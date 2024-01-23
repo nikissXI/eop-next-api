@@ -1,5 +1,4 @@
-from asyncio import Queue, TimeoutError, create_task, gather, sleep, wait_for
-from copy import copy
+from asyncio import Queue, TimeoutError, create_task, sleep, wait_for
 from hashlib import md5
 from os import stat, stat_result
 from random import randint
@@ -14,7 +13,6 @@ from websockets.client import connect as ws_connect
 
 from .type import (
     End,
-    ModelInfo,
     MsgInfo,
     NewChat,
     ReachedLimit,
@@ -53,9 +51,11 @@ class Poe_Client:
         self.p_b = p_b
         self.sdid = ""
         self.user_info = UserInfo()
-        # display name: ModelInfo
-        self.offical_models: dict[str, ModelInfo] = {}
+        # display name: 描述
+        self.offical_model_list: dict[str, str] = {}
         self.diy_displayName_list: set[str] = set()
+        self.limited_displayName_list: set[str] = set()
+        # bot分类，暂时用不上
         self.category_list: list[str] = []
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
@@ -104,23 +104,19 @@ class Poe_Client:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
 
-        await sleep(1)
+        # limited_info = await self.get_limited_bots_info()
+        # text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{str_time(limited_info['daily_refresh_time'])}"
+        # if self.user_info.subscription_activated:
+        #     text += f"\n -- 月次数刷新时间：{str_time(limited_info['monthly_refresh_time'])}"
+        # for m in limited_info["models"]:
+        #     text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
+        #     if self.user_info.subscription_activated:
+        #         text += f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
+        # logger.info(text)
 
-        limited_info = await self.get_limited_bots_info()
-        text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{str_time(limited_info['daily_refresh_time'])}"
-        if self.user_info.subscription_activated:
-            text += f"\n -- 月次数刷新时间：{str_time(limited_info['monthly_refresh_time'])}"
-        for m in limited_info["models"]:
-            text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
-            if self.user_info.subscription_activated:
-                text += f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
-        logger.info(text)
-
-        await sleep(1)
         # 获取官方模型
         await self.cache_offical_models()
 
-        await sleep(1)
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
@@ -178,14 +174,14 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def explore_bot(self, category: str) -> tuple[list[str], str]:
+    async def explore_bot(self, category: str) -> tuple[dict[str, str], str]:
         """
         探索bot
 
         参数:
         - category 类别名称
         """
-        handle_list = []
+        result_list = {}
         next_cursor = "0"
         try:
             while True:
@@ -198,7 +194,10 @@ class Poe_Client:
                     },
                 )
                 data = result["data"]["exploreBotsConnection"]
-                handle_list.extend([m["node"]["handle"] for m in data["edges"]])
+                for m in data["edges"]:
+                    result_list[m["node"]["handle"]] = m["node"]["description"].replace(
+                        "\n", ""
+                    )
 
                 # for m in data["edges"]:
                 #     handle: str = m["node"]["handle"]
@@ -218,7 +217,7 @@ class Poe_Client:
 
                 # 如果获取官方模型信息就拉全部（因为数量有限）
                 if category == "Official" and data["pageInfo"]["hasNextPage"]:
-                    await sleep(2)
+                    await sleep(3)
                     continue
                 else:
                     break
@@ -226,7 +225,7 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-        return handle_list, next_cursor
+        return result_list, next_cursor
 
     async def cache_diy_model_list(self):
         """
@@ -250,73 +249,43 @@ class Poe_Client:
         """
         try:
             # 获取category可选项
-            result = await self.send_query(
-                "exploreBotsIndexPageQuery", {"categoryName": "Official"}
-            )
+            # result = await self.send_query(
+            #     "exploreBotsIndexPageQuery", {"categoryName": "Official"}
+            # )
+            # self.category_list = [
+            #     c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
+            # ]
 
-            self.category_list = [
-                c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
-            ]
+            await sleep(1)
             # 缓存可自定义的model
-            await sleep(2)
+            self.diy_displayName_list.clear()
             await self.cache_diy_model_list()
-            await sleep(2)
+            await sleep(1)
+            # 缓存限制的model
+            self.limited_displayName_list.clear()
+            await self.get_limited_bots_info()
+            await sleep(1)
             # 获取详细信息
-            handle_list, _ = await self.explore_bot("Official")
-            task_list = []
-            for x, handle in enumerate(handle_list):
-                if handle not in self.offical_models:
-                    task_list.append(
-                        self.cache_offical_bot_info(handle, randint(x * 1, x * 3))
-                    )
-            logger.info("正在缓存官方模型信息，请稍后。。。")
-            await gather(*task_list)
-
-            # 按官方bot列表的顺序排序
-            _tmp = copy(self.offical_models)
-            self.offical_models.clear()
-            for handle in handle_list:
-                self.offical_models[handle] = _tmp[handle]
+            result_list, _ = await self.explore_bot("Official")
+            self.offical_model_list.update(result_list)
+            await sleep(1)
 
             if self.ws_client_task is None:
-                text = []
-                x = 1
-                for display_name, info in self.offical_models.items():
-                    text.append(
-                        f"{x}: {display_name} {'(可自定义)' if info.diy else ''}  {'(有限制)' if info.limited else ''}\n\t{info.description}"
-                    )
-                    x += 1
+                # text = []
+                # x = 1
+                # for display_name, description in self.offical_model_list.items():
+                #     text.append(
+                #         f"{x}: {display_name} {'(可自定义)' if display_name in self.diy_displayName_list else ''}  {'(有限制)' if display_name in self.limited_displayName_list else ''}\n\t{description}"
+                #     )
+                #     x += 1
 
                 logger.info(
-                    f"当前官方模型有{len(self.offical_models)}个，以下为模型列表：\n"
-                    + "\n".join(text)
+                    f"当前官方模型有{len(self.offical_model_list)}个"
+                    # ，以下为模型列表：\n + "\n".join(text)
                 )
             else:
                 logger.info("已同步最新官方模型数据")
 
-        except Exception as e:
-            raise e
-
-    async def cache_offical_bot_info(self, handle: str, delay: int = 0):
-        """
-        缓存官方bot详细信息
-        """
-        # logger.warning(f"delay {delay}")
-        await sleep(delay)
-        try:
-            result = await self.send_query(
-                "HandleBotLandingPageQuery",
-                {"botHandle": handle},
-            )
-            info: dict = result["data"]["bot"]
-            description = info["description"].replace("\n", "")
-            self.offical_models[info["displayName"]] = ModelInfo(
-                model=info["model"],
-                description=description,
-                diy=True if info["displayName"] in self.diy_displayName_list else False,
-                limited=False if info["limitedAccessType"] == "no_limit" else True,
-                bot_id=info["botId"],
-            )
         except Exception as e:
             raise e
 
@@ -369,6 +338,7 @@ class Poe_Client:
                         "daily_available_times": m["freeLimitBalance"],
                         "daily_total_times": m["freeLimit"],
                     }
+                    self.limited_displayName_list.add(m["bot"]["displayName"])
                 else:
                     tmp_data = {
                         "model": "All other messages",
@@ -401,10 +371,16 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def send_query(self, query_name: str, variables: dict) -> dict:
+    async def send_query(
+        self, query_name: str, variables: dict, forbidden_times: int = 0
+    ) -> dict:
         """
         发送请求
         """
+        if forbidden_times > 0:
+            logger.warning(f"forbidden_times:{forbidden_times}")
+            await sleep(randint(2, 3))
+
         data = generate_data(query_name, variables, self.query_hash[query_name])
         base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
         status_code = 0
@@ -445,16 +421,18 @@ class Poe_Client:
                     raise ServerError("server error")
                 else:
                     logger.error(f"执行请求【{query_name}】发送ReadTimeout，自动重试")
-                    await self.send_query(query_name, variables)
+                    return await self.send_query(query_name, variables)
 
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
+            if status_code == 503 and forbidden_times < 3:
+                return await self.send_query(query_name, variables, forbidden_times + 1)
             err_code = f"status_code:{status_code}，" if status_code else ""
             raise Exception(
                 f"执行请求【{query_name}】失败，{err_code}错误信息：{repr(e)}"
             )
 
-    async def create_bot(self, display_name: str, prompt: str) -> tuple[str, int]:
+    async def create_bot(self, model: str, bot_id: int, prompt: str) -> tuple[str, int]:
         """
         创建bot
         """
@@ -465,7 +443,7 @@ class Poe_Client:
                 {
                     "apiKey": generate_random_handle(32),
                     "apiUrl": None,
-                    "baseBotId": self.offical_models[display_name].bot_id,
+                    "baseBotId": bot_id,
                     "customMessageLimit": None,
                     "description": "",
                     "displayName": None,
@@ -478,7 +456,7 @@ class Poe_Client:
                     "isPromptPublic": True,
                     "knowledgeSourceIds": [],
                     "messagePriceCc": None,
-                    "model": self.offical_models[display_name].model,
+                    "model": model,
                     "profilePictureUrl": "",
                     "prompt": prompt,
                     "shouldCiteSources": True,

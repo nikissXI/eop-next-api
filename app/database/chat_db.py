@@ -148,18 +148,20 @@ class Chat(Model):
         display_name: str | None = None,
         alias: str | None = None,
         prompt: str | None = None,
+        image_link: str | None = None,
     ):
         # 拉取旧数据
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "display_name", "alias", "prompt"
+            "display_name", "alias", "prompt", "image_link"
         )
 
         display_name = display_name or rows[0][0]
         alias = alias or rows[0][1]
         prompt = prompt or rows[0][2]
+        image_link = image_link or rows[0][3]
 
         await cls.filter(eop_id=eop_id).update(
-            display_name=display_name, alias=alias, prompt=prompt
+            display_name=display_name, alias=alias, prompt=prompt, image_link=image_link
         )
 
     # 获取某个bot信息

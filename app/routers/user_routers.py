@@ -94,7 +94,7 @@ async def _(user_data: dict = Depends(verify_token)):
 )
 async def _(
     body: UpdatePasswdBody = Body(
-        example={"old_passwd": "加密的旧密码", "new_passwd": "加密的新密码"}
+        examples=[{"old_passwd": "加密的旧密码", "new_passwd": "加密的新密码"}]
     ),
     user_data: dict = Depends(verify_token),
 ):
@@ -113,7 +113,9 @@ async def _(
 
 
 @router.get("/getPasswd", summary="生成密码哈希（临时）")
-async def _(passwd: str = Query(description="明文密码", example="this_is_a_password")):
+async def _(
+    passwd: str = Query(description="明文密码", examples=["this_is_a_password"]),
+):
     hash_object = sha256()
     hash_object.update(passwd.encode("utf-8"))
     hash_value = hash_object.hexdigest()
