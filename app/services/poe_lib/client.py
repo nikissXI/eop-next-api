@@ -453,11 +453,11 @@ class Poe_Client:
                     "introduction": "",
                     "isApiBot": False,
                     "isPrivateBot": True,
-                    "isPromptPublic": True,
+                    "isPromptPublic": False,
                     "knowledgeSourceIds": [],
                     "messagePriceCc": None,
                     "model": model,
-                    "profilePictureUrl": "",
+                    "profilePictureUrl": None,
                     "prompt": prompt,
                     "shouldCiteSources": True,
                     "temperature": None,
@@ -470,7 +470,7 @@ class Poe_Client:
                     await sleep(2)
                     continue
 
-                raise Exception(f"创建bot失败，错误信息：{status}")
+                raise Exception(f"创建bot失败，错误信息：{status} {str(result)}")
 
             bot_id_b64 = json_data["bot"]["id"]
             bot_id = int(base64_decode(bot_id_b64)[4:])
