@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "e558108660a6760196bdb1bac686d653f6a6fbc2dc9a8ed3b2ccd940035ffab1"
+            "queryHash": "98623937d6898b24c903cb731d5d5a5ff725b490bf41ddb3af7709202de4c4ab"
         },
         {
             "subscriptionName": "messageCancelled",
@@ -18,12 +18,12 @@
         {
             "subscriptionName": "messageCreated",
             "query": null,
-            "queryHash": "d8610fc3788beaf643fcb8b12a7c52963e5ac51ccb5c1349731c9577edef4ddf"
+            "queryHash": "e67a0af6973b1dab7fa9d2e793a6281140f034c867760d0ec67d9bc2f56057d0"
         },
         {
             "subscriptionName": "viewerStateUpdated",
             "query": null,
-            "queryHash": "a0892af0d13331f5e71fe1e0179fed421fa0c1498f1fd5fa753536ce3124dbf1"
+            "queryHash": "ec70c78589b8c0a78355af612f48cbafd85e352b7d498d925e31034cd2c126a1"
         },
         {
             "subscriptionName": "messageLimitUpdated",
