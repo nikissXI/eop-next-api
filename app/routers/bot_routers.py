@@ -262,6 +262,7 @@ async def _(
             can_diy,
             handle,
             bot_id,
+            bot_info["price"],
             body.model,
             body.alias,
             body.prompt,
@@ -323,17 +324,25 @@ async def _(
             )
             return
 
-        handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+        (
+            handle,
+            display_name,
+            bot_id,
+            chat_id,
+            diy,
+            disable,
+            price,
+        ) = await Chat.get_bot_data(eop_id)
 
         # 判断账号等级
         level = await User.get_level(uid)
-        if model in poe.client.limited_displayName_list and level == 1:
+        if display_name in poe.client.limited_displayName_list and level == 1:
             yield _yield_data(
                 {"type": "denied", "data": "你的账号等级不足，无法使用该模型对话"}
             )
             return
 
-        async for data in poe.client.talk_to_bot(handle, chat_id, body.q):
+        async for data in poe.client.talk_to_bot(handle, chat_id, body.q, price):
             # 会话失效
             if isinstance(data, SessionDisable):
                 await Chat.disable_bot(eop_id)
@@ -347,7 +356,7 @@ async def _(
             if isinstance(data, NewChat):
                 chat_id = data.chat_id
                 user_logger.info(
-                    f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
                 )
                 await Chat.update_bot_chat_id(eop_id, chat_id)
 
@@ -373,14 +382,14 @@ async def _(
             # 取消回答或回答结束
             if isinstance(data, End):
                 user_logger.info(
-                    f"用户:{uid}  动作:回答{data.reason}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:回答{data.reason}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
                 )
                 yield _yield_data({"type": "end", "data": data.reason})
 
             # 出错
             if isinstance(data, TalkError):
                 user_logger.error(
-                    f"用户:{uid}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+                    f"用户:{uid}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
                 )
                 # 切换ws channel地址
                 create_task(poe.client.refresh_channel())
@@ -410,13 +419,21 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+    (
+        handle,
+        display_name,
+        bot_id,
+        chat_id,
+        diy,
+        disable,
+        price,
+    ) = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.talk_stop(handle, chat_id)
         user_logger.info(
-            f"用户:{uid}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -443,7 +460,15 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+    (
+        handle,
+        display_name,
+        bot_id,
+        chat_id,
+        diy,
+        disable,
+        price,
+    ) = await Chat.get_bot_data(eop_id)
 
     try:
         if chat_id:
@@ -457,7 +482,7 @@ async def _(
 
     await Chat.delete_bot(eop_id)
     user_logger.info(
-        f"用户:{uid}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+        f"用户:{uid}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
     )
     return Response(status_code=204)
 
@@ -481,13 +506,21 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+    (
+        handle,
+        display_name,
+        bot_id,
+        chat_id,
+        diy,
+        disable,
+        price,
+    ) = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.send_chat_break(handle, chat_id)
         user_logger.info(
-            f"用户:{uid}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -514,14 +547,22 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+    (
+        handle,
+        display_name,
+        bot_id,
+        chat_id,
+        diy,
+        disable,
+        price,
+    ) = await Chat.get_bot_data(eop_id)
     await check_chat_exist(chat_id)
 
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
         await Chat.update_bot_chat_id(eop_id)
         user_logger.info(
-            f"用户:{uid}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{model}）  chat_id:{chat_id}"
+            f"用户:{uid}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
         )
         return Response(status_code=204)
 
@@ -567,7 +608,33 @@ async def _(
     uid = user_data["uid"]
     await check_bot_hoster(uid, eop_id)
 
-    handle, model, bot_id, chat_id, diy, disable = await Chat.get_bot_data(eop_id)
+    (
+        handle,
+        display_name,
+        bot_id,
+        chat_id,
+        diy,
+        disable,
+        price,
+    ) = await Chat.get_bot_data(eop_id)
+    # 更新缓存信息
+    if cursor == "0":
+        # 更新bot信息
+        try:
+            # 获取bot信息
+            bot_info = await poe.client.get_bot_info(display_name)
+            # 更新缓存
+            await Chat.modify_bot(
+                eop_id,
+                bot_info["price"],
+                None,
+                None,
+                None,
+                bot_info["image_link"],
+            )
+        except Exception as e:
+            return handle_exception(repr(e))
+
     if not chat_id:
         return JSONResponse(
             {
@@ -642,7 +709,12 @@ async def _(
             )
             # 更新缓存
             await Chat.modify_bot(
-                eop_id, body.model, None, body.prompt, bot_info["image_link"]
+                eop_id,
+                bot_info["price"],
+                body.model,
+                None,
+                body.prompt,
+                bot_info["image_link"],
             )
         except ServerError as e:
             # 判断bot是否被删了

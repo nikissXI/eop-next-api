@@ -12,6 +12,7 @@ class Chat(Model):
     diy = fields.BooleanField()
     handle = fields.TextField()
     bot_id = fields.IntField()
+    price = fields.IntField()
     chat_id = fields.IntField()
     display_name = fields.TextField()
     alias = fields.TextField()
@@ -34,6 +35,7 @@ class Chat(Model):
         diy: bool,
         handle: str,
         bot_id: int,
+        price: int,
         display_name: str,
         alias: str,
         prompt: str,
@@ -51,6 +53,7 @@ class Chat(Model):
             diy=diy,
             handle=handle,
             bot_id=bot_id,
+            price=price,
             chat_id=0,
             display_name=display_name,
             alias=alias,
@@ -145,6 +148,7 @@ class Chat(Model):
     async def modify_bot(
         cls,
         eop_id: str,
+        price: int | None = None,
         display_name: str | None = None,
         alias: str | None = None,
         prompt: str | None = None,
@@ -152,16 +156,21 @@ class Chat(Model):
     ):
         # 拉取旧数据
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "display_name", "alias", "prompt", "image_link"
+            "price", "display_name", "alias", "prompt", "image_link"
         )
 
-        display_name = display_name or rows[0][0]
-        alias = alias or rows[0][1]
-        prompt = prompt or rows[0][2]
-        image_link = image_link or rows[0][3]
+        price = price or rows[0][0]
+        display_name = display_name or rows[0][1]
+        alias = alias or rows[0][2]
+        prompt = prompt or rows[0][3]
+        image_link = image_link or rows[0][4]
 
         await cls.filter(eop_id=eop_id).update(
-            display_name=display_name, alias=alias, prompt=prompt, image_link=image_link
+            price=price,
+            display_name=display_name,
+            alias=alias,
+            prompt=prompt,
+            image_link=image_link,
         )
 
     # 获取某个bot信息
@@ -172,11 +181,21 @@ class Chat(Model):
 
     # 获取某个bot的handle、display name、bot id、chat id
     @classmethod
-    async def get_bot_data(cls, eop_id: str) -> tuple[str, str, int, int, bool, bool]:
+    async def get_bot_data(
+        cls, eop_id: str
+    ) -> tuple[str, str, int, int, bool, bool, int]:
         rows = await cls.filter(eop_id=eop_id).values_list(
-            "handle", "display_name", "bot_id", "chat_id", "diy", "disable"
+            "handle", "display_name", "bot_id", "chat_id", "diy", "disable", "price"
         )
-        return rows[0][0], rows[0][1], rows[0][2], rows[0][3], rows[0][4], rows[0][5]
+        return (
+            rows[0][0],
+            rows[0][1],
+            rows[0][2],
+            rows[0][3],
+            rows[0][4],
+            rows[0][5],
+            rows[0][6],
+        )
 
     # 更新某个bot的chat code和chat id
     @classmethod

@@ -35,6 +35,10 @@ from utils.env_util import (
 )
 from uvicorn import run
 
+try:
+    from utils.tool_util import logger
+except Exception:
+    from loguru import logger
 ################
 ### 后端定义
 ################
@@ -47,9 +51,9 @@ async def lifespan(app: FastAPI):
     await Config.init_data()
     await login_poe()
     scheduler.start()
-
+    logger.info("启动完成")
     yield
-
+    logger.info("正在关闭")
     await db_close()
 
 

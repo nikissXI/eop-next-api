@@ -312,6 +312,7 @@ class Poe_Client:
                 "handle": info["nickname"],
                 "displayName": info["displayName"],
                 "image_link": image_link,
+                "price": info["messagePointLimit"]["displayMessagePointPrice"],
             }
             return bot_info
         except Exception as e:
@@ -602,7 +603,7 @@ class Poe_Client:
                     break
 
     async def talk_to_bot(
-        self, handle: str, chat_id: int, question: str
+        self, handle: str, chat_id: int, question: str, price: int
     ) -> AsyncGenerator:
         """
         向指定的机器人发送问题
@@ -624,6 +625,8 @@ class Poe_Client:
                     "bot": handle,
                     "chatId": chat_id if chat_id else None,
                     "clientNonce": token_hex(8),
+                    "existingMessageAttachmentsIds": [],
+                    "messagePointsDisplayPrice": price,
                     "query": question,
                     "sdid": self.sdid,
                     "shouldFetchChat": False if chat_id else True,
