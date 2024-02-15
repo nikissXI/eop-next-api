@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from database.config_db import Config
 from database.db import db_close, db_init
 from database.user_db import User
@@ -36,7 +38,23 @@ from uvicorn import run
 ################
 ### 后端定义
 ################
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await db_init()
+    await User.init_data()
+    await Config.init_data()
+    await login_poe()
+    scheduler.start()
+
+    yield
+
+    await db_close()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     description="""require Python environment >= 3.10
 
 20XX 客户端处理错误  
@@ -74,20 +92,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def _():
-    await db_init()
-    await User.init_data()
-    await Config.init_data()
-    await login_poe()
-    scheduler.start()
-
-
-@app.on_event("shutdown")
-async def _():
-    await db_close()
 
 
 ################
