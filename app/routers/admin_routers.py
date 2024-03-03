@@ -328,29 +328,28 @@ async def _(
                         "subscription_activated": True,
                         "plan_type": "Monthly",
                         "expire_time": 1693230928703,
-                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
-                        "models": [
-                            {
-                                "model": "Claude-instant-100k",
-                                "limit_type": "hard_limit",
-                                "available": True,
-                                "daily_available_times": 30,
-                                "daily_total_times": 30,
-                                "monthly_available_times": 1030,
-                                "monthly_total_times": 1030,
-                            },
-                            {
-                                "model": "GPT-4",
-                                "limit_type": "soft_limit",
-                                "available": True,
-                                "daily_available_times": 1,
-                                "daily_total_times": 1,
-                                "monthly_available_times": 592,
-                                "monthly_total_times": 601,
-                            },
-                        ],
-                        "daily_refresh_time": 1693230928703,
-                        "monthly_refresh_time": 1693230928703,
+                        # "models": [
+                        #     {
+                        #         "model": "Claude-instant-100k",
+                        #         "limit_type": "hard_limit",
+                        #         "available": True,
+                        #         "daily_available_times": 30,
+                        #         "daily_total_times": 30,
+                        #         "monthly_available_times": 1030,
+                        #         "monthly_total_times": 1030,
+                        #     },
+                        #     {
+                        #         "model": "GPT-4",
+                        #         "limit_type": "soft_limit",
+                        #         "available": True,
+                        #         "daily_available_times": 1,
+                        #         "daily_total_times": 1,
+                        #         "monthly_available_times": 592,
+                        #         "monthly_total_times": 601,
+                        #     },
+                        # ],
+                        # "daily_refresh_time": 1693230928703,
+                        # "monthly_refresh_time": 1693230928703,
                     },
                 }
             },
@@ -360,7 +359,7 @@ async def _(
 async def _(
     _: dict = Depends(verify_admin),
 ):
-    data = await poe.client.get_limited_bots_info()
+    data = dict()
     data["email"] = poe.client.user_info.email
     data["subscription_activated"] = poe.client.user_info.subscription_activated
     data["plan_type"] = ""
@@ -368,6 +367,9 @@ async def _(
     if poe.client.user_info.subscription_activated:
         data["plan_type"] = poe.client.user_info.plan_type
         data["expire_time"] = poe.client.user_info.expire_time
+    data["points_now"] = poe.client.user_info.points_now
+    data["points_total"] = poe.client.user_info.points_total
+    data["points_reset_time"] = poe.client.user_info.points_reset_time
     return JSONResponse(data, 200)
 
 

@@ -1,3 +1,5 @@
+from asyncio import sleep
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from database.config_db import Config
 from fastapi import (
@@ -24,6 +26,10 @@ scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 @scheduler.scheduled_job("cron", hour=3)
 async def _():
+    await poe.client.get_account_info()
+    await sleep(0.3)
+    await poe.client.cache_diy_model_list()
+    await sleep(0.3)
     await poe.client.cache_offical_models()
 
 

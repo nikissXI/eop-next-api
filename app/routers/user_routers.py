@@ -166,37 +166,17 @@ async def _(user_data: dict = Depends(verify_token)):
 
 
 @router.get(
-    "/limitedModelsInfo",
-    summary="获取模型次数刷新时间以及限制模型使用情况",
+    "/PointBalanceInfo",
+    summary="获取点数余额",
     responses={
         200: {
             "description": "结果",
             "content": {
                 "application/json": {
                     "example": {
-                        "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
-                        "models": [
-                            {
-                                "model": "Claude-instant-100k",
-                                "limit_type": "hard_limit",
-                                "available": True,
-                                "daily_available_times": 30,
-                                "daily_total_times": 30,
-                                "monthly_available_times": 1030,
-                                "monthly_total_times": 1030,
-                            },
-                            {
-                                "model": "GPT-4",
-                                "limit_type": "soft_limit",
-                                "available": True,
-                                "daily_available_times": 1,
-                                "daily_total_times": 1,
-                                "monthly_available_times": 592,
-                                "monthly_total_times": 601,
-                            },
-                        ],
-                        "daily_refresh_time": 1693230928703,
-                        "monthly_refresh_time": 1693230928703,
+                        "points_now": 981110,
+                        "points_total": 1000000,
+                        "points_reset_time": 1710374691000,
                     },
                 }
             },
@@ -206,5 +186,8 @@ async def _(user_data: dict = Depends(verify_token)):
 async def _(
     _: dict = Depends(verify_token),
 ):
-    data = await poe.client.get_limited_bots_info()
+    data = dict()
+    data["points_now"] = poe.client.user_info.points_now
+    data["points_total"] = poe.client.user_info.points_total
+    data["points_reset_time"] = poe.client.user_info.points_reset_time
     return JSONResponse(data, 200)

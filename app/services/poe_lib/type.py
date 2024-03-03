@@ -59,6 +59,9 @@ class UserInfo(BaseModel):
     subscription_activated: bool = False
     plan_type: str = ""
     expire_time: int = 0
+    points_now: int = 0
+    points_total: int = 0
+    points_reset_time: int = 0
 
 
 class ServerError(Exception):

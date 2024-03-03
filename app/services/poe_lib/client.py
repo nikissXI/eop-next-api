@@ -98,24 +98,17 @@ class Poe_Client:
         self.read_query_hash()
         self.hash_file_watch_task = create_task(self.watch_hash_file())
 
-        await self.get_user_info()
+        await self.get_account_info()
+        await sleep(0.3)
+        await self.cache_diy_model_list()
+        await sleep(0.3)
+        await self.cache_offical_models()
+        await sleep(0.3)
+
         text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
         if self.user_info.subscription_activated:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
-
-        # limited_info = await self.get_limited_bots_info()
-        # text = f"\n有次数限制bot的使用情况\n -- 日次数刷新时间：{str_time(limited_info['daily_refresh_time'])}"
-        # if self.user_info.subscription_activated:
-        #     text += f"\n -- 月次数刷新时间：{str_time(limited_info['monthly_refresh_time'])}"
-        # for m in limited_info["models"]:
-        #     text += f"\n >> 模型：{m['model']}\n    {m['limit_type']}  可用：{m['available']}  日可用次数：{m['daily_available_times']}/{m['daily_total_times']}"
-        #     if self.user_info.subscription_activated:
-        #         text += f"  月可用次数：{m['monthly_available_times']}/{m['monthly_total_times']}"
-        # logger.info(text)
-
-        # 获取官方模型
-        await self.cache_offical_models()
 
         # 取消之前的ws连接
         if self.ws_client_task:
@@ -156,7 +149,7 @@ class Poe_Client:
                 self.read_query_hash()
                 logger.warning("更新query_hash")
 
-    async def get_user_info(self):
+    async def get_account_info(self):
         """
         获取账号信息
         """
@@ -171,6 +164,16 @@ class Poe_Client:
             if self.user_info.subscription_activated:
                 self.user_info.plan_type = data["subscription"]["planType"]
                 self.user_info.expire_time = data["subscription"]["expiresTime"] / 1000
+            self.user_info.points_now = data["messagePointInfo"]["messagePointBalance"]
+            self.user_info.points_total = data["messagePointInfo"][
+                "totalMessagePointAllotment"
+            ]
+            self.user_info.points_reset_time = (
+                data["messagePointInfo"]["messagePointResetTime"] / 1000
+            )
+            for _ in data["subscriptionBots"]:
+                self.limited_displayName_list.add(_["displayName"])
+
         except Exception as e:
             raise e
 
@@ -232,6 +235,7 @@ class Poe_Client:
         支持创建自定义bot的列表
         """
         try:
+            self.diy_displayName_list.clear()
             result = await self.send_query(
                 "createBotIndexPageQuery",
                 {"messageId": None},
@@ -256,35 +260,8 @@ class Poe_Client:
             #     c["categoryName"] for c in result["data"]["exploreBotsCategoryObjects"]
             # ]
 
-            await sleep(1)
-            # 缓存可自定义的model
-            self.diy_displayName_list.clear()
-            await self.cache_diy_model_list()
-            await sleep(1)
-            # 缓存限制的model
-            self.limited_displayName_list.clear()
-            await self.get_limited_bots_info()
-            await sleep(1)
-            # 获取详细信息
             result_list, _ = await self.explore_bot("Official")
             self.offical_model_list.update(result_list)
-            await sleep(1)
-
-            if self.ws_client_task is None:
-                # text = []
-                # x = 1
-                # for display_name, description in self.offical_model_list.items():
-                #     text.append(
-                #         f"{x}: {display_name} {'(可自定义)' if display_name in self.diy_displayName_list else ''}  {'(有限制)' if display_name in self.limited_displayName_list else ''}\n\t{description}"
-                #     )
-                #     x += 1
-
-                logger.info(
-                    f"当前官方模型有{len(self.offical_model_list)}个"
-                    # ，以下为模型列表：\n + "\n".join(text)
-                )
-            else:
-                logger.info("已同步最新官方模型数据")
 
         except Exception as e:
             raise e
@@ -318,59 +295,58 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def get_limited_bots_info(self) -> dict:
-        """
-        获取有次数限制bot的使用情况
-        """
-        try:
-            result = await self.send_query("settingsPageQuery", {})
-            data = result["data"]["viewer"]["messageLimitsConnection"]["edges"]
-            output = {
-                "notice": "订阅会员才有的，软限制就是次数用完后会降低生成质量和速度，硬限制就是用完就不能生成了",
-                "models": [],
-            }
-            for _ in data:
-                m = _["node"]
-                output["daily_refresh_time"] = m["freeLimitResetTime"] / 1000
-                if m["bot"]:
-                    tmp_data = {
-                        "model": m["bot"]["displayName"],
-                        "limit_type": m["bot"]["limitedAccessType"],
-                        "daily_available_times": m["freeLimitBalance"],
-                        "daily_total_times": m["freeLimit"],
-                    }
-                    self.limited_displayName_list.add(m["bot"]["displayName"])
-                else:
-                    tmp_data = {
-                        "model": "All other messages",
-                        "limit_type": "hard_limit",
-                        "daily_available_times": m["freeLimitBalance"],
-                        "daily_total_times": m["freeLimit"],
-                    }
-                if self.user_info.subscription_activated:
-                    output["monthly_refresh_time"] = m["paidLimitResetTime"] / 1000
+    # async def get_limited_bots_info(self) -> dict:
+    #     """
+    #     获取有次数限制bot的使用情况
+    #     """
+    #     try:
+    #         result = await self.send_query("settingsPageQuery", {})
+    #         data = result["data"]["viewer"]["messageLimitsConnection"]["edges"]
+    #         output = {
+    #             "models": [],
+    #         }
+    #         for _ in data:
+    #             m = _["node"]
+    #             output["daily_refresh_time"] = m["freeLimitResetTime"] / 1000
+    #             if m["bot"]:
+    #                 tmp_data = {
+    #                     "model": m["bot"]["displayName"],
+    #                     "limit_type": m["bot"]["limitedAccessType"],
+    #                     "daily_available_times": m["freeLimitBalance"],
+    #                     "daily_total_times": m["freeLimit"],
+    #                 }
+    #                 self.limited_displayName_list.add(m["bot"]["displayName"])
+    #             else:
+    #                 tmp_data = {
+    #                     "model": "All other messages",
+    #                     "limit_type": "hard_limit",
+    #                     "daily_available_times": m["freeLimitBalance"],
+    #                     "daily_total_times": m["freeLimit"],
+    #                 }
+    #             if self.user_info.subscription_activated:
+    #                 output["monthly_refresh_time"] = m["paidLimitResetTime"] / 1000
 
-                    tmp_data.update(
-                        {
-                            "monthly_available_times": m["paidLimitBalance"],
-                            "monthly_total_times": m["paidLimit"],
-                        }
-                    )
-                tmp_data["available"] = False
-                if (
-                    m["paidLimitBalance"]
-                    or m["freeLimitBalance"]
-                    or (
-                        self.user_info.subscription_activated
-                        and tmp_data["limit_type"] == "soft_limit"
-                    )
-                ):
-                    tmp_data["available"] = True
-                output["models"].append(tmp_data)
+    #                 tmp_data.update(
+    #                     {
+    #                         "monthly_available_times": m["paidLimitBalance"],
+    #                         "monthly_total_times": m["paidLimit"],
+    #                     }
+    #                 )
+    #             tmp_data["available"] = False
+    #             if (
+    #                 m["paidLimitBalance"]
+    #                 or m["freeLimitBalance"]
+    #                 or (
+    #                     self.user_info.subscription_activated
+    #                     and tmp_data["limit_type"] == "soft_limit"
+    #                 )
+    #             ):
+    #                 tmp_data["available"] = True
+    #             output["models"].append(tmp_data)
 
-            return output
-        except Exception as e:
-            raise e
+    #         return output
+    #     except Exception as e:
+    #         raise e
 
     async def send_query(
         self, query_name: str, variables: dict, forbidden_times: int = 0

@@ -362,6 +362,7 @@ async def _(
 
             # 对话消息id和创建时间，用于同步
             if isinstance(data, MsgInfo):
+                poe.client.user_info.points_now -= price
                 await Chat.update_bot_last_talk_time(eop_id, data.answer_create_time)
                 yield _yield_data(
                     {
