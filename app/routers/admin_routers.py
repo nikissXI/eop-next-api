@@ -328,6 +328,9 @@ async def _(
                         "subscription_activated": True,
                         "plan_type": "Monthly",
                         "expire_time": 1693230928703,
+                        "points_now": 9999,
+                        "points_total": 100000,
+                        "points_reset_time": 1693230928703,
                         # "models": [
                         #     {
                         #         "model": "Claude-instant-100k",
