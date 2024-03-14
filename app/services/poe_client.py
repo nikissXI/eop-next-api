@@ -24,7 +24,7 @@ poe = Poe()
 scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
-@scheduler.scheduled_job("cron", hour=3)
+@scheduler.scheduled_job("cron", minute=1)
 async def _():
     await poe.client.get_account_info()
     await sleep(0.3)
