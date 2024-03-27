@@ -109,18 +109,21 @@ router = APIRouter()
                             {
                                 "model": "ChatGPT",
                                 "description": "由gpt-3.5-turbo驱动。",
+                                "img_url": "https://xxx/bot.jpg",
                                 "diy": True,
                                 "limited": False,
                             },
                             {
                                 "model": "GPT-4",
                                 "description": "OpenAI最强大的模型。在定量问题（数学和物理）、创造性写作和许多其他具有挑战性的任务方面比ChatGPT更强大。",
+                                "img_url": "https://xxx/bot.jpg",
                                 "diy": True,
                                 "limited": True,
                             },
                             {
                                 "model": "Google-PaLM",
                                 "description": "由Google的PaLM 2 chat-bison-001模型驱动。",
+                                "img_url": "https://xxx/bot.jpg",
                                 "diy": False,
                                 "limited": False,
                             },
@@ -137,7 +140,8 @@ async def _(
     uid = user_data["uid"]
     level = await User.get_level(uid)
     data = []
-    for display_name, description in poe.client.offical_model_list.items():
+    for display_name, v in poe.client.offical_model_list.items():
+        description, img_url = v[0], v[1]
         # 普通用户不返回限制模型
         if display_name in poe.client.limited_displayName_list and level == 1:
             continue
@@ -145,6 +149,7 @@ async def _(
             {
                 "model": display_name,
                 "description": description,
+                "img_url": img_url,
                 "diy": display_name in poe.client.diy_displayName_list,
                 "limited": display_name in poe.client.limited_displayName_list,
             }

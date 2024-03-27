@@ -12,7 +12,7 @@ SUB_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "sub_hash.json")
 QUERY_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "query_hash.json")
 GQL_URL = "https://poe.com/api/gql_POST"
 SETTING_URL = "https://poe.com/api/settings"
-BOT_IMAGE_LINK_CACHE = {
+MODEL_IMG_URL_CACHE = {
     "Assistant": "https://psc2.cf2.poecdn.net/e42c69ddd5cee63fde977757d950352e3ea081b9/_next/static/media/assistant.b077c338.svg",
     "Claude-instant-100k": "https://psc2.cf2.poecdn.net/e42c69ddd5cee63fde977757d950352e3ea081b9/_next/static/media/anthropicAvatarBeige.426c3b88.png",
     "GPT-4": "https://psc2.cf2.poecdn.net/e42c69ddd5cee63fde977757d950352e3ea081b9/_next/static/media/openAIBlue.915c0399.png",

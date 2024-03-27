@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "6e010ec7fc32bb6d21ae8c4036f26edf98e7342740f3158a1c9d4c7dd316071b"
+            "queryHash": "fd47d57451955ddb2557c4dd5731b250ae37f15be6a94224eb3d5627ca6fc11f"
         },
         {
             "subscriptionName": "messageCancelled",

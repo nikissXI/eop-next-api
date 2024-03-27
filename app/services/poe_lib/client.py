@@ -23,8 +23,8 @@ from .type import (
     UserInfo,
 )
 from .util import (
-    BOT_IMAGE_LINK_CACHE,
     GQL_URL,
+    MODEL_IMG_URL_CACHE,
     QUERY_HASH_PATH,
     SETTING_URL,
     SUB_HASH_PATH,
@@ -52,7 +52,7 @@ class Poe_Client:
         self.sdid = ""
         self.user_info = UserInfo()
         # display name: 描述
-        self.offical_model_list: dict[str, str] = {}
+        self.offical_model_list: dict[str, tuple[str, str]] = {}
         self.diy_displayName_list: set[str] = set()
         self.limited_displayName_list: set[str] = set()
         # bot分类，暂时用不上
@@ -177,7 +177,9 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def explore_bot(self, category: str) -> tuple[dict[str, str], str]:
+    async def explore_bot(
+        self, category: str
+    ) -> tuple[dict[str, tuple[str, str]], str]:
         """
         探索bot
 
@@ -198,9 +200,17 @@ class Poe_Client:
                 )
                 data = result["data"]["exploreBotsConnection"]
                 for m in data["edges"]:
-                    result_list[m["node"]["handle"]] = m["node"]["description"].replace(
-                        "\n", ""
-                    )
+                    model = m["node"]["handle"]
+                    if m["node"]["picture"]["__typename"] == "URLBotImage":
+                        img_url = m["node"]["picture"]["url"]
+                    elif model in MODEL_IMG_URL_CACHE:
+                        img_url = MODEL_IMG_URL_CACHE[model]
+                    else:
+                        logger.warning(f"{m['node']['handle']}找不到头像链接")
+                        img_url = ""
+                    description = m["node"]["description"].replace("\n", "")
+
+                    result_list[model] = (description, img_url)
 
                 # for m in data["edges"]:
                 #     handle: str = m["node"]["handle"]
@@ -208,8 +218,8 @@ class Poe_Client:
                 #     description: str = m["node"]["description"]
                 #     if m["node"]["image"]["__typename"] == "UrlBotImage":
                 #         image_link: str = m["node"]["image"]["url"]
-                #     elif handle in BOT_IMAGE_LINK_CACHE:
-                #         image_link = BOT_IMAGE_LINK_CACHE[handle]
+                #     elif handle in MODEL_IMG_URL_CACHE:
+                #         image_link = MODEL_IMG_URL_CACHE[handle]
                 #     else:
                 #         raise Exception("image_link不存在")
 
@@ -278,8 +288,8 @@ class Poe_Client:
             info: dict = result["data"]["bot"]
             if info["picture"]["__typename"] == "URLBotImage":
                 image_link = info["picture"]["url"]
-            elif handle in BOT_IMAGE_LINK_CACHE:
-                image_link = BOT_IMAGE_LINK_CACHE[handle]
+            elif handle in MODEL_IMG_URL_CACHE:
+                image_link = MODEL_IMG_URL_CACHE[handle]
             else:
                 logger.warning(f"{handle}找不到头像链接")
                 image_link = ""
