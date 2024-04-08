@@ -223,7 +223,8 @@ async def _(_: dict = Depends(verify_admin)):
             "description": "配置信息",
             "content": {
                 "application/json": {
-                    "p_b": "p_b值",
+                    "p_b": "p-b值",
+                    "p_lat": "p-lat值",
                     "formkey": "formkey值",
                     "proxy": "代理地址",
                     "telegram_url": "telegram群链接",
@@ -238,6 +239,7 @@ async def _(_: dict = Depends(verify_admin)):
 async def _(_: dict = Depends(verify_admin)):
     (
         p_b,
+        p_lat,
         formkey,
         proxy,
         telegram_url,
@@ -248,6 +250,7 @@ async def _(_: dict = Depends(verify_admin)):
     return JSONResponse(
         {
             "p_b": p_b,
+            "p_lat": p_lat,
             "formkey": formkey,
             "proxy": proxy,
             "telegram_url": telegram_url,
@@ -276,6 +279,7 @@ async def _(
         examples=[
             {
                 "p_b": "ABcdefz2u1baGdPgXxcWcg%3D%3D",
+                "p_lat": "ABcdefz2u1baGdPgXxcWcgY7YSQZ40dyWrO53FfQ%3D%3D",
                 "formkey": "2cf072difnsie23f7892divd0380e3f7",
                 "proxy": "http://xxx",
                 "telegram_url": "https://xxx",
@@ -289,6 +293,7 @@ async def _(
 ):
     (
         _p_b,
+        _p_lat,
         _formkey,
         _proxy,
         _telegram_url,
@@ -298,6 +303,7 @@ async def _(
     ) = await Config.get_setting()
 
     p_b = body.p_b if body.p_b else _p_b
+    p_lat = body.p_lat if body.p_lat else _p_lat
     formkey = body.formkey if body.formkey else _formkey
     proxy = body.proxy if body.proxy else _proxy
     telegram_url = body.telegram_url if body.telegram_url else _telegram_url
@@ -306,7 +312,7 @@ async def _(
     qq_url = body.qq_url if body.qq_url else _qq_url
 
     await Config.update_setting(
-        p_b, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
+        p_b, p_lat, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
     )
 
     if body.p_b or body.formkey or body.proxy:

@@ -9,7 +9,10 @@ from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
 from httpx import AsyncClient, ReadTimeout
-from websockets.client import connect as ws_connect
+
+# from websockets.client import connect as ws_connect
+from websockets_proxy import Proxy
+from websockets_proxy import proxy_connect as ws_connect
 
 from .type import (
     End,
@@ -46,11 +49,13 @@ except Exception:
 
 
 class Poe_Client:
-    def __init__(self, p_b: str, formkey: str, proxy: str | None = None):
+    def __init__(self, p_b: str, p_lat: str, formkey: str, proxy: str | None = None):
         self.formkey = formkey
         self.p_b = p_b
+        self.p_lat = p_lat
         self.sdid = ""
         self.user_info = UserInfo()
+        self.proxy = proxy
         # display name: 描述
         self.offical_model_list: dict[str, tuple[str, str]] = {}
         self.diy_displayName_list: set[str] = set()
@@ -62,14 +67,14 @@ class Poe_Client:
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
-            "Cookie": f"p-b={self.p_b}",
+            "Cookie": f"p-b={self.p_b}; p-lat={self.p_lat}",
             "Poe-Formkey": self.formkey,
-            "Sec-Ch-Ua": '"Not/A)Brand";v="99", "Microsoft Edge";v="115", "Chromium";v="115"',
+            "Sec-Ch-Ua": '"Microsoft Edge";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": '"Windows"',
             "Upgrade-Insecure-Requests": "1",
             "Origin": "https://poe.com",
-            "Referer": "https://poe.com",
+            "Referer": "https://poe.com/",
         }
         self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
         self.channel_url = ""
@@ -383,6 +388,8 @@ class Poe_Client:
                 if query_name == "CreateBotMain_poeBotCreate_Mutation"
                 else 5,
             )
+            # with open("a.html", "wb") as w:
+            #     w.write(resp.content)  # type: ignore
             status_code = resp.status_code
             json_data = loads(resp.text)
 
@@ -465,19 +472,18 @@ class Poe_Client:
 
     async def get_new_channel(self):
         """
-        此函数从设置_URL获取通道数据，获取channel地址，对话用的
+        此函数从设置_URL获取通道数据，更新ws地址，对话用的
         """
         try:
             resp = await self.httpx_client.get(SETTING_URL, timeout=5)
             json_data = loads(resp.text)
-
             tchannel_data = json_data["tchannelData"]
             self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
             ws_domain = f"tch{randint(1, int(1e6))}"[:8]
             self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
             self.last_min_seq = int(tchannel_data["minSeq"])
         except Exception as e:
-            err_msg = f"获取channel address失败，错误信息：{repr(e)}"
+            err_msg = f"更新ws失败，错误信息：{repr(e)}"
             logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -488,13 +494,15 @@ class Poe_Client:
 
     async def refresh_channel(self, get_new_channel: bool = True):
         """
-        刷新ws连接
+        刷新ws地址
         """
         self.refresh_channel_lock = True
 
         if get_new_channel:
-            logger.info("订阅ws")
-            await self.get_new_channel()
+            self.channel_url = ""
+            while not self.channel_url:
+                await self.get_new_channel()
+            logger.info("更新ws地址成功")
         else:
             self.channel_url = sub(
                 r"(min_seq=)\d+",
@@ -566,7 +574,15 @@ class Poe_Client:
         """
         连接到poe的websocket，用于拉取回答
         """
-        async with ws_connect(self.channel_url) as ws:
+        async with ws_connect(
+            self.channel_url,
+            proxy=Proxy.from_url(self.proxy) if self.proxy else None,
+            extra_headers={
+                "Pragma": "no-cache",
+                "Cache-Control": "no-cache",
+                "Origin": "https://poe.com",
+            },
+        ) as ws:
             while True:
                 try:
                     data = await wait_for(ws.recv(), 120)
@@ -575,13 +591,11 @@ class Poe_Client:
                     await self.handle_ws_data(loads(data))
 
                 except TimeoutError:
-                    # logger.info("TimeoutError")
-                    # debug_logger.info("refresh")
                     create_task(self.refresh_channel(get_new_channel=False))
                     break
 
                 except Exception as e:
-                    print(format_exc())
+                    # print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
                     # with open("error.json", "a") as a:
                     #     a.write(str(data) + "\n")  # type: ignore
@@ -718,17 +732,11 @@ class Poe_Client:
         try:
             # 判断会话是否被删了
             result = await self.send_query(
-                "ChatListPaginationQuery",
-                {
-                    "count": 25,
-                    "cursor": "0",
-                    "id": base64_encode(f"Chat:{chat_id}"),
-                },
+                "HandleBotLandingPageQuery",
+                {"botHandle": handle},
             )
-            deletionState = result["data"]["node"]["defaultBotObject"]["deletionState"]
-            if (deletionState != "not_deleted") or (
-                chat_id and not result["data"]["node"]["messagesConnection"]["edges"]
-            ):
+            deletionState = result["data"]["bot"]["deletionState"]
+            if deletionState != "not_deleted":
                 yield SessionDisable()
                 return
 

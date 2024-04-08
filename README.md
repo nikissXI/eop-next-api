@@ -1,5 +1,7 @@
 接口文档运行后访问路径/docs或/redoc  
 
+# 本仓库为纯后端，前端需自行另外实现
+
 require Python environment >= 3.10
 
 安装依赖库 pip install -r requirements.txt
@@ -29,13 +31,10 @@ require Python environment >= 3.10
 
 
 # 登陆凭证获取
-poe登录凭证需要两个值，获取方法如下：  
-
-**p_b值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），依次点击应用程序、存储、Cookie，就可以看到p_b的值了  
+poe登录凭证需要3个值，获取方法如下  
+浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），再F11（刷新），找到网络监听模块，搜索链接https://poe.com/api/gql_POST，然后在请求头中找到图中的三个值  
+分别为p-b，p-lat，Poe-Formkey  
 <img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/1.jpg"/>  
-
-**formkey值** 浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），然后随便跟一个ai发一句话，点网络，选Fetch/XHR，随便一个请求，在标头那，往下找到请求标头那类，里面有一个Poe-Formkey字段，后面就是值了  
-<img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/2.jpg"/>  
 
 # 更新日志
 ## 2023/10/6

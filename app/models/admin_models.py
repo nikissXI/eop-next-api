@@ -4,7 +4,11 @@ from pydantic import BaseModel, Field
 class UpdateSettingBody(BaseModel):
     p_b: str | None = Field(
         default=None,
-        description="p_b值",
+        description="p-b值",
+    )
+    p_lat: str | None = Field(
+        default=None,
+        description="p-lat值",
     )
     formkey: str | None = Field(
         default=None,

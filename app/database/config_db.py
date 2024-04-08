@@ -11,6 +11,7 @@ class Config(Model):
     async def init_data(cls):
         if not await cls.filter(key="p_b").exists():
             await cls.create(key="p_b", value="")
+            await cls.create(key="p_lat", value="")
             await cls.create(key="formkey", value="")
             await cls.create(key="proxy", value="")
             await cls.create(key="telegram_url", value="")
@@ -19,9 +20,11 @@ class Config(Model):
             await cls.create(key="qq_url", value="")
 
     @classmethod
-    async def get_setting(cls) -> tuple[str, str, str, str, str, str, str]:
+    async def get_setting(cls) -> tuple[str, str, str, str, str, str, str, str]:
         rows = await cls.filter(key="p_b").values_list("value")
         p_b = rows[0][0]
+        rows = await cls.filter(key="p_lat").values_list("value")
+        p_lat = rows[0][0]
         rows = await cls.filter(key="formkey").values_list("value")
         formkey = rows[0][0]
         rows = await cls.filter(key="proxy").values_list("value")
@@ -34,12 +37,13 @@ class Config(Model):
         weixin_url = rows[0][0]
         rows = await cls.filter(key="qq_url").values_list("value")
         qq_url = rows[0][0]
-        return p_b, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
+        return p_b, p_lat, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url
 
     @classmethod
     async def update_setting(
         cls,
         p_b: str,
+        p_lat: str,
         formkey: str,
         proxy: str,
         telegram_url: str,
@@ -48,6 +52,7 @@ class Config(Model):
         qq_url: str,
     ):
         await cls.filter(key="p_b").update(value=p_b)
+        await cls.filter(key="p_lat").update(value=p_lat)
         await cls.filter(key="formkey").update(value=formkey)
         await cls.filter(key="proxy").update(value=proxy)
         await cls.filter(key="telegram_url").update(value=telegram_url)

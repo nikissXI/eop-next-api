@@ -17,7 +17,7 @@ from .poe_lib.client import Poe_Client
 
 
 class Poe:
-    client = Poe_Client("", "")
+    client = Poe_Client("", "", "")
 
 
 poe = Poe()
@@ -34,11 +34,15 @@ async def _():
 
 
 async def login_poe(
-    p_b: str | None = None, formkey: str | None = None, proxy: str | None = None
+    p_b: str | None = None,
+    p_lat: str | None = None,
+    formkey: str | None = None,
+    proxy: str | None = None,
 ) -> JSONResponse | Response:
-    if not (p_b and formkey and proxy):
+    if not (p_b and p_lat and formkey and proxy):
         (
             p_b,
+            p_lat,
             formkey,
             proxy,
             _,
@@ -51,7 +55,7 @@ async def login_poe(
     else:
         proxy = None
     try:
-        poe.client = await Poe_Client(p_b, formkey, proxy).login()
+        poe.client = await Poe_Client(p_b, p_lat, formkey, proxy).login()
         return Response(status_code=204)
     except Exception as e:
         msg = "执行登陆流程出错，" + repr(e)
