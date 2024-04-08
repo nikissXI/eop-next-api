@@ -1,6 +1,6 @@
-接口文档运行后访问路径/docs或/redoc  
-
 # 本仓库为纯后端，前端需自行另外实现
+
+接口文档运行后访问路径/docs或/redoc  
 
 require Python environment >= 3.10
 
