@@ -37,6 +37,10 @@ poe登录凭证需要3个值，获取方法如下
 <img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/1.jpg"/>  
 
 # 更新日志
+## 2024/4/8
+- 需要一个新的登陆凭证字段p-lat
+- 优化了ws重连机制
+
 ## 2023/10/6
 - /bot/talk 接口改动，还有挺多东西改动（反正没啥人用，随便啦~
 
