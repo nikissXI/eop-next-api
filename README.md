@@ -32,7 +32,7 @@ require Python environment >= 3.10
 
 # 登陆凭证获取
 poe登录凭证需要3个值，获取方法如下  
-浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），再F11（刷新），找到网络监听模块，搜索链接https://poe.com/api/gql_POST，然后在请求头中找到图中的三个值  
+浏览器登陆[poe官网](https://poe.com/)，打开开发者工具（一般是按F12），再F11（刷新），找到网络监听模块，搜索链接 https://poe.com/api/gql_POST ，然后在请求头中找到图中的三个值  
 分别为p-b，p-lat，Poe-Formkey  
 <img width="100%" src="https://raw.githubusercontent.com/nikissXI/eop-next-api/main/readme_img/1.jpg"/>  
 
