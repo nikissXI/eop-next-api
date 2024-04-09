@@ -118,7 +118,7 @@ class Poe_Client:
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
-        create_task(self.refresh_channel())
+        await self.refresh_channel()
 
         return self
 
@@ -474,49 +474,47 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，更新ws地址，对话用的
         """
-        try:
-            resp = await self.httpx_client.get(SETTING_URL, timeout=5)
-            json_data = loads(resp.text)
-            tchannel_data = json_data["tchannelData"]
-            self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
-            ws_domain = f"tch{randint(1, int(1e6))}"[:8]
-            self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
-            self.last_min_seq = int(tchannel_data["minSeq"])
-        except Exception as e:
-            err_msg = f"更新ws失败，错误信息：{repr(e)}"
-            logger.error(err_msg)
-            raise Exception(err_msg)
+        resp = await self.httpx_client.get(SETTING_URL, timeout=5)
+        json_data = loads(resp.text)
+        tchannel_data = json_data["tchannelData"]
+        self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
+        ws_domain = f"tch{randint(1, int(1e6))}"[:8]
+        self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
+        self.last_min_seq = int(tchannel_data["minSeq"])
 
-        try:
-            await self.send_query("subscriptionsMutation", self.sub_hash)
-        except Exception as e:
-            raise Exception(f"subscribe执行失败，错误信息：{repr(e)}")
+        await self.send_query("subscriptionsMutation", self.sub_hash)
 
     async def refresh_channel(self, get_new_channel: bool = True):
         """
         刷新ws地址
         """
-        self.refresh_channel_lock = True
+        # 如果已经锁了就返回
+        if self.refresh_channel_lock is True:
+            return
 
-        if get_new_channel:
-            self.channel_url = ""
-            while not self.channel_url:
-                await self.get_new_channel()
-            logger.info("更新ws地址成功")
-        else:
-            self.channel_url = sub(
-                r"(min_seq=)\d+",
-                r"\g<1>" + str(self.last_min_seq),
-                self.channel_url,
-            )
+        self.refresh_channel_lock = True
+        while self.refresh_channel_lock:
+            try:
+                if get_new_channel:
+                    self.channel_url = ""
+                    await self.get_new_channel()
+                    logger.info("更新ws地址成功")
+                else:
+                    self.channel_url = sub(
+                        r"(min_seq=)\d+",
+                        r"\g<1>" + str(self.last_min_seq),
+                        self.channel_url,
+                    )
+                # 解除锁定
+                self.refresh_channel_lock = False
+            except Exception as e:
+                logger.error(f"刷新ws地址失败，将重试，错误信息：{repr(e)}")
 
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
         # 创建新的ws连接任务
         self.ws_client_task = create_task(self.connect_to_channel())
-        # 解除锁定
-        self.refresh_channel_lock = False
 
     async def handle_ws_data(self, ws_data: dict):
         """
@@ -528,7 +526,7 @@ class Poe_Client:
             self.last_min_seq: int = min_seq
 
         if "error" in ws_data.keys() and ws_data["error"] == "missed_messages":
-            create_task(self.refresh_channel())
+            await self.refresh_channel()
             return
 
         data_list: list[dict] = [
@@ -537,7 +535,7 @@ class Poe_Client:
         for data in data_list:
             message_type = data.get("message_type")
             if message_type == "refetchChannel":
-                create_task(self.refresh_channel())
+                await self.refresh_channel()
                 return
 
             payload = data.get("payload", {})
@@ -591,7 +589,7 @@ class Poe_Client:
                     await self.handle_ws_data(loads(data))
 
                 except TimeoutError:
-                    create_task(self.refresh_channel(get_new_channel=False))
+                    await self.refresh_channel(get_new_channel=False)
                     break
 
                 except Exception as e:
@@ -599,7 +597,7 @@ class Poe_Client:
                     logger.error(f"ws channel连接出错：{repr(e)}")
                     # with open("error.json", "a") as a:
                     #     a.write(str(data) + "\n")  # type: ignore
-                    create_task(self.refresh_channel())
+                    await self.refresh_channel()
                     break
 
     async def talk_to_bot(

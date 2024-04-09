@@ -398,8 +398,8 @@ async def _(
                     f"用户:{uid}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
                 )
                 # 切换ws channel地址
-                create_task(poe.client.refresh_channel())
                 yield _yield_data({"type": "error", "data": data.content})
+                await poe.client.refresh_channel()
 
     return StreamingResponse(
         ai_reply(), media_type="text/event-stream", status_code=200
