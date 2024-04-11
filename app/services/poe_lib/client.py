@@ -177,7 +177,7 @@ class Poe_Client:
                 data["messagePointInfo"]["messagePointResetTime"] / 1000
             )
             for _ in data["subscriptionBots"]:
-                self.limited_displayName_list.add(_["displayName"])
+                self.limited_displayName_list.add(_["handle"])
 
         except Exception as e:
             raise e
@@ -309,59 +309,6 @@ class Poe_Client:
             return bot_info
         except Exception as e:
             raise e
-
-    # async def get_limited_bots_info(self) -> dict:
-    #     """
-    #     获取有次数限制bot的使用情况
-    #     """
-    #     try:
-    #         result = await self.send_query("settingsPageQuery", {})
-    #         data = result["data"]["viewer"]["messageLimitsConnection"]["edges"]
-    #         output = {
-    #             "models": [],
-    #         }
-    #         for _ in data:
-    #             m = _["node"]
-    #             output["daily_refresh_time"] = m["freeLimitResetTime"] / 1000
-    #             if m["bot"]:
-    #                 tmp_data = {
-    #                     "model": m["bot"]["displayName"],
-    #                     "limit_type": m["bot"]["limitedAccessType"],
-    #                     "daily_available_times": m["freeLimitBalance"],
-    #                     "daily_total_times": m["freeLimit"],
-    #                 }
-    #                 self.limited_displayName_list.add(m["bot"]["displayName"])
-    #             else:
-    #                 tmp_data = {
-    #                     "model": "All other messages",
-    #                     "limit_type": "hard_limit",
-    #                     "daily_available_times": m["freeLimitBalance"],
-    #                     "daily_total_times": m["freeLimit"],
-    #                 }
-    #             if self.user_info.subscription_activated:
-    #                 output["monthly_refresh_time"] = m["paidLimitResetTime"] / 1000
-
-    #                 tmp_data.update(
-    #                     {
-    #                         "monthly_available_times": m["paidLimitBalance"],
-    #                         "monthly_total_times": m["paidLimit"],
-    #                     }
-    #                 )
-    #             tmp_data["available"] = False
-    #             if (
-    #                 m["paidLimitBalance"]
-    #                 or m["freeLimitBalance"]
-    #                 or (
-    #                     self.user_info.subscription_activated
-    #                     and tmp_data["limit_type"] == "soft_limit"
-    #                 )
-    #             ):
-    #                 tmp_data["available"] = True
-    #             output["models"].append(tmp_data)
-
-    #         return output
-    #     except Exception as e:
-    #         raise e
 
     async def send_query(
         self, query_name: str, variables: dict, forbidden_times: int = 0
@@ -652,14 +599,14 @@ class Poe_Client:
         question_create_time = 0
 
         yield_msg_info = False
-        retry = 10
+        retry = 6
         while retry >= 0:
             if not chat_id:
                 await sleep(1)
                 if self.get_chat_code[question_md5]:
                     chat_id = self.get_chat_code[question_md5]
                     self.get_chat_code.pop(question_md5)
-                    retry = 10
+                    retry = 6
 
                     yield NewChat(chat_id=chat_id)
                 else:
@@ -713,7 +660,7 @@ class Poe_Client:
 
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
-                retry = 10
+                retry = 6
                 yield Text(content=plain_text)
                 self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
@@ -744,7 +691,7 @@ class Poe_Client:
             yield TalkError(content=err_msg)
             return
 
-        err_msg = "获取回答超时"
+        err_msg = "获取回答超时，刷新再试试？"
         logger.error(err_msg)
         yield TalkError(content=err_msg)
         return

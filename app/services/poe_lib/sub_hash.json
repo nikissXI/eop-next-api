@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "b87a45ec1318038c8d862424530a095d11702c451453ff3cafa65006e511a554"
+            "queryHash": "e06bf62c6b82050d221c29f4ee52243c6a966b51731a5f732163ae3826ec1f78"
         },
         {
             "subscriptionName": "messageCancelled",
@@ -18,12 +18,12 @@
         {
             "subscriptionName": "messageCreated",
             "query": null,
-            "queryHash": "aff4de60c10e6a4bbb701c929d5e78d6a262feed2a3643aedffe679e9d1e9f01"
+            "queryHash": "107e3c56b016f5eb73dc730f6cec72b8c015b74e1156b977015570b8735ebdac"
         },
         {
             "subscriptionName": "viewerStateUpdated",
             "query": null,
-            "queryHash": "66f62a9d4a105f64fd170a03f6ddcbd18527180089580eda039b145563891974"
+            "queryHash": "8d111922fa54a57ca8cfb3aea16f5a422e71930ffeda8348e22fb2d7577c9c64"
         },
         {
             "subscriptionName": "messageLimitUpdated",
@@ -48,7 +48,7 @@
         {
             "subscriptionName": "chatMemberAdded",
             "query": null,
-            "queryHash": "08b46c791cbb98b7e729c435d6b736ec60871dff58ec3a377ce818e30b50c1c8"
+            "queryHash": "720df537426fe678273b135aeaf83e2072829cf43ef710251758999eceeca2e9"
         }
     ]
 }
