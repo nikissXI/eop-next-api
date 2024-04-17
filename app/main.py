@@ -33,6 +33,7 @@ from utils.env_util import (
     SSL_CERTFILE_PATH,
     SSL_KEYFILE_PATH,
 )
+from utils.tool_util import fastapi_logger_config
 from uvicorn import run
 
 try:
@@ -196,69 +197,6 @@ app.include_router(bot_router, prefix=f"{API_PATH}/bot", tags=["会话模块"])
 app.include_router(admin_router, prefix=f"{API_PATH}/admin", tags=["管理员模块"])
 
 ################
-### 日志配置
-################
-custom_logging_config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "default": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-        },
-        "access": {
-            "()": "uvicorn.logging.AccessFormatter",
-            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-        },
-        "file_default": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-            "use_colors": False,
-        },
-        "file_access": {
-            "()": "uvicorn.logging.AccessFormatter",
-            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-            "datefmt": "%Y-%m-%d %H:%M:%S",
-            "use_colors": False,
-        },
-    },
-    "handlers": {
-        "default": {
-            "formatter": "default",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-        },
-        "access": {
-            "formatter": "access",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-        },
-        "file_default": {
-            "formatter": "file_default",
-            "class": "logging.FileHandler",
-            "filename": "./server.log",
-        },
-        "file_access": {
-            "formatter": "file_access",
-            "class": "logging.FileHandler",
-            "filename": "./server.log",
-        },
-    },
-    "loggers": {
-        "uvicorn": {"handlers": ["default", "file_default"], "level": "INFO"},
-        "uvicorn.error": {"level": "INFO"},
-        "uvicorn.access": {
-            "handlers": ["access", "file_access"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
-}
-
-################
 ### 启动进程
 ################
 if __name__ == "__main__":
@@ -268,6 +206,6 @@ if __name__ == "__main__":
         port=PORT,
         ssl_keyfile=SSL_KEYFILE_PATH,
         ssl_certfile=SSL_CERTFILE_PATH,
-        log_config=custom_logging_config,
+        log_config=fastapi_logger_config,
         headers=[("server", "huaQ")],  # 修改响应头里的默认server字段
     )

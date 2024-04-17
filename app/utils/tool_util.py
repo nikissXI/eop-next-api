@@ -5,7 +5,70 @@ from string import ascii_letters, digits
 
 from database.user_db import User
 
+################
+### 日志配置
+################
+fastapi_logger_config = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "file_default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "use_colors": False,
+        },
+        "file_access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "use_colors": False,
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+        "file_default": {
+            "formatter": "file_default",
+            "class": "logging.FileHandler",
+            "filename": "./server.log",
+        },
+        "file_access": {
+            "formatter": "file_access",
+            "class": "logging.FileHandler",
+            "filename": "./server.log",
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default", "file_default"], "level": "INFO"},
+        "uvicorn.error": {"level": "INFO"},
+        "uvicorn.access": {
+            "handlers": ["access", "file_access"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 logger = getLogger("uvicorn.error")
+
 
 user_logger = getLogger("user_action")
 file_handler = FileHandler("user_action.log")
