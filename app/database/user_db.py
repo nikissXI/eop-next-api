@@ -58,7 +58,7 @@ class User(Model):
 
     # 认证用户
     @classmethod
-    async def check_user(cls, user: str , passwd: str) -> bool:
+    async def check_user(cls, user: str, passwd: str) -> bool:
         return await cls.filter(user=user, passwd=passwd).exists()
 
     # 列出所有用户名
@@ -69,10 +69,14 @@ class User(Model):
                 "user", "uid", "level", "expire_date"
             )
         else:
-            rows = await cls.filter().values_list(
-                "user", "uid", "level", "expire_date"
-            )
+            rows = await cls.filter().values_list("user", "uid", "level", "expire_date")
         return rows  # type: ignore
+
+    # 列出所有用户名
+    @classmethod
+    async def get_username(cls, uid: int) -> str:
+        rows = await cls.filter(uid=uid).values_list("user")
+        return rows[0][0]
 
     # 判断是否为管理员
     @classmethod

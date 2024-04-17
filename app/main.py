@@ -206,12 +206,23 @@ custom_logging_config = {
             "()": "uvicorn.logging.DefaultFormatter",
             "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
-            "use_colors": None,
         },
         "access": {
             "()": "uvicorn.logging.AccessFormatter",
             "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
             "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "file_default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(asctime)s - %(levelprefix)s %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "use_colors": False,
+        },
+        "file_access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "use_colors": False,
         },
     },
     "handlers": {
@@ -226,12 +237,12 @@ custom_logging_config = {
             "stream": "ext://sys.stdout",
         },
         "file_default": {
-            "formatter": "default",
+            "formatter": "file_default",
             "class": "logging.FileHandler",
             "filename": "./server.log",
         },
         "file_access": {
-            "formatter": "access",
+            "formatter": "file_access",
             "class": "logging.FileHandler",
             "filename": "./server.log",
         },

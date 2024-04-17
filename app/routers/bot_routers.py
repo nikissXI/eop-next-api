@@ -26,7 +26,7 @@ from services.poe_lib.type import (
     TalkError,
     Text,
 )
-from utils.tool_util import logger, user_logger
+from utils.tool_util import log_user_action, logger
 
 try:
     from ujson import dumps
@@ -273,8 +273,8 @@ async def _(
             body.prompt,
             image_link,
         )
-        user_logger.info(
-            f"用户:{uid}  动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
+        await log_user_action(
+            uid, f"动作:创建会话  eop_id:{eop_id}  handle:{handle}（{body.model}）"
         )
         bot_info = await Chat.get_user_bot(uid, eop_id)
         return JSONResponse({"bot_info": bot_info[0]}, 200)
@@ -360,8 +360,9 @@ async def _(
             # 新的会话，需要保存chat code和chat id
             if isinstance(data, NewChat):
                 chat_id = data.chat_id
-                user_logger.info(
-                    f"用户:{uid}  动作:新会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+                await log_user_action(
+                    uid,
+                    f"动作:新会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
                 )
                 await Chat.update_bot_chat_id(eop_id, chat_id)
 
@@ -387,15 +388,18 @@ async def _(
 
             # 取消回答或回答结束
             if isinstance(data, End):
-                user_logger.info(
-                    f"用户:{uid}  动作:回答{data.reason}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+                await log_user_action(
+                    uid,
+                    f"动作:回答{data.reason}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
                 )
                 yield _yield_data({"type": "end", "data": data.reason})
 
             # 出错
             if isinstance(data, TalkError):
-                user_logger.error(
-                    f"用户:{uid}  动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+                await log_user_action(
+                    uid,
+                    f"动作:{data.content}  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
+                    "error",
                 )
                 # 切换ws channel地址
                 yield _yield_data({"type": "error", "data": data.content})
@@ -438,8 +442,9 @@ async def _(
 
     try:
         await poe.client.talk_stop(handle, chat_id)
-        user_logger.info(
-            f"用户:{uid}  动作:停止回答  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+        await log_user_action(
+            uid,
+            f"动作:停止回答  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
         )
         return Response(status_code=204)
 
@@ -487,8 +492,9 @@ async def _(
         return handle_exception(repr(e))
 
     await Chat.delete_bot(eop_id)
-    user_logger.info(
-        f"用户:{uid}  动作:删除会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+    await log_user_action(
+        uid,
+        f"动作:删除会话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
     )
     return Response(status_code=204)
 
@@ -525,8 +531,9 @@ async def _(
 
     try:
         await poe.client.send_chat_break(handle, chat_id)
-        user_logger.info(
-            f"用户:{uid}  动作:重置对话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+        await log_user_action(
+            uid,
+            f"动作:重置对话  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
         )
         return Response(status_code=204)
 
@@ -567,8 +574,9 @@ async def _(
     try:
         await poe.client.delete_chat_by_chat_id(handle, chat_id)
         await Chat.update_bot_chat_id(eop_id)
-        user_logger.info(
-            f"用户:{uid}  动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}"
+        await log_user_action(
+            uid,
+            f"动作:重置对话并删除聊天记录  eop_id:{eop_id}  handle:{handle}（{display_name}）  chat_id:{chat_id}",
         )
         return Response(status_code=204)
 
