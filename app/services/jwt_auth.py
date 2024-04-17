@@ -27,7 +27,9 @@ async def verify_token(
     token = credentials.credentials
     try:
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        jwt_data["uid"]
+        if not await User.user_exist(jwt_data["uid"]):
+            raise AuthFailed("无效用户")
+
         return jwt_data
 
     except (PyJWTError, KeyError):
@@ -40,6 +42,9 @@ async def verify_admin(
     token = credentials.credentials
     try:
         jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if not await User.user_exist(jwt_data["uid"]):
+            raise AuthFailed("无效用户")
+
         level = await User.get_level(jwt_data["uid"])
         if level != 0:
             raise AuthFailed("权限不足")

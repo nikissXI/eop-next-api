@@ -99,8 +99,8 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     uid = user_data["uid"]
-
     user, uid, level, expire_date = (await User.list_user(uid))[0]
+
     # test不能让用户自己改密码
     if user == "test":
         return Response(status_code=204)

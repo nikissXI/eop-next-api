@@ -8,7 +8,7 @@ from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
-from httpx import AsyncClient, ReadTimeout
+from httpx import AsyncClient, PoolTimeout, ReadTimeout
 
 # from websockets.client import connect as ws_connect
 from websockets_proxy import Proxy
@@ -62,7 +62,7 @@ class Poe_Client:
         self.limited_displayName_list: set[str] = set()
         # bot分类，暂时用不上
         self.category_list: list[str] = []
-        headers = {
+        self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
@@ -76,7 +76,9 @@ class Poe_Client:
             "Origin": "https://poe.com",
             "Referer": "https://poe.com/",
         }
-        self.httpx_client = AsyncClient(headers=headers, proxies=proxy)
+        self.httpx_client = AsyncClient(
+            headers=self.headers, proxies=self.proxy, timeout=10
+        )
         self.channel_url = ""
         self.hash_file_watch_task = None
         self.ws_client_task = None
@@ -320,42 +322,56 @@ class Poe_Client:
             logger.warning(f"forbidden_times:{forbidden_times}")
             await sleep(randint(2, 3))
 
-        data = generate_data(query_name, variables, self.query_hash[query_name])
-        base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
         status_code = 0
         try:
-            resp = await self.httpx_client.post(
-                GQL_URL,
-                content=data,
-                headers={
-                    "content-type": "application/json",
-                    "poe-tag-id": md5(base_string.encode()).hexdigest(),
-                },
-                timeout=15
-                if query_name == "CreateBotMain_poeBotCreate_Mutation"
-                else 5,
-            )
-            # with open("a.html", "wb") as w:
-            #     w.write(resp.content)  # type: ignore
-            status_code = resp.status_code
-            json_data = loads(resp.text)
+            if query_name == "setting":
+                resp = await self.httpx_client.get(SETTING_URL)
+                status_code = resp.status_code
+                json_data = loads(resp.text)
 
-            if (
-                "success" in json_data.keys()
-                and not json_data["success"]
-                or json_data["data"] is None
-            ):
-                err_msg: str = json_data["errors"][0]["message"]
-                if err_msg == "Server Error":
-                    raise ServerError()
-                else:
-                    logger.error(resp.status_code)
-                    logger.error(resp.text)
-                    raise Exception(resp.text)
+            else:
+                data = generate_data(query_name, variables, self.query_hash[query_name])
+                base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
+                resp = await self.httpx_client.post(
+                    GQL_URL,
+                    content=data,
+                    headers={
+                        "content-type": "application/json",
+                        "poe-tag-id": md5(base_string.encode()).hexdigest(),
+                    },
+                )
+                # with open("a.html", "wb") as w:
+                #     w.write(resp.content)  # type: ignore
+                status_code = resp.status_code
+                json_data = loads(resp.text)
+
+                if (
+                    "success" in json_data.keys()
+                    and not json_data["success"]
+                    or json_data["data"] is None
+                ):
+                    err_msg: str = json_data["errors"][0]["message"]
+                    if err_msg == "Server Error":
+                        raise ServerError()
+                    else:
+                        logger.error(resp.status_code)
+                        logger.error(resp.text)
+                        raise Exception(resp.text)
 
             return json_data
+
+        except PoolTimeout:
+            logger.warning("PoolTimeout，刷新httpx对象")
+            await self.httpx_client.aclose()
+            self.httpx_client = AsyncClient(
+                headers=self.headers, proxies=self.proxy, timeout=10
+            )
+            await self.refresh_channel()
+            return await self.send_query(query_name, variables, 0)
+
         except ServerError:
             raise ServerError("server error")
+
         except Exception as e:
             if isinstance(e, ReadTimeout):
                 if query_name == "sendMessageMutation":
@@ -421,9 +437,8 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，更新ws地址，对话用的
         """
-        resp = await self.httpx_client.get(SETTING_URL, timeout=5)
-        json_data = loads(resp.text)
-        tchannel_data = json_data["tchannelData"]
+        result = await self.send_query("setting", {})
+        tchannel_data = result["tchannelData"]
         self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
         ws_domain = f"tch{randint(1, int(1e6))}"[:8]
         self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
@@ -674,8 +689,8 @@ class Poe_Client:
                 yield End(reason="complete")
                 return
 
+        # 判断会话是否被删了
         try:
-            # 判断会话是否被删了
             result = await self.send_query(
                 "HandleBotLandingPageQuery",
                 {"botHandle": handle},
@@ -691,7 +706,19 @@ class Poe_Client:
             yield TalkError(content=err_msg)
             return
 
-        err_msg = "获取回答超时，刷新再试试？"
+        # # 尝试拉取最新的聊天记录
+        # try:
+        #     result_list, next_cursor = await self.get_chat_history(handle, chat_id, "0")
+
+        # except Exception as e:
+        #     err_msg = (
+        #         f"拉取bot【{handle}】chat【{chat_id}】历史记录失败，错误信息：{repr(e)}"
+        #     )
+        #     logger.error(err_msg)
+        #     yield TalkError(content=err_msg)
+        #     return
+
+        err_msg = "获取回答超时，刷新页面试试"
         logger.error(err_msg)
         yield TalkError(content=err_msg)
         return
