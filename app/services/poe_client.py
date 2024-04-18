@@ -26,11 +26,20 @@ scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 @scheduler.scheduled_job("cron", minute=1)
 async def _():
-    await poe.client.get_account_info()
-    await sleep(0.3)
-    await poe.client.cache_diy_model_list()
-    await sleep(0.3)
-    await poe.client.cache_offical_models()
+    while True:
+        try:
+            await poe.client.get_account_info()
+            await sleep(0.3)
+            await poe.client.cache_diy_model_list()
+            await sleep(0.3)
+            await poe.client.cache_offical_models()
+
+        except Exception as e:
+            logger.error(f"执行定时更新任务出错，10秒后重试，错误信息：{repr(e)}")
+            await sleep(10)
+
+        else:
+            break
 
 
 async def login_poe(
