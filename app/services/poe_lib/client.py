@@ -1,4 +1,4 @@
-from asyncio import Queue, TimeoutError, create_task, sleep, wait_for
+from asyncio import Event, Queue, TimeoutError, create_task, sleep, wait_for
 from hashlib import md5
 from os import stat, stat_result
 from random import randint
@@ -82,7 +82,7 @@ class Poe_Client:
         self.channel_url = ""
         self.hash_file_watch_task = None
         self.ws_client_task = None
-        self.refresh_channel_lock = False
+        self.refresh_ws_event = Event()
         self.last_min_seq = 0
         self.ws_data_queue: dict[int, Queue] = {}
         self.get_chat_code: dict[str, int] = {}
@@ -92,6 +92,15 @@ class Poe_Client:
         self.sub_hash_file_stat: stat_result
         self.query_hash: dict[str, str] = {}
         self.query_hash_file_stat: stat_result
+
+    def refresh_ws_lock(self):
+        self.refresh_ws_event.clear()
+
+    def refresh_ws_unlock(self):
+        self.refresh_ws_event.set()
+
+    def refresh_ws_is_lock(self) -> bool:
+        return not self.refresh_ws_event.is_set()
 
     async def login(self):
         """
@@ -120,6 +129,7 @@ class Poe_Client:
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
+        self.refresh_ws_unlock()
         await self.refresh_channel()
 
         return self
@@ -451,11 +461,12 @@ class Poe_Client:
         刷新ws地址
         """
         # 如果已经锁了就返回
-        if self.refresh_channel_lock is True:
+        if self.refresh_ws_is_lock():
             return
 
-        self.refresh_channel_lock = True
-        while self.refresh_channel_lock:
+        # 锁定
+        self.refresh_ws_lock()
+        while self.refresh_ws_is_lock():
             try:
                 if get_new_channel:
                     self.channel_url = ""
@@ -468,7 +479,8 @@ class Poe_Client:
                         self.channel_url,
                     )
                 # 解除锁定
-                self.refresh_channel_lock = False
+                self.refresh_ws_unlock()
+
             except Exception as e:
                 logger.error(f"刷新ws地址失败，将重试，错误信息：{repr(e)}")
 
@@ -569,10 +581,9 @@ class Poe_Client:
         向指定的机器人发送问题
         """
         # channel地址刷新中
-        logger.warning("测试4")
-        while self.refresh_channel_lock:
-            await sleep(1)
-        logger.warning("测试5")
+        logger.warning("测试0")
+        await self.refresh_ws_event.wait()
+        logger.warning("测试1")
 
         question_md5 = ""
         if chat_id == 0:
@@ -611,7 +622,6 @@ class Poe_Client:
             # print(format_exc())
             logger.error(err_msg)
             yield TalkError(content=err_msg)
-        logger.warning("测试6")
 
         question_msg_id = 0
         question_create_time = 0

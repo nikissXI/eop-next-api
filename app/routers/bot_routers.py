@@ -308,11 +308,7 @@ async def _(
     def _yield_data(json_data: dict) -> bytes:
         return BytesIO((dumps(json_data) + "\n").encode("utf-8")).read()
 
-    logger.warning("测试0")
-
     async def ai_reply():
-        logger.warning("测试2")
-
         uid = user_data["uid"]
         # 判断会话是否存在
         if not await Chat.check_bot_user(eop_id, uid):
@@ -350,8 +346,6 @@ async def _(
                 {"type": "denied", "data": "你的账号等级不足，无法使用该模型对话"}
             )
             return
-
-        logger.warning("测试3")
 
         async for data in poe.client.talk_to_bot(handle, chat_id, body.q, price):
             # 会话失效
