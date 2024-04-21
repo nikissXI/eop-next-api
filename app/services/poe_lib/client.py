@@ -569,8 +569,10 @@ class Poe_Client:
         向指定的机器人发送问题
         """
         # channel地址刷新中
+        logger.warning("测试4")
         while self.refresh_channel_lock:
             await sleep(1)
+        logger.warning("测试5")
 
         question_md5 = ""
         if chat_id == 0:
@@ -609,6 +611,7 @@ class Poe_Client:
             # print(format_exc())
             logger.error(err_msg)
             yield TalkError(content=err_msg)
+        logger.warning("测试6")
 
         question_msg_id = 0
         question_create_time = 0
