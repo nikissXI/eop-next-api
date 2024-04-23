@@ -8,7 +8,8 @@ from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
-from httpx import AsyncClient, PoolTimeout, ReadTimeout
+from httpx import AsyncClient, PoolTimeout, ReadTimeout, Timeout
+from websockets.exceptions import ConnectionClosedError
 
 # from websockets.client import connect as ws_connect
 from websockets_proxy import Proxy
@@ -76,9 +77,9 @@ class Poe_Client:
             "Origin": "https://poe.com",
             "Referer": "https://poe.com/",
         }
-        self.httpx_client = AsyncClient(
-            headers=self.headers, proxies=self.proxy, timeout=10
-        )
+        # self.httpx_client = AsyncClient(
+        #     headers=self.headers, proxies=self.proxy, timeout=6
+        # )
         self.channel_url = ""
         self.hash_file_watch_task = None
         self.ws_client_task = None
@@ -115,11 +116,11 @@ class Poe_Client:
         self.hash_file_watch_task = create_task(self.watch_hash_file())
 
         await self.get_account_info()
-        await sleep(0.3)
+        await sleep(0.5)
         await self.cache_diy_model_list()
-        await sleep(0.3)
+        await sleep(0.5)
         await self.cache_offical_models()
-        await sleep(0.3)
+        await sleep(0.5)
 
         text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
         if self.user_info.subscription_activated:
@@ -334,50 +335,47 @@ class Poe_Client:
 
         status_code = 0
         try:
-            if query_name == "setting":
-                resp = await self.httpx_client.get(SETTING_URL)
-                status_code = resp.status_code
-                json_data = loads(resp.text)
+            async with AsyncClient(
+                headers=self.headers, proxies=self.proxy, timeout=6
+            ) as c:
+                if query_name == "setting":
+                    resp = await c.get(SETTING_URL)
+                    status_code = resp.status_code
+                    json_data = loads(resp.text)
 
-            else:
-                data = generate_data(query_name, variables, self.query_hash[query_name])
-                base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
-                resp = await self.httpx_client.post(
-                    GQL_URL,
-                    content=data,
-                    headers={
-                        "content-type": "application/json",
-                        "poe-tag-id": md5(base_string.encode()).hexdigest(),
-                    },
-                )
-                # with open("a.html", "wb") as w:
-                #     w.write(resp.content)  # type: ignore
-                status_code = resp.status_code
-                json_data = loads(resp.text)
+                else:
+                    data = generate_data(
+                        query_name, variables, self.query_hash[query_name]
+                    )
+                    base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
+                    resp = await c.post(
+                        GQL_URL,
+                        content=data,
+                        headers={
+                            "content-type": "application/json",
+                            "poe-tag-id": md5(base_string.encode()).hexdigest(),
+                        },
+                    )
 
-                if (
-                    "success" in json_data.keys()
-                    and not json_data["success"]
-                    or json_data["data"] is None
-                ):
-                    err_msg: str = json_data["errors"][0]["message"]
-                    if err_msg == "Server Error":
-                        raise ServerError()
-                    else:
-                        logger.error(resp.status_code)
-                        logger.error(resp.text)
-                        raise Exception(resp.text)
+                    # with open("a.html", "wb") as w:
+                    #     w.write(resp.content)  # type: ignore
+                    status_code = resp.status_code
+                    json_data = loads(resp.text)
+
+                    if (
+                        "success" in json_data.keys()
+                        and not json_data["success"]
+                        or json_data["data"] is None
+                    ):
+                        err_msg: str = json_data["errors"][0]["message"]
+                        if err_msg == "Server Error":
+                            raise ServerError()
+                        else:
+                            logger.error(resp.status_code)
+                            logger.error(resp.text)
+                            raise Exception(resp.text)
 
             return json_data
-
-        except PoolTimeout:
-            logger.warning("PoolTimeout，刷新httpx对象")
-            await self.httpx_client.aclose()
-            self.httpx_client = AsyncClient(
-                headers=self.headers, proxies=self.proxy, timeout=10
-            )
-            await self.refresh_channel()
-            return await self.send_query(query_name, variables, 0)
 
         except ServerError:
             raise ServerError("server error")
@@ -392,8 +390,14 @@ class Poe_Client:
 
             # with open("error.json", "a") as a:
             #     a.write(resp.text + "\n")  # type: ignore
-            if status_code == 503 and forbidden_times < 3:
-                return await self.send_query(query_name, variables, forbidden_times + 1)
+            if status_code == 503 and forbidden_times < 2:
+                return await self.send_query(query_name, variables, forbidden_times + 2)
+
+            await self.refresh_channel()
+            if isinstance(e, PoolTimeout):
+                logger.warning("PoolTimeout，刷新httpx对象重新请求")
+                return await self.send_query(query_name, variables, 0)
+
             err_code = f"status_code:{status_code}，" if status_code else ""
             raise Exception(
                 f"执行请求【{query_name}】失败，{err_code}错误信息：{repr(e)}"
@@ -449,7 +453,7 @@ class Poe_Client:
         """
         result = await self.send_query("setting", {})
         tchannel_data = result["tchannelData"]
-        self.httpx_client.headers["Poe-Tchannel"] = tchannel_data["channel"]
+        self.headers["Poe-Tchannel"] = tchannel_data["channel"]
         ws_domain = f"tch{randint(1, int(1e6))}"[:8]
         self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
         self.last_min_seq = int(tchannel_data["minSeq"])
@@ -558,24 +562,20 @@ class Poe_Client:
             while True:
                 try:
                     data = await wait_for(ws.recv(), 120)
-                    # with open("wss.json", "a") as a:
-                    #     a.write(str(data) + "\n\n")  # type: ignore
                     await self.handle_ws_data(loads(data))
 
-                except TimeoutError:
+                except (TimeoutError, ConnectionClosedError):
                     await self.refresh_channel(get_new_channel=False)
                     break
 
                 except Exception as e:
                     # print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
-                    # with open("error.json", "a") as a:
-                    #     a.write(str(data) + "\n")  # type: ignore
                     await self.refresh_channel()
                     break
 
     async def talk_to_bot(
-        self, handle: str, chat_id: int, question: str, price: int
+        self, handle: str, display_name: str, chat_id: int, question: str, price: int
     ) -> AsyncGenerator:
         """
         向指定的机器人发送问题
@@ -627,14 +627,14 @@ class Poe_Client:
         question_create_time = 0
 
         yield_msg_info = False
-        retry = 6
+        retry = 8
         while retry >= 0:
             if not chat_id:
                 await sleep(1)
                 if self.get_chat_code[question_md5]:
                     chat_id = self.get_chat_code[question_md5]
                     self.get_chat_code.pop(question_md5)
-                    retry = 6
+                    retry = 8
 
                     yield NewChat(chat_id=chat_id)
                 else:
@@ -688,7 +688,7 @@ class Poe_Client:
 
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
-                retry = 6
+                retry = 8
                 yield Text(content=plain_text)
                 self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
@@ -706,7 +706,7 @@ class Poe_Client:
         try:
             result = await self.send_query(
                 "HandleBotLandingPageQuery",
-                {"botHandle": handle},
+                {"botHandle": display_name},
             )
             deletionState = result["data"]["bot"]["deletionState"]
             if deletionState != "not_deleted":

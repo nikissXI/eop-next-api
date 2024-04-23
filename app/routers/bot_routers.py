@@ -347,7 +347,9 @@ async def _(
             )
             return
 
-        async for data in poe.client.talk_to_bot(handle, chat_id, body.q, price):
+        async for data in poe.client.talk_to_bot(
+            handle, display_name, chat_id, body.q, price
+        ):
             # 会话失效
             if isinstance(data, SessionDisable):
                 await Chat.disable_bot(eop_id)

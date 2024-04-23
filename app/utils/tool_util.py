@@ -72,9 +72,7 @@ logger = getLogger("uvicorn.error")
 
 user_logger = getLogger("user_action")
 file_handler = FileHandler("user_action.log")
-formatter = Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
-)
+formatter = Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 user_logger.addHandler(file_handler)
 user_logger.setLevel(DEBUG)

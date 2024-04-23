@@ -29,9 +29,9 @@ async def _():
     while True:
         try:
             await poe.client.get_account_info()
-            await sleep(0.3)
+            await sleep(10)
             await poe.client.cache_diy_model_list()
-            await sleep(0.3)
+            await sleep(10)
             await poe.client.cache_offical_models()
 
         except Exception as e:
