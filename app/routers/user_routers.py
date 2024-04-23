@@ -1,11 +1,7 @@
 from hashlib import sha256
 
-from database.bot_db import Bot as Bot
-from database.chat_db import Chat as Chat
-from database.config_db import Config as Config
-from database.db import db_close as db_close
-from database.db import db_init as db_init
-from database.user_db import User as User
+from database.chat_db import Chat
+from database.user_db import User
 from fastapi import (
     APIRouter,
     Body,
