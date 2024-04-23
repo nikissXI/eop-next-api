@@ -116,13 +116,16 @@ class Poe_Client:
         self.hash_file_watch_task = create_task(self.watch_hash_file())
 
         await self.get_account_info()
+        logger.info("获取用户信息成功")
         await sleep(0.5)
         await self.cache_diy_model_list()
+        logger.info("缓存可自定义模型成功")
         await sleep(0.5)
         await self.cache_offical_models()
+        logger.info("缓存官方模型成功")
         await sleep(0.5)
 
-        text = f"\n账号信息\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
+        text = f"\n登陆成功！账号信息如下\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
         if self.user_info.subscription_activated:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
@@ -131,7 +134,7 @@ class Poe_Client:
         if self.ws_client_task:
             self.ws_client_task.cancel()
         self.refresh_ws_unlock()
-        await self.refresh_channel()
+        # await self.refresh_channel()
 
         return self
 
@@ -563,16 +566,19 @@ class Poe_Client:
                 try:
                     data = await wait_for(ws.recv(), 120)
                     await self.handle_ws_data(loads(data))
-
-                except (TimeoutError, ConnectionClosedError):
-                    await self.refresh_channel(get_new_channel=False)
+                # 超时，即无人使用就断开
+                except TimeoutError:
+                    # await self.refresh_channel(get_new_channel=False)
                     break
-
+                # 连接错误就重试
                 except Exception as e:
                     # print(format_exc())
                     logger.error(f"ws channel连接出错：{repr(e)}")
-                    await self.refresh_channel()
-                    break
+                    if isinstance(e, ConnectionClosedError):
+                        await self.refresh_channel(get_new_channel=False)
+                    else:
+                        await self.refresh_channel()
+            self.ws_client_task = None
 
     async def talk_to_bot(
         self, handle: str, display_name: str, chat_id: int, question: str, price: int
@@ -581,9 +587,10 @@ class Poe_Client:
         向指定的机器人发送问题
         """
         # channel地址刷新中
-        logger.warning("测试0")
         await self.refresh_ws_event.wait()
-        logger.warning("测试1")
+        # 没有ws连接就创建
+        if self.ws_client_task is None:
+            await self.refresh_channel()
 
         question_md5 = ""
         if chat_id == 0:
