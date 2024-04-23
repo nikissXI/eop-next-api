@@ -294,22 +294,22 @@ class Poe_Client:
         except Exception as e:
             raise e
 
-    async def get_bot_info(self, handle: str) -> dict:
+    async def get_bot_info(self, display_name: str) -> dict:
         """
         获取bot详细信息
         """
         try:
             result = await self.send_query(
                 "HandleBotLandingPageQuery",
-                {"botHandle": handle},
+                {"botHandle": display_name},
             )
             info: dict = result["data"]["bot"]
             if info["picture"]["__typename"] == "URLBotImage":
                 image_link = info["picture"]["url"]
-            elif handle in MODEL_IMG_URL_CACHE:
-                image_link = MODEL_IMG_URL_CACHE[handle]
+            elif display_name in MODEL_IMG_URL_CACHE:
+                image_link = MODEL_IMG_URL_CACHE[display_name]
             else:
-                logger.warning(f"{handle}找不到头像链接")
+                logger.warning(f"{display_name}找不到头像链接")
                 image_link = ""
 
             bot_info = {
