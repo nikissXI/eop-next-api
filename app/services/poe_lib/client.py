@@ -547,6 +547,7 @@ class Poe_Client:
                 "Origin": "https://poe.com",
             },
         ) as ws:
+            error_times = 0
             while True:
                 try:
                     data = await wait_for(ws.recv(), 120)
@@ -556,12 +557,13 @@ class Poe_Client:
                     break
                 # 连接错误就重试
                 except Exception as e:
-                    # print(format_exc())
+                    if error_times < 3:
+                        error_times += 1
+                        continue
+
+                    await self.refresh_channel(get_new_channel=False)
                     logger.error(f"ws channel连接出错：{repr(e)}")
-                    if isinstance(e, ConnectionClosedError):
-                        await self.refresh_channel(get_new_channel=False)
-                    else:
-                        await self.refresh_channel()
+
             self.ws_client_task = None
 
     async def talk_to_bot(
