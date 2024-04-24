@@ -116,25 +116,21 @@ class Poe_Client:
         self.hash_file_watch_task = create_task(self.watch_hash_file())
 
         await self.get_account_info()
-        logger.info("获取用户信息成功")
-        await sleep(0.5)
-        await self.cache_diy_model_list()
-        logger.info("缓存可自定义模型成功")
-        await sleep(0.5)
-        await self.cache_offical_models()
-        logger.info("缓存官方模型成功")
-        await sleep(0.5)
-
         text = f"\n登陆成功！账号信息如下\n -- 邮箱：{self.user_info.email}\n -- 购买订阅：{self.user_info.subscription_activated}"
         if self.user_info.subscription_activated:
             text += f"\n -- 订阅类型：{self.user_info.plan_type}\n -- 到期时间：{str_time(self.user_info.expire_time)}"
         logger.info(text)
 
+        await self.cache_diy_model_list()
+        logger.info("缓存可自定义模型成功")
+
+        await self.cache_offical_models()
+        logger.info("缓存官方模型成功")
+
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
         self.refresh_ws_unlock()
-        # await self.refresh_channel()
 
         return self
 
@@ -240,7 +236,7 @@ class Poe_Client:
 
                 # 如果获取官方模型信息就拉全部（因为数量有限）
                 if category == "Official" and data["pageInfo"]["hasNextPage"]:
-                    await sleep(3)
+                    await sleep(1)
                     continue
                 else:
                     break
@@ -619,14 +615,15 @@ class Poe_Client:
         question_create_time = 0
 
         yield_msg_info = False
-        retry = 8
+        retry_max = 10
+        retry = retry_max
         while retry >= 0:
             if not chat_id:
                 await sleep(1)
                 if self.get_chat_code[question_md5]:
                     chat_id = self.get_chat_code[question_md5]
                     self.get_chat_code.pop(question_md5)
-                    retry = 8
+                    retry = retry_max
 
                     yield NewChat(chat_id=chat_id)
                 else:
@@ -680,7 +677,7 @@ class Poe_Client:
 
             # 未完成的回复
             if quene_data.get("state") == "incomplete":
-                retry = 8
+                retry = retry_max
                 yield Text(content=plain_text)
                 self.last_text_len_cache[chat_id] = len(plain_text)
                 continue
@@ -711,7 +708,7 @@ class Poe_Client:
             yield TalkError(content=err_msg)
             return
 
-        err_msg = "获取回答超时，刷新页面试试"
+        err_msg = "获取回答超时"
         logger.error(err_msg)
         yield TalkError(content=err_msg)
         return
