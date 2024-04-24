@@ -349,8 +349,6 @@ class Poe_Client:
                         },
                     )
 
-                    # with open("a.html", "wb") as w:
-                    #     w.write(resp.content)  # type: ignore
                     status_code = resp.status_code
                     json_data = loads(resp.text)
 
@@ -380,8 +378,6 @@ class Poe_Client:
                     logger.error(f"执行请求【{query_name}】发送ReadTimeout，自动重试")
                     return await self.send_query(query_name, variables)
 
-            # with open("error.json", "a") as a:
-            #     a.write(resp.text + "\n")  # type: ignore
             if status_code == 503 and forbidden_times < 2:
                 return await self.send_query(query_name, variables, forbidden_times + 2)
 
@@ -557,7 +553,6 @@ class Poe_Client:
                     await self.handle_ws_data(loads(data))
                 # 超时，即无人使用就断开
                 except TimeoutError:
-                    # await self.refresh_channel(get_new_channel=False)
                     break
                 # 连接错误就重试
                 except Exception as e:
@@ -615,7 +610,6 @@ class Poe_Client:
             err_msg = (
                 f"执行bot【{handle}】chat【{chat_id}】发送问题出错，错误信息：{repr(e)}"
             )
-            # print(format_exc())
             logger.error(err_msg)
             yield TalkError(content=err_msg)
 
@@ -714,18 +708,6 @@ class Poe_Client:
             logger.error(err_msg)
             yield TalkError(content=err_msg)
             return
-
-        # # 尝试拉取最新的聊天记录
-        # try:
-        #     result_list, next_cursor = await self.get_chat_history(handle, chat_id, "0")
-
-        # except Exception as e:
-        #     err_msg = (
-        #         f"拉取bot【{handle}】chat【{chat_id}】历史记录失败，错误信息：{repr(e)}"
-        #     )
-        #     logger.error(err_msg)
-        #     yield TalkError(content=err_msg)
-        #     return
 
         err_msg = "获取回答超时，刷新页面试试"
         logger.error(err_msg)
