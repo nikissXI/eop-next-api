@@ -233,17 +233,6 @@ class Poe_Client:
 
                     result_list[model] = (description, img_url)
 
-                # for m in data["edges"]:
-                #     handle: str = m["node"]["handle"]
-                #     bot_id: int = m["node"]["botId"]
-                #     description: str = m["node"]["description"]
-                #     if m["node"]["image"]["__typename"] == "UrlBotImage":
-                #         image_link: str = m["node"]["image"]["url"]
-                #     elif handle in MODEL_IMG_URL_CACHE:
-                #         image_link = MODEL_IMG_URL_CACHE[handle]
-                #     else:
-                #         raise Exception("image_link不存在")
-
                 if data["pageInfo"]["hasNextPage"]:
                     next_cursor: str = data["pageInfo"]["endCursor"]
                 else:
@@ -478,7 +467,7 @@ class Poe_Client:
                 if get_new_channel:
                     self.channel_url = ""
                     await self.get_new_channel()
-                    logger.info("更新ws地址成功")
+                    # logger.info("更新ws地址成功")
                 else:
                     self.channel_url = sub(
                         r"(min_seq=)\d+",
