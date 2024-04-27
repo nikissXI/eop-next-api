@@ -8,7 +8,7 @@ from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
-from httpx import AsyncClient, PoolTimeout, ReadTimeout, Timeout
+from httpx import AsyncClient, ConnectError, PoolTimeout, ReadTimeout, Timeout
 from websockets.exceptions import ConnectionClosedError
 
 # from websockets.client import connect as ws_connect
@@ -374,13 +374,15 @@ class Poe_Client:
                     logger.error(f"执行请求【{query_name}】发送ReadTimeout，自动重试")
                     return await self.send_query(query_name, variables)
 
-            if status_code == 503 and forbidden_times < 2:
-                return await self.send_query(query_name, variables, forbidden_times + 2)
+            if (
+                isinstance(e, ConnectError) or 500 <= status_code < 600
+            ) and forbidden_times < 2:
+                return await self.send_query(query_name, variables, forbidden_times + 1)
 
-            await self.refresh_channel()
-            if isinstance(e, PoolTimeout):
-                logger.warning("PoolTimeout，刷新httpx对象重新请求")
-                return await self.send_query(query_name, variables, 0)
+            # await self.refresh_channel()
+            # if isinstance(e, PoolTimeout):
+            #     logger.warning("PoolTimeout，刷新httpx对象重新请求")
+            #     return await self.send_query(query_name, variables, 0)
 
             err_code = f"status_code:{status_code}，" if status_code else ""
             raise Exception(
@@ -534,33 +536,39 @@ class Poe_Client:
         """
         连接到poe的websocket，用于拉取回答
         """
-        async with ws_connect(
-            self.channel_url,
-            proxy=Proxy.from_url(self.proxy) if self.proxy else None,
-            extra_headers={
-                "Pragma": "no-cache",
-                "Cache-Control": "no-cache",
-                "Origin": "https://poe.com",
-            },
-        ) as ws:
-            error_times = 0
-            while True:
-                try:
-                    data = await wait_for(ws.recv(), 120)
-                    await self.handle_ws_data(loads(data))
-                # 超时，即无人使用就断开
-                except TimeoutError:
-                    break
+        error_times = 3
+        while True:
+            try:
+                async with ws_connect(
+                    self.channel_url,
+                    timeout=3,
+                    proxy=Proxy.from_url(self.proxy) if self.proxy else None,
+                    proxy_conn_timeout=3,
+                    extra_headers={
+                        "Pragma": "no-cache",
+                        "Cache-Control": "no-cache",
+                        "Origin": "https://poe.com",
+                    },
+                ) as ws:
+                    logger.warning("连接ws channel成功")
+                    while True:
+                        data = await wait_for(ws.recv(), 120)
+                        await self.handle_ws_data(loads(data))
+
+            # 超时，即无人使用就断开
+            except TimeoutError:
+                break
+
+            except Exception as e:
                 # 连接错误就重试
-                except Exception as e:
-                    if error_times < 3:
-                        error_times += 1
-                        continue
+                if error_times > 0:
+                    error_times -= 1
+                    continue
 
-                    await self.refresh_channel(get_new_channel=False)
-                    logger.error(f"ws channel连接出错：{repr(e)}")
+                logger.error(f"ws channel连接出错：{repr(e)}")
+                break
 
-            self.ws_client_task = None
+        self.ws_client_task = None
 
     async def talk_to_bot(
         self, handle: str, display_name: str, chat_id: int, question: str, price: int
@@ -610,6 +618,7 @@ class Poe_Client:
             )
             logger.error(err_msg)
             yield TalkError(content=err_msg)
+            return
 
         question_msg_id = 0
         question_create_time = 0
