@@ -302,14 +302,23 @@ async def _(
         _qq_url,
     ) = await Config.get_setting()
 
-    p_b = body.p_b if body.p_b else _p_b
-    p_lat = body.p_lat if body.p_lat else _p_lat
-    formkey = body.formkey if body.formkey else _formkey
-    proxy = body.proxy if body.proxy else _proxy
-    telegram_url = body.telegram_url if body.telegram_url else _telegram_url
-    discord_url = body.discord_url if body.discord_url else _discord_url
-    weixin_url = body.weixin_url if body.weixin_url else _weixin_url
-    qq_url = body.qq_url if body.qq_url else _qq_url
+    # p_b = body.p_b if body.p_b else _p_b
+    # p_lat = body.p_lat if body.p_lat else _p_lat
+    # formkey = body.formkey if body.formkey else _formkey
+    # proxy = body.proxy if body.proxy else _proxy
+    # telegram_url = body.telegram_url if body.telegram_url else _telegram_url
+    # discord_url = body.discord_url if body.discord_url else _discord_url
+    # weixin_url = body.weixin_url if body.weixin_url else _weixin_url
+    # qq_url = body.qq_url if body.qq_url else _qq_url
+
+    p_b = body.p_b if body.p_b else ""
+    p_lat = body.p_lat if body.p_lat else ""
+    formkey = body.formkey if body.formkey else ""
+    proxy = body.proxy if body.proxy else ""
+    telegram_url = body.telegram_url if body.telegram_url else ""
+    discord_url = body.discord_url if body.discord_url else ""
+    weixin_url = body.weixin_url if body.weixin_url else ""
+    qq_url = body.qq_url if body.qq_url else ""
 
     await Config.update_setting(
         p_b, p_lat, formkey, proxy, telegram_url, discord_url, weixin_url, qq_url

@@ -1,0 +1,205 @@
+{
+    "primaryPhoneNumber": None,
+    "primaryEmail": None,
+    "confirmedEmails": [],
+    "subscriptionBots": [],
+    "subscription": None,
+    "useNewLimitSystem": True,
+    "isEligibleForWebSubscriptions": False,
+    "advertisedSubscriptionBots": [
+        {
+            "displayName": "GPT-4",
+            "providerName": "OpenAI",
+            "id": "Qm90OjMwMDc="
+        },
+        {
+            "displayName": "Claude-3-Opus",
+            "providerName": "Anthropic",
+            "id": "Qm90OjEwMTI="
+        }
+    ],
+    "webSubscriptionPriceInfo": None,
+    "hasActiveSubscription": False,
+    "viewerCountryCode": None,
+    "messagePointInfo": None,
+    "poeUser": None,
+    "id": "Vmlld2VyOjA=",
+    "defaultBot": None,
+    "availableBotsConnection": {
+        "edges": [
+            {
+                "node": {
+                    "id": "Qm90OjMwMDI=",
+                    "botId": 3002,
+                    "displayName": "Assistant",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "3002",
+                "id": "Qm90RWRnZTozMDAyOjMwMDI="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjIyNTQ3MDQ=",
+                    "botId": 2254704,
+                    "displayName": "Web-Search",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "2254704",
+                "id": "Qm90RWRnZToyMjU0NzA0OjIyNTQ3MDQ="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjEwMTE=",
+                    "botId": 1011,
+                    "displayName": "Claude-3-Sonnet",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "1011",
+                "id": "Qm90RWRnZToxMDExOjEwMTE="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjEwMTc=",
+                    "botId": 1017,
+                    "displayName": "Claude-3-Haiku",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "1017",
+                "id": "Qm90RWRnZToxMDE3OjEwMTc="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjEwMTI=",
+                    "botId": 1012,
+                    "displayName": "Claude-3-Opus",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "1012",
+                "id": "Qm90RWRnZToxMDEyOjEwMTI="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjMwMDc=",
+                    "botId": 3007,
+                    "displayName": "GPT-4",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "3007",
+                "id": "Qm90RWRnZTozMDA3OjMwMDc="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjMwODkxMzU=",
+                    "botId": 3089135,
+                    "displayName": "Playground-v2.5",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "3089135",
+                "id": "Qm90RWRnZTozMDg5MTM1OjMwODkxMzU="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjYwMDg=",
+                    "botId": 6008,
+                    "displayName": "Gemini-1.5-Pro",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "6008",
+                "id": "Qm90RWRnZTo2MDA4OjYwMDg="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjYwMDQ=",
+                    "botId": 6004,
+                    "displayName": "Gemini-Pro",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "6004",
+                "id": "Qm90RWRnZTo2MDA0OjYwMDQ="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjI4MjgwMjk=",
+                    "botId": 2828029,
+                    "displayName": "DALL-E-3",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "2828029",
+                "id": "Qm90RWRnZToyODI4MDI5OjI4MjgwMjk="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjQwNDE5ODk=",
+                    "botId": 4041989,
+                    "displayName": "StableDiffusion3",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "4041989",
+                "id": "Qm90RWRnZTo0MDQxOTg5OjQwNDE5ODk="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjQwNDIxODM=",
+                    "botId": 4042183,
+                    "displayName": "SD3-Turbo",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "4042183",
+                "id": "Qm90RWRnZTo0MDQyMTgzOjQwNDIxODM="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjE1Nzk4NTI=",
+                    "botId": 1579852,
+                    "displayName": "StableDiffusionXL",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "1579852",
+                "id": "Qm90RWRnZToxNTc5ODUyOjE1Nzk4NTI="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjQwNjQxMjQ=",
+                    "botId": 4064124,
+                    "displayName": "Llama-3-70b-Groq",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "4064124",
+                "id": "Qm90RWRnZTo0MDY0MTI0OjQwNjQxMjQ="
+            },
+            {
+                "node": {
+                    "id": "Qm90OjQwMzUyOTc=",
+                    "botId": 4035297,
+                    "displayName": "Llama-3-70B-T",
+                    "deletionState": "not_deleted",
+                    "__typename": "Bot"
+                },
+                "cursor": "4035297",
+                "id": "Qm90RWRnZTo0MDM1Mjk3OjQwMzUyOTc="
+            }
+        ],
+        "pageInfo": {
+            "endCursor": "4035297",
+            "hasNextPage": True
+        },
+        "id": "None-15-None"
+    },
+    "enableWindowsDownload": True,
+    "shouldOpenLinksInApp": False,
+    "enableLanguageSwitcher": True
+}

@@ -9,11 +9,12 @@ from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
 from httpx import AsyncClient, ConnectError, PoolTimeout, ReadTimeout, Timeout
+from websockets import connect as ws_connect
 from websockets.exceptions import ConnectionClosedError
 
 # from websockets.client import connect as ws_connect
 from websockets_proxy import Proxy
-from websockets_proxy import proxy_connect as ws_connect
+from websockets_proxy import proxy_connect as ws_connect_proxy
 
 from .type import (
     End,
@@ -539,21 +540,36 @@ class Poe_Client:
         error_times = 3
         while True:
             try:
-                async with ws_connect(
-                    self.channel_url,
-                    timeout=3,
-                    proxy=Proxy.from_url(self.proxy) if self.proxy else None,
-                    proxy_conn_timeout=3,
-                    extra_headers={
-                        "Pragma": "no-cache",
-                        "Cache-Control": "no-cache",
-                        "Origin": "https://poe.com",
-                    },
-                ) as ws:
-                    logger.warning("连接ws channel成功")
-                    while True:
-                        data = await wait_for(ws.recv(), 120)
-                        await self.handle_ws_data(loads(data))
+                if self.proxy:
+                    async with ws_connect_proxy(
+                        self.channel_url,
+                        timeout=5,
+                        proxy=Proxy.from_url(self.proxy) if self.proxy else None,
+                        proxy_conn_timeout=5,
+                        extra_headers={
+                            "Pragma": "no-cache",
+                            "Cache-Control": "no-cache",
+                            "Origin": "https://poe.com",
+                        },
+                    ) as ws:
+                        logger.warning("连接ws channel成功")
+                        while True:
+                            data = await wait_for(ws.recv(), 120)
+                            await self.handle_ws_data(loads(data))
+                else:
+                    async with ws_connect(
+                        self.channel_url,
+                        timeout=5,
+                        extra_headers={
+                            "Pragma": "no-cache",
+                            "Cache-Control": "no-cache",
+                            "Origin": "https://poe.com",
+                        },
+                    ) as ws:
+                        logger.warning("连接ws channel成功")
+                        while True:
+                            data = await wait_for(ws.recv(), 120)
+                            await self.handle_ws_data(loads(data))
 
             # 超时，即无人使用就断开
             except TimeoutError:
