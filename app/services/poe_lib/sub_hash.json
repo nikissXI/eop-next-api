@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "2f77c93d290a8cc8e520a6df627f58449d10a9fe6c4cb6b0d956ce4c435c09e4"
+            "queryHash": "ac8072e127b0b1ca1b125161bdcc62786e010bf5e22db0c0feeb4123757bd2be"
         },
         {
             "subscriptionName": "messageCancelled",
@@ -43,7 +43,7 @@
         {
             "subscriptionName": "chatMemberAdded",
             "query": null,
-            "queryHash": "0f562fe9a3291616254f46600f1a558f325efaf6ae74af4a193ec2c8ec64b86f"
+            "queryHash": "f02cc8721557876f6033ab2e177f7ce62c734e1dd558df1cfdeabff476419c21"
         }
     ]
 }
