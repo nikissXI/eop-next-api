@@ -1,70 +1,39 @@
 from pydantic import BaseModel
 
 
-class Text(BaseModel):
-    """文本信息"""
+class BotMessageCreated(BaseModel):
+    """新消息数据"""
 
-    content: str
-
-
-class MsgInfo(BaseModel):
-    """响应信息"""
-
-    question_msg_id: int
-    question_create_time: int
-    answer_msg_id: int
-    answer_create_time: int
+    messageId: int
+    creationTime: int
 
 
-class End(BaseModel):
-    """回答完毕"""
+class BotMessageAdded(BaseModel):
+    """回答的内容"""
 
-    reason: str
+    state: str
+    text: str
 
 
-class NewChat(BaseModel):
-    """新会话"""
+class ChatTitleUpdated(BaseModel):
+    """新会话标题更新"""
 
-    chat_id: int
+    title: str
 
 
 class TalkError(BaseModel):
     """错误"""
 
-    content: str
-
-
-class SessionDisable(BaseModel):
-    """会话被删除"""
-
-    pass
-
-
-class ReachedLimit(BaseModel):
-    """次数上限"""
-
-    pass
-
-
-class ModelInfo(BaseModel):
-    """模型信息"""
-
-    description: str
-
-
-class UserInfo(BaseModel):
-    """账号信息"""
-
-    email: str = ""
-    subscription_activated: bool = False
-    plan_type: str = ""
-    expire_time: int = 0
-    points_now: int = 0
-    points_total: int = 0
-    points_reset_time: int = 0
+    errMsg: str
 
 
 class ServerError(Exception):
     """请求报错 server error"""
+
+    pass
+
+
+class RefetchChannel(Exception):
+    """重新连接WS"""
 
     pass

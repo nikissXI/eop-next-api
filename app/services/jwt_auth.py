@@ -5,7 +5,7 @@ from jwt import PyJWTError
 from jwt import decode as jwtDecode
 from jwt import encode as jwtEncode
 from passlib.context import CryptContext
-from utils.env_util import ALGORITHM, SECRET_KEY
+from utils.env_util import gv
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
@@ -17,7 +17,7 @@ class AuthFailed(Exception):
 
 
 def create_token(data: dict) -> str:
-    token = jwtEncode(data, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwtEncode(data, gv.SECRET_KEY, algorithm=gv.ALGORITHM)
     return token
 
 
@@ -26,9 +26,9 @@ async def verify_token(
 ) -> dict:
     token = credentials.credentials
     try:
-        jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if not await User.user_exist(jwt_data["uid"]):
-            raise AuthFailed("无效用户")
+        jwt_data = jwtDecode(token, gv.SECRET_KEY, algorithms=[gv.ALGORITHM])
+        if not await User.auth_user(jwt_data["user"], jwt_data["passwd"]):
+            raise AuthFailed("凭证无效")
 
         return jwt_data
 
@@ -41,13 +41,13 @@ async def verify_admin(
 ) -> dict:
     token = credentials.credentials
     try:
-        jwt_data = jwtDecode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if not await User.user_exist(jwt_data["uid"]):
-            raise AuthFailed("无效用户")
+        jwt_data = jwtDecode(token, gv.SECRET_KEY, algorithms=[gv.ALGORITHM])
+        if not await User.auth_user(jwt_data["user"], jwt_data["passwd"]):
+            raise AuthFailed("凭证无效")
 
-        level = await User.get_level(jwt_data["uid"])
-        if level != 0:
-            raise AuthFailed("权限不足")
+        if not await User.is_admin(jwt_data["user"]):
+            raise AuthFailed("凭证无效")
+
         return jwt_data
 
     except (PyJWTError, KeyError):

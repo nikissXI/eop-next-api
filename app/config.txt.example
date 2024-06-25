@@ -1,0 +1,17 @@
+# 接口路径前缀，如果不需要留空
+API_PATH = "/api"
+# 监听的IP和端口
+HOST = "127.0.0.1"
+PORT = 80
+# 跨域配置
+ORIGINS = '["https://*.xxx.com", "http://*.xxx.com"]'
+
+# jwt的key和加密方式
+SECRET_KEY = "secret_key"
+ALGORITHM = "HS256"
+# hash的上传接口key，可以暂时不管这个
+UPLOAD_KEY = "UPLOAD_KEY"
+
+# 如果不需要SSL，下面两个注释掉即可
+SSL_KEYFILE_PATH = "/etc/SSL_KEYFILE_PATH"
+SSL_CERTFILE_PATH = "/etc/SSL_CERTFILE_PATH"

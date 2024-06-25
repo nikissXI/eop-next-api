@@ -1,4 +1,4 @@
-httpx
+aiohttp
 fastapi
 loguru
 passlib
@@ -7,6 +7,6 @@ tortoise-orm[asyncpg]
 uvicorn
 python-dotenv
 ujson
-websockets
-websockets_proxy
 apscheduler
+python-dateutil
+pydantic_settings

@@ -1,50 +1,20 @@
-from os import getenv
 from secrets import token_urlsafe
 
-from dotenv import load_dotenv
-
-try:
-    from ujson import loads
-except Exception:
-    from json import loads
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-load_dotenv()
+class Global_env(BaseSettings):
+    model_config = SettingsConfigDict(env_file="config.txt", env_file_encoding="utf-8")
 
-if _ := getenv("API_PATH"):
-    API_PATH = _
-else:
-    API_PATH = ""
+    API_PATH: str = "/"
+    HOST: str = "127.0.0.1"
+    PORT: int = 80
+    ORIGINS: list[str] = ["*"]
+    SSL_KEYFILE_PATH: str | None = None
+    SSL_CERTFILE_PATH: str | None = None
+    SECRET_KEY: str = token_urlsafe(32)
+    ALGORITHM: str = "HS256"
+    UPLOAD_KEY: str = "ABCABCabcabc*&*&"
 
-if _ := getenv("HOST"):
-    HOST = _
-else:
-    HOST = "127.0.0.1"
 
-if _ := getenv("PORT"):
-    PORT = int(_)
-else:
-    PORT = 8080
-
-if _ := getenv("ORIGINS"):
-    ORIGINS = loads(_)
-else:
-    ORIGINS = ["*"]
-
-SSL_KEYFILE_PATH = getenv("SSL_KEYFILE_PATH")
-SSL_CERTFILE_PATH = getenv("SSL_CERTFILE_PATH")
-
-if _ := getenv("SECRET_KEY"):
-    SECRET_KEY = _
-else:
-    SECRET_KEY = token_urlsafe(32)
-
-if _ := getenv("ALGORITHM"):
-    ALGORITHM = _
-else:
-    ALGORITHM = "HS256"
-
-if _ := getenv("UPLOAD_KEY"):
-    UPLOAD_KEY = _
-else:
-    UPLOAD_KEY = "UPLOAD_KEY"
+gv = Global_env()

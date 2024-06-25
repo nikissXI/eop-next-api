@@ -1,17 +1,11 @@
-from asyncio import sleep
+from time import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from database.config_db import Config
-from fastapi import (
-    Response,
-)
+from database.user_db import User
+from fastapi import Response
 from fastapi.responses import JSONResponse
-from utils.tool_util import logger
-
-try:
-    pass
-except Exception:
-    pass
+from utils.tool_util import logger, user_action
 
 from .poe_lib.client import Poe_Client
 
@@ -24,22 +18,28 @@ poe = Poe()
 scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
-@scheduler.scheduled_job("cron", minute=1)
+# 每日0点10秒时检查重置时间
+@scheduler.scheduled_job("cron", hour=0, minute=0, second=10)
 async def _():
-    while True:
-        try:
-            await poe.client.get_account_info()
-            await sleep(10)
-            await poe.client.cache_diy_model_list()
-            await sleep(10)
-            await poe.client.cache_offical_models()
-
-        except Exception as e:
-            logger.error(f"执行定时更新任务出错，10秒后重试，错误信息：{repr(e)}")
-            await sleep(10)
-
-        else:
-            break
+    now = int(time() * 1000)
+    _users = await User.list_user()
+    for _user in _users:
+        user = _user.user
+        monthPoints = _user.month_points
+        resetDate = _user.reset_date
+        expireDate = _user.expire_date
+        # 如果账号过期就忽略
+        if now > expireDate:
+            continue
+        # 如果还没到重置时间
+        if now < resetDate:
+            continue
+        # 重置积分
+        await User.update_remain_points(user, monthPoints)
+        # 更新重置积分日期
+        await User.update_reset_date(user, resetDate)
+        logger.info(f"{user}重置可用积分为{monthPoints}")
+        user_action.info(f"{user}重置可用积分为{monthPoints}")
 
 
 async def login_poe(
@@ -54,10 +54,6 @@ async def login_poe(
             p_lat,
             formkey,
             proxy,
-            _,
-            _,
-            _,
-            _,
         ) = await Config.get_setting()
     if proxy:
         logger.info(f"使用代理连接Poe {proxy}")
@@ -67,6 +63,6 @@ async def login_poe(
         poe.client = await Poe_Client(p_b, p_lat, formkey, proxy).login()
         return Response(status_code=204)
     except Exception as e:
-        msg = "执行登陆流程出错，" + repr(e)
-        logger.error(msg)
-        return JSONResponse({"code": 3008, "msg": msg}, 500)
+        err_msg = "执行登陆流程出错，" + repr(e)
+        logger.error(err_msg)
+        return JSONResponse({"code": 3001, "msg": err_msg}, 500)

@@ -1,13 +1,15 @@
-from hashlib import sha256
-from logging import DEBUG, FileHandler, Formatter, getLogger
-from random import choice
-from string import ascii_letters, digits
-
-from database.user_db import User
-
 ################
 ### 日志配置
 ################
+import logging
+from hashlib import sha256
+from logging import DEBUG, FileHandler, Formatter, StreamHandler, getLogger
+from random import choice
+from string import ascii_letters, digits
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
 fastapi_logger_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -70,31 +72,42 @@ fastapi_logger_config = {
 logger = getLogger("uvicorn.error")
 
 
-user_logger = getLogger("user_action")
+class Filter404(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "404" not in record.getMessage()
+
+
+# Apply the custom filter to Uvicorn's access logger
+logging.getLogger("uvicorn.access").addFilter(Filter404())
+
+
+class Custom404Middleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if response.status_code == 404:
+            # Prevent logging for 404 responses
+            return Response(status_code=404)
+        return response
+
+
+user_action = getLogger("user_action")
 file_handler = FileHandler("user_action.log")
-formatter = Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+# formatter = Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
-user_logger.addHandler(file_handler)
-user_logger.setLevel(DEBUG)
+user_action.addHandler(file_handler)
+user_action.setLevel(DEBUG)
 
 
-async def log_user_action(uid: int, msg: str, level: str = "info"):
-    user_name = await User.get_username(uid)
-    if level == "error":
-        user_logger.error(f"用户:{user_name}  uid:{uid}  {msg}")
-    else:
-        user_logger.info(f"用户:{user_name}  uid:{uid}  {msg}")
+debug_logger = getLogger("debug_logger")
+file_handler = FileHandler("debug_logger.log")
+formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+file_handler.setFormatter(formatter)
+debug_logger.addHandler(file_handler)
+debug_logger.setLevel(DEBUG)
 
 
-# debug_logger = getLogger("debug_logger")
-# file_handler = FileHandler("debug_logger.log")
-# formatter = Formatter("%(asctime)s - %(name)s - %(message)s", "%Y-%m-%d %H:%M:%S")
-# file_handler.setFormatter(formatter)
-# debug_logger.addHandler(file_handler)
-# debug_logger.setLevel(DEBUG)
-
-
-def generate_random_password(length=8) -> tuple[str, str]:
+def generate_random_password(length=16) -> tuple[str, str]:
     characters = ascii_letters + digits
     passwd = "".join(choice(characters) for _ in range(length))
     hash_object = sha256()
