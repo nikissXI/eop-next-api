@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+import models.error_resp_models as resp_models
 from database.config_db import Config
 from database.db import db_close, db_init
 from database.user_db import User
@@ -10,7 +11,6 @@ from fastapi import (
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from models.error_models import Response422
 from routers.admin_routers import router as admin_router
 from routers.user_routers import router as user_router
 from services.jwt_auth import AuthFailed
@@ -53,7 +53,7 @@ app = FastAPI(
     responses={
         422: {
             "description": "请求错误",
-            "model": Response422,
+            "model": resp_models.Response422,
         },
     },
 )

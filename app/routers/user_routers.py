@@ -2,21 +2,13 @@ from io import BytesIO
 from time import localtime, strftime
 from typing import AsyncIterable
 
+import models.user_req_models as req_models
+import models.user_resp_models as resp_models
 from database.bot_db import Bot
 from database.chat_db import Chat
 from database.user_db import User
 from fastapi import APIRouter, Body, Depends, File, Form, Path, Response, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
-from models.user_models import (
-    AnswerAgain,
-    AnswerStop,
-    ChatTitleBody,
-    CreateBotBody,
-    EditBotBody,
-    EditSourceBody,
-    LoginBody,
-    UpdatePasswdBody,
-)
 from services.jwt_auth import create_token, verify_token
 from services.poe_client import poe
 from services.poe_lib.type import (
@@ -124,21 +116,10 @@ async def ai_reply(
 @router.post(
     "/login",
     summary="登陆接口",
-    responses={
-        200: {
-            "content": {
-                "application/json": {
-                    "example": {
-                        "accessToken": "eyJhbxxxxxxxxxxxxxxxxxxxxxxxx",
-                        "tokenType": "Bearer",
-                    }
-                }
-            },
-        },
-    },
+    responses={200: {"model": resp_models.LoginRespBody}},
 )
 async def _(
-    body: LoginBody = Body(
+    body: req_models.LoginReqBody = Body(
         examples=[{"user": "用户名", "passwd": "sha256加密后的密码"}]
     ),
 ):
@@ -154,22 +135,7 @@ async def _(
 @router.get(
     "/info",
     summary="获取用户自己的信息",
-    responses={
-        200: {
-            "content": {
-                "application/json": {
-                    "example": {
-                        "user": "user_name",
-                        "remainPoints": 500,
-                        "monthPoints": 1000,
-                        "isAdmin": 0,
-                        "resetDate": 4070880000000,
-                        "expireDate": 4070880000000,
-                    }
-                }
-            },
-        },
-    },
+    responses={200: {"model": resp_models.UserInfoRespBody}},
 )
 async def _(user_data: dict = Depends(verify_token)):
     user_info = await User.get_info(user_data["user"])
@@ -191,17 +157,12 @@ async def _(user_data: dict = Depends(verify_token)):
     "/updatePasswd",
     summary="修改密码",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "修改成功",
-            "content": None,
-        },
+        200: {"description": "无相关响应"},
+        204: {"description": "修改成功"},
     },
 )
 async def _(
-    body: UpdatePasswdBody = Body(
+    body: req_models.UpdatePasswdReqBody = Body(
         examples=[{"oldPasswd": "加密的旧密码", "newPasswd": "加密的新密码"}]
     ),
     user_data: dict = Depends(verify_token),
@@ -225,36 +186,8 @@ async def _(
     responses={
         200: {
             "description": "categoryList是bot分类，只有cursor为0的时候才返回",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "categoryList": [
-                            {
-                                "categoryName": "Official",
-                                "translatedCategoryName": "官方",
-                            }
-                        ],
-                        "bots": [
-                            {
-                                "model": "ChatGPT",
-                                "imgUrl": "https://xxx/bot.jpg",
-                                "description": "由gpt-3.5-turbo驱动。",
-                                "botType": "官方",
-                                "monthlyActive": 0,
-                            },
-                            {
-                                "model": "iKun",
-                                "imgUrl": "https://xxx/bot.jpg",
-                                "description": "练习时长两年半",
-                                "botType": "第三方",
-                                "monthlyActive": 114514,
-                            },
-                        ],
-                        "pageInfo": {"endCursor": "1017", "hasNextPage": True},
-                    },
-                }
-            },
-        },
+            "model": resp_models.ExploreBotsRespBody,
+        }
     },
 )
 async def _(
@@ -273,41 +206,7 @@ async def _(
 @router.get(
     "/searchBots/{keyWord}/{endCursor}",
     summary="搜索bot",
-    responses={
-        200: {
-            "description": "跟探索bot一样用，不过这个没分类",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "bots": [
-                            {
-                                "model": "ChatGPT",
-                                "imgUrl": "https://xxx/bot.jpg",
-                                "description": "由gpt-3.5-turbo驱动。",
-                                "botType": "官方",
-                                "monthlyActive": 0,
-                            },
-                            {
-                                "model": "iKun",
-                                "imgUrl": "https://xxx/bot.jpg",
-                                "description": "XXXXXX",
-                                "botType": "第三方",
-                                "monthlyActive": 114514,
-                            },
-                            {
-                                "model": "my_bot",
-                                "imgUrl": "https://xxx/bot.jpg",
-                                "description": "XXXXXX",
-                                "botType": "第三方",
-                                "monthlyActive": 114514,
-                            },
-                        ],
-                        "pageInfo": {"endCursor": "20", "hasNextPage": True},
-                    },
-                }
-            },
-        },
-    },
+    responses={200: {"model": resp_models.SearchBotsRespBody}},
 )
 async def _(
     keyWord: str = Path(description="关键字", example="GPT"),
@@ -328,25 +227,8 @@ async def _(
     responses={
         200: {
             "description": "bot列表",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "bots": [
-                            {
-                                "name": "ChatGPT",
-                                "imgUrl": "https://xxx",
-                                "botType": "官方",
-                            },
-                            {
-                                "name": "CatBot",
-                                "imgUrl": "https://xxx",
-                                "botType": "自定义",
-                            },
-                        ]
-                    }
-                }
-            },
-        },
+            "model": list[resp_models.UserBotRespBody],
+        }
     },
 )
 async def _(user_data: dict = Depends(verify_token)):
@@ -359,19 +241,15 @@ async def _(user_data: dict = Depends(verify_token)):
         }
         for row in _rows
     ]
-    return JSONResponse({"bots": bot_list}, 200)
+    return JSONResponse(bot_list, 200)
 
 
 @router.post(
     "/bot/{botName}",
     summary="添加bot",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "添加成功",
-        },
+        200: {"description": "无相关响应"},
+        204: {"description": "添加成功"},
     },
 )
 async def _(
@@ -401,27 +279,8 @@ async def _(
     summary="获取自定义bot可使用的基础bot",
     responses={
         200: {
-            "description": "",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "botName": "ChatGPT",
-                            "imgUrl": "https://xxx",
-                            "botId": 3004,
-                            "model": "chinchilla",
-                            "isImageGen": False,
-                        },
-                        {
-                            "botName": "DALL-E-3",
-                            "imgUrl": "https://xxx",
-                            "botId": 2828029,
-                            "model": "dalle3",
-                            "isImageGen": True,
-                        },
-                    ]
-                }
-            },
+            "description": "基础bot列表",
+            "model": list[resp_models.BasicBotRespBody],
         }
     },
 )
@@ -438,20 +297,8 @@ async def _(
 
 @router.post(
     "/uploadSource",
-    summary="上传自定义bot引用资源",
-    responses={
-        200: {
-            "description": "msg_info（消息数据）、response（回答数据）、end（回答完毕）、error（出错，msg里的字符串是原因）",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "sourceId": 2380421,
-                        "sourceTitle": "fileName or title",
-                    },
-                }
-            },
-        }
-    },
+    summary="上传自定义bot引用的资源",
+    responses={200: {"model": resp_models.UploadSourceRespBody}},
 )
 async def _(
     sourceType: str = Form(description="text 或 file"),
@@ -480,20 +327,8 @@ async def _(
 
 @router.get(
     "/getTextSource/{sourceId}",
-    summary="获取bot引用资源内容（仅限文本）",
-    responses={
-        200: {
-            "description": "资源的标题和内容",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "title": "标题",
-                        "content": "文本内容",
-                    },
-                }
-            },
-        }
-    },
+    summary="获取bot引用资源内容用于修改（仅限文本）",
+    responses={200: {"model": resp_models.GetTextSourceRespBody}},
 )
 async def _(
     sourceId: int = Path(description="文本资源id", example=2380421),
@@ -511,16 +346,12 @@ async def _(
     "/editTextSource",
     summary="编辑bot引用资源（仅限文本）",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "创建成功",
-        },
+        200: {"description": "无相关响应"},
+        204: {"description": "修改成功"},
     },
 )
 async def _(
-    body: EditSourceBody = Body(
+    body: req_models.EditSourceReqBody = Body(
         examples=[
             {
                 "sourceId": 2380421,
@@ -546,16 +377,12 @@ async def _(
     summary="创建自定义bot",
     description="sourceIds可以空着",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "创建成功",
-        },
+        200: {"description": "无相关响应"},
+        204: {"description": "创建成功"},
     },
 )
 async def _(
-    body: CreateBotBody = Body(
+    body: req_models.CreateBotReqBody = Body(
         examples=[
             {
                 "botName": "CatBot",
@@ -615,42 +442,7 @@ async def _(
 @router.get(
     "/editBot/{botName}",
     summary="获取待编辑bot信息",
-    responses={
-        200: {
-            "description": "",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "basicBotList": "（数据参考接口basicBotList）",
-                        "botInfo": {
-                            "botName": "CatBot",
-                            "botId": 4368380,
-                            "botHandle": "1Fp4BqjkQKpmiSj5Taey",
-                            "baseBotId": 3004,
-                            "baseBotModel": "chinchilla",
-                            "description": "这是机器人的简介",
-                            "prompt": "这是机器人的prompt内容",
-                            "citeSource": True,
-                            "sourceList": [
-                                {
-                                    "sourceId": 2413096,
-                                    "sourceType": "text",
-                                    "title": "tttttttt",
-                                    "lastUpdatedTime": 1717739865091089,
-                                },
-                                {
-                                    "sourceId": 2413098,
-                                    "sourceType": "file",
-                                    "title": "startserver.sh",
-                                    "lastUpdatedTime": 1717739829755288,
-                                },
-                            ],
-                        },
-                    }
-                }
-            },
-        }
-    },
+    responses={200: {"model": resp_models.GetEditBotRespBody}},
 )
 async def _(
     botName: str = Path(description="bot名称", example="CatBot"),
@@ -682,7 +474,7 @@ async def _(
 )
 async def _(
     botName: str = Path(description="bot名称", example="CatBot"),
-    body: EditBotBody = Body(
+    body: req_models.EditBotReqBody = Body(
         examples=[
             {
                 "botName": "CatBot",
@@ -717,7 +509,7 @@ async def _(
             body.botHandle,
             body.baseBotId,
             body.baseBotModel,
-            body.description,
+            body.baseBotModel,
             body.prompt,
             body.citeSource,
             body.addSourceIds,
@@ -983,7 +775,7 @@ async def _(
 )
 async def _(
     chatCode: str = Path(description="chat code", example="XXXYYY"),
-    body: ChatTitleBody = Body(
+    body: req_models.ChatTitleReqBody = Body(
         examples=[
             {
                 "title": "新名称",
@@ -1141,7 +933,7 @@ async def _(
 )
 async def _(
     chatCode: str = Path(description="chat code", example="XXXYYY"),
-    body: AnswerAgain = Body(
+    body: req_models.AnswerReqAgain = Body(
         examples=[
             {
                 "messageId": 12312312,
@@ -1197,7 +989,7 @@ async def _(
 )
 async def _(
     chatCode: str = Path(description="chatCode", example="XXXYYY"),
-    body: AnswerStop = Body(
+    body: req_models.AnswerReqStop = Body(
         examples=[
             {
                 "messageId": 12312312,
