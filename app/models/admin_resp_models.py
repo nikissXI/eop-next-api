@@ -1,4 +1,25 @@
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel, Field
+
+DataT = TypeVar("DataT")
+
+
+class BasicRespBody(BaseModel, Generic[DataT]):
+    code: int = Field(
+        default=0,
+        title="业务状态码，0是正常",
+        examples=[0],
+    )
+    msg: str = Field(
+        default="success",
+        title="响应信息，如果出错，错误信息在这里",
+        examples=["success"],
+    )
+    data: DataT | None = Field(
+        default=None,
+        title="响应数据",
+    )
 
 
 class UserInfoRespBody(BaseModel):

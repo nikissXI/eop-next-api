@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BotMessageCreated(BaseModel):
@@ -11,14 +11,21 @@ class BotMessageCreated(BaseModel):
 class BotMessageAdded(BaseModel):
     """回答的内容"""
 
-    state: str
-    text: str
+    state: str = Field(
+        title="回答状态",
+        examples=["incomplete", "complete", "cancelled"],
+    )
+    text: str = Field(
+        title="回答的内容",
+    )
 
 
 class ChatTitleUpdated(BaseModel):
     """新会话标题更新"""
 
-    title: str
+    title: str = Field(
+        title="会话标题",
+    )
 
 
 class TalkError(BaseModel):

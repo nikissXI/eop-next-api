@@ -47,7 +47,7 @@ async def login_poe(
     p_lat: str | None = None,
     formkey: str | None = None,
     proxy: str | None = None,
-) -> JSONResponse | Response:
+) -> str:
     if not (p_b and p_lat and formkey and proxy):
         (
             p_b,
@@ -61,8 +61,8 @@ async def login_poe(
         proxy = None
     try:
         poe.client = await Poe_Client(p_b, p_lat, formkey, proxy).login()
-        return JSONResponse({"code": 0, "msg": "success", "data": None}, 204)
+        return ""
     except Exception as e:
         err_msg = "执行登陆流程出错，" + repr(e)
         logger.error(err_msg)
-        return JSONResponse({"code": 3001, "msg": err_msg, "data": None}, 500)
+        return err_msg

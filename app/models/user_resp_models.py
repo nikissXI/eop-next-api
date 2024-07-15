@@ -1,4 +1,31 @@
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel, Field
+from services.poe_lib.type import (
+    BotMessageAdded,
+    BotMessageCreated,
+    ChatTitleUpdated,
+    TalkError,
+)
+
+DataT = TypeVar("DataT")
+
+
+class BasicRespBody(BaseModel, Generic[DataT]):
+    code: int = Field(
+        default=0,
+        title="业务状态码，0是正常",
+        examples=[0],
+    )
+    msg: str = Field(
+        default="success",
+        title="响应信息，如果出错，错误信息在这里",
+        examples=["success"],
+    )
+    data: DataT | None = Field(
+        default=None,
+        title="响应数据",
+    )
 
 
 class LoginRespBody(BaseModel):
@@ -73,7 +100,7 @@ class Bot(BaseModel):
     )
 
 
-class PageInfo(BaseModel):
+class BotListPageInfo(BaseModel):
     endCursor: str = Field(
         title="翻页游标",
         examples=["1017"],
@@ -91,7 +118,7 @@ class ExploreBotsRespBody(BaseModel):
     bots: list[Bot] = Field(
         title="bot列表",
     )
-    pageInfo: PageInfo = Field(
+    pageInfo: BotListPageInfo = Field(
         title="翻页信息",
     )
 
@@ -100,7 +127,7 @@ class SearchBotsRespBody(BaseModel):
     bots: list[Bot] = Field(
         title="bot列表",
     )
-    pageInfo: PageInfo = Field(
+    pageInfo: BotListPageInfo = Field(
         title="翻页信息",
     )
 
@@ -228,4 +255,219 @@ class GetEditBotRespBody(BaseModel):
     )
     botInfo: CustomBotInfo = Field(
         title="bot信息",
+    )
+
+
+class GetBotInfoRespBody(BaseModel):
+    botName: str = Field(
+        title="bot名称",
+        examples=["ChatGPT"],
+    )
+    botId: int = Field(
+        title="bot id",
+        examples=[3004],
+    )
+    botHandle: str = Field(
+        title="bot handle",
+        examples=["chinchilla"],
+    )
+    description: str = Field(
+        title="bot描述",
+        examples=["这个是GPT3.5"],
+    )
+    allowImage: bool = Field(
+        title="是否允许发送图片",
+        examples=[True, False],
+    )
+    allowFile: bool = Field(
+        title="是否允许发送文件",
+        examples=[True, False],
+    )
+    uploadFileSizeLimit: int = Field(
+        title="上传的附件大小上限（50MB）",
+        examples=[50000000],
+    )
+    imgUrl: str = Field(
+        title="bot头像链接",
+        examples=["https://xxx/bot.jpg"],
+    )
+    price: int = Field(
+        title="对话消耗积分",
+        examples=[20],
+    )
+    remainTalkTimes: int = Field(
+        title="剩余积分还可以对话多少次",
+        examples=[66],
+    )
+    botType: str = Field(
+        title="bot类型",
+        examples=["官方", "第三方", "自定义"],
+    )
+    added: bool = Field(
+        title="用户是否添加到我的bot",
+        examples=[True, False],
+    )
+    canAccess: bool = Field(
+        title="该bot是否可用",
+        examples=[True, False],
+    )
+
+
+class ChatRespBody(BaseModel):
+    chatCode: str = Field(
+        title="会话code",
+        examples=["abc23kjkwei"],
+    )
+    title: str = Field(
+        title="会话名称",
+        examples=["会话1"],
+    )
+    bot: str = Field(
+        title="bot名称",
+        examples=["ChatGPT"],
+    )
+    imgUrl: str = Field(
+        title="bot头像链接",
+        examples=["https://xxx/bot.jpg"],
+    )
+    lastTalkTime: int = Field(
+        title="最后一次对话时间",
+        examples=[1719676800000],
+    )
+    disable: bool = Field(
+        title="会话是否禁用",
+        examples=[True, False],
+    )
+
+
+class BotInfo(BaseModel):
+    botName: str = Field(
+        title="bot名称",
+        examples=["CatBot"],
+    )
+    botId: int = Field(
+        title="bot id",
+        examples=[4368380],
+    )
+    botHandle: str = Field(
+        title="bot handle",
+        examples=["chinchilla"],
+    )
+    description: str = Field(
+        title="bot描述",
+        examples=["这个是GPT3.5"],
+    )
+    allowImage: bool = Field(
+        title="是否允许发送图片",
+        examples=[True, False],
+    )
+    allowFile: bool = Field(
+        title="是否允许发送文件",
+        examples=[True, False],
+    )
+    uploadFileSizeLimit: int = Field(
+        title="上传的附件大小上限（50MB）",
+        examples=[50000000],
+    )
+    imgUrl: str = Field(
+        title="bot头像链接",
+        examples=["https://xxx/bot.jpg"],
+    )
+    price: int = Field(
+        title="对话消耗积分",
+        examples=[20],
+    )
+    botType: str = Field(
+        title="bot类型",
+        examples=["官方", "第三方", "自定义"],
+    )
+    canAccess: bool = Field(
+        title="该bot是否可用",
+        examples=[True, False],
+    )
+
+
+class Attachments(BaseModel):
+    name: str = Field(
+        title="附件名",
+        examples=["tmp.txt"],
+    )
+    url: str = Field(
+        title="下载链接",
+        examples=[
+            "https://pfst.cf2.poecdn.net/base/text/0723b69e0a0c72fdb2885f3c072c0706169f07c8b2bff3d57552e40a92e89d14?pmaid=113715453"
+        ],
+    )
+
+
+class MessageNodeRespBody(BaseModel):
+    messageId: int = Field(
+        title="消息id",
+        examples=[2692997857],
+    )
+    creationTime: int = Field(
+        title="创建时间",
+        examples=[1692964266475260],
+    )
+    text: str = Field(
+        title="消息内容",
+        examples=["啊？"],
+    )
+    attachments: list[Attachments] = Field(
+        title="附件列表",
+    )
+    author: str = Field(
+        title="作者",
+        examples=["human", "bot", "chat_break"],
+    )
+
+
+class ChatPageInfo(BaseModel):
+    hasPreviousPage: bool = Field(
+        title="是否前一页",
+        examples=[True, False],
+    )
+    startCursor: str = Field(
+        title="翻页游标",
+        examples=["2692997857"],
+    )
+
+
+class ChatInfoRespBody(BaseModel):
+    botInfo: BotInfo = Field(
+        title="bot信息",
+    )
+    historyNodes: list[MessageNodeRespBody] = Field(
+        title="消息列表",
+    )
+    pageInfo: ChatPageInfo = Field(
+        title="翻页信息",
+    )
+
+
+class NewChat(BaseModel):
+    chatCode: str = Field(
+        title="类别列表，只有cursor为0的时候才返回",
+    )
+    botInfo: BotInfo = Field(
+        title="bot信息",
+    )
+
+
+class TalkRespBody(BaseModel):
+    data_type: str = Field(
+        title="数据类型",
+        examples=[
+            "newChat",
+            "humanMessageCreated",
+            "botMessageCreated",
+            "botMessageAdded",
+            "chatTitleUpdated",
+            "talkError",
+        ],
+    )
+    data_content: (
+        NewChat | MessageNodeRespBody | BotMessageAdded | ChatTitleUpdated | TalkError
+    ) = Field(
+        title="数据内容",
     )

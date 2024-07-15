@@ -19,10 +19,18 @@ from utils.env_util import gv
 from utils.tool_util import generate_random_password, logger
 
 
-def handle_exception(err_msg: str) -> JSONResponse:
-    """处理poe请求错误"""
+def response_500(err_msg: str) -> JSONResponse:
+    """500响应"""
     logger.error(err_msg)
-    return JSONResponse({"code": 3001, "msg": err_msg}, 500)
+    return JSONResponse({"code": 3001, "msg": err_msg, "data": None}, 500)
+
+
+def response_200(data=None, status_code=200, msg: str = "success") -> Response:
+    """200响应"""
+    return JSONResponse(
+        {"code": 0, "msg": msg, "data": data},
+        status_code,
+    )
 
 
 router = APIRouter()
@@ -31,7 +39,11 @@ router = APIRouter()
 @router.get(
     "/users",
     summary="列出所有用户",
-    responses={200: {"model": list[resp_models.UserInfoRespBody]}},
+    responses={
+        200: {
+            "model": resp_models.BasicRespBody[list[resp_models.UserInfoRespBody]],
+        }
+    },
 )
 async def _(
     _verify: dict = Depends(verify_admin),
@@ -49,7 +61,7 @@ async def _(
                 "expireDate": _user.expire_date,
             }
         )
-    return JSONResponse({"code": 0, "msg": "success", "data": user_list}, 200)
+    return response_200(user_list)
 
 
 @router.post(
@@ -57,8 +69,7 @@ async def _(
     summary="添加新用户",
     description="密码使用sha256加密，months就是有效期多少个月",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "增加成功"},
+        200: {"description": "增加成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -85,15 +96,15 @@ async def _(
         body.admin,
         666 if body.admin == 1 else body.months,
     )
-    return JSONResponse({"code": 0, "msg": "success", "data": None}, 204)
+
+    return response_200()
 
 
 @router.delete(
     "/user/{user}",
     summary="删除用户",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "删除成功"},
+        200: {"description": "删除成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -108,7 +119,7 @@ async def _(
         try:
             await poe.client.delete_chat(row[0], row[6])
         except Exception as e:
-            return handle_exception(repr(e))
+            return response_500(repr(e))
 
     # 删除用户创建的bot
     _rows = await Bot.get_user_bot(user)
@@ -117,20 +128,21 @@ async def _(
             try:
                 await poe.client.delete_bot(row[0], row[3])
             except Exception as e:
-                return handle_exception(repr(e))
+                return response_500(repr(e))
 
     await Chat.delete_chat(user)
     await Bot.remove_bot(user)
     # 把用户删掉
     await User.delete_user(user)
-    return JSONResponse({"code": 0, "msg": "success", "data": None}, 204)
+
+    return response_200()
 
 
 @router.post(
     "/user/update",
     summary="更新用户信息",
     description="admin字段，0是普通用户，1是管理员；addMonths是续多少个月，0就是不变",
-    responses={200: {"model": resp_models.UserInfoRespBody}},
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.UserInfoRespBody]}},
 )
 async def _(
     body: req_models.RenewUserReqBody = Body(
@@ -153,27 +165,25 @@ async def _(
     )
 
     user_info = await User.get_info(body.user)
-    return JSONResponse(
+
+    return response_200(
         {
-            "code": 0,
-            "msg": "success",
-            "data": {
-                "user": user_info.user,
-                "remainPoints": user_info.remain_points,
-                "monthPoints": user_info.month_points,
-                "isAdmin": user_info.admin,
-                "resetDate": user_info.reset_date,
-                "expireDate": user_info.expire_date,
-            },
+            "user": user_info.user,
+            "remainPoints": user_info.remain_points,
+            "monthPoints": user_info.month_points,
+            "isAdmin": user_info.admin,
+            "resetDate": user_info.reset_date,
+            "expireDate": user_info.expire_date,
         },
-        200,
     )
 
 
 @router.get(
     "/user/resetPasswd/{user}",
     summary="重置用户密码为一个新的随机密码",
-    responses={200: {"model": resp_models.NewPasswdRespBody}},
+    responses={
+        200: {"model": resp_models.BasicRespBody[resp_models.NewPasswdRespBody]}
+    },
 )
 async def _(
     user: str = Path(description="user", examples=["user_name"]),
@@ -184,19 +194,25 @@ async def _(
 
     passwd, hashedPasswd = generate_random_password()
     await User.update_passwd(user, hashedPasswd)
-    return JSONResponse({"code": 0, "msg": "success", "data": {"passwd": passwd}}, 200)
+
+    return response_200(
+        {
+            "passwd": passwd,
+        }
+    )
 
 
 @router.get(
     "/config",
     summary="获取poe账号配置和代理地址",
-    responses={200: {"model": resp_models.ConfigRespBody}},
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.ConfigRespBody]}},
 )
 async def _(
     _verify: dict = Depends(verify_admin),
 ):
     p_b, p_lat, formkey, proxy = await Config.get_setting()
-    return JSONResponse(
+
+    return response_200(
         {
             "code": 0,
             "msg": "success",
@@ -207,7 +223,6 @@ async def _(
                 "proxy": proxy,
             },
         },
-        200,
     )
 
 
@@ -215,8 +230,7 @@ async def _(
     "/config",
     summary="修改配置，Poe的cookie和代理",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "修改成功"},
+        200: {"description": "修改成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -233,28 +247,28 @@ async def _(
     _verify: dict = Depends(verify_admin),
 ):
     await Config.update_setting(body.p_b, body.p_lat, body.formkey, body.proxy)
+    if err_msg := await login_poe():
+        return response_500(err_msg)
 
-    return await login_poe()
+    return response_200()
 
 
 @router.get(
     "/account",
     summary="获取Poe账号信息",
-    responses={200: {"model": resp_models.AccountRespBody}},
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.AccountRespBody]}},
 )
 async def _(
     _verify: dict = Depends(verify_admin),
 ):
-    user_info = await poe.client.get_account_info()
-    return JSONResponse({"code": 0, "msg": "success", "data": user_info}, 200)
+    return response_200(await poe.client.get_account_info())
 
 
 @router.post(
     "/hashUpload",
     summary="更新请求的hash（前端不用管）",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "更新成功"},
+        200: {"description": "更新成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -274,4 +288,5 @@ async def _(
         dump(body.queryHash, w, indent=4)
     with open("services/poe_lib/sub_hash.json", "w", encoding="utf-8") as w:
         dump(body.subHash, w, indent=4)
-    return JSONResponse({"code": 0, "msg": "success", "data": None}, 204)
+
+    return response_200()

@@ -23,10 +23,26 @@ from utils.tool_util import logger, user_action
 router = APIRouter()
 
 
-def handle_exception(err_msg: str) -> JSONResponse:
-    """处理poe请求错误"""
+def response_500(err_msg: str) -> JSONResponse:
+    """500响应"""
     logger.error(err_msg)
-    return JSONResponse({"code": 3001, "msg": err_msg}, 500)
+    return JSONResponse({"code": 3001, "msg": err_msg, "data": None}, 500)
+
+
+def response_400(code: int, msg: str, status_code: int = 402) -> Response:
+    """400响应"""
+    return JSONResponse(
+        {"code": code, "msg": msg, "data": None},
+        status_code,
+    )
+
+
+def response_200(data=None, msg="success") -> Response:
+    """200响应"""
+    return JSONResponse(
+        {"code": 0, "msg": msg, "data": data},
+        200,
+    )
 
 
 async def reply_pre_check(user: str, chatCode: str, remain_points: int, price: int):
@@ -35,19 +51,15 @@ async def reply_pre_check(user: str, chatCode: str, remain_points: int, price: i
         date_string = strftime(
             "%Y-%m-%d %H:%M:%S", localtime(await User.get_expire_date(user) / 1000)
         )
-        return JSONResponse(
-            {"code": 2009, "msg": f"你的账号授权已于{date_string}过期，无法对话"}, 402
-        )
+        return response_400(2009, f"你的账号授权已于{date_string}过期，无法对话")
 
     # 判断会话是否存在
     if chatCode != "0" and not await Chat.chat_exist(user, chatCode):
-        return JSONResponse({"code": 2001, "msg": "会话不存在"}, 402)
+        return response_400(2001, "会话不存在")
 
     # 判断积分够不够
     if remain_points < price:
-        return JSONResponse(
-            {"code": 2010, "msg": f"可用积分不足，当前可用积分: {remain_points}"}, 402
-        )
+        return response_400(2010, f"可用积分不足，当前可用积分: {remain_points}")
 
 
 async def ai_reply(
@@ -63,7 +75,16 @@ async def ai_reply(
 
     def _yield_data(data_type: str, data: str | dict) -> bytes:
         return BytesIO(
-            (dumps({"type": data_type, "data": data}) + "\n").encode("utf-8")
+            (
+                dumps(
+                    {
+                        "code": 0,
+                        "msg": "success",
+                        "data": {"data_type": data_type, "data_content": data},
+                    }
+                )
+                + "\n"
+            ).encode("utf-8")
         ).read()
 
     # 新会话数据
@@ -109,14 +130,14 @@ async def ai_reply(
 
         # 出错
         if isinstance(_data, TalkError):
-            yield _yield_data("talkError", {"err_msg": _data.errMsg})
+            yield _yield_data("talkError", {"errMsg": _data.errMsg})
             logger.error(f"用户:{user}  bot:{botName}  code:{chatCode}  {_data.errMsg}")
 
 
 @router.post(
     "/login",
     summary="登陆接口",
-    responses={200: {"model": resp_models.LoginRespBody}},
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.LoginRespBody]}},
 )
 async def _(
     body: req_models.LoginReqBody = Body(
@@ -129,18 +150,24 @@ async def _(
     token = create_token(
         {"user": body.user, "passwd": body.passwd, "eopServer": "by_nikiss"}
     )
-    return JSONResponse({"accessToken": token, "tokenType": "Bearer"}, 200)
+
+    return response_200(
+        {
+            "accessToken": token,
+            "tokenType": "Bearer",
+        },
+    )
 
 
 @router.get(
     "/info",
     summary="获取用户自己的信息",
-    responses={200: {"model": resp_models.UserInfoRespBody}},
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.UserInfoRespBody]}},
 )
 async def _(user_data: dict = Depends(verify_token)):
     user_info = await User.get_info(user_data["user"])
 
-    return JSONResponse(
+    return response_200(
         {
             "user": user_info.user,
             "remainPoints": user_info.remain_points,
@@ -149,7 +176,6 @@ async def _(user_data: dict = Depends(verify_token)):
             "resetDate": user_info.reset_date,
             "expireDate": user_info.expire_date,
         },
-        200,
     )
 
 
@@ -157,8 +183,7 @@ async def _(user_data: dict = Depends(verify_token)):
     "/updatePasswd",
     summary="修改密码",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "修改成功"},
+        200: {"description": "修改成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -170,14 +195,15 @@ async def _(
     user = user_data["user"]
     # test不能让用户自己改密码
     if user == "test":
-        return Response(status_code=204)
+        return response_200()
 
     if not await User.auth_user(user, body.oldPasswd):
         return JSONResponse({"code": 2000, "msg": "认证失败"}, 401)
 
     await User.update_passwd(user, body.newPasswd)
     user_action.info(f"用户 {user} 更新了密码")
-    return Response(status_code=204)
+
+    return response_200()
 
 
 @router.get(
@@ -186,7 +212,7 @@ async def _(
     responses={
         200: {
             "description": "categoryList是bot分类，只有cursor为0的时候才返回",
-            "model": resp_models.ExploreBotsRespBody,
+            "model": resp_models.BasicRespBody[resp_models.ExploreBotsRespBody],
         }
     },
 )
@@ -198,15 +224,17 @@ async def _(
     try:
         data = await poe.client.explore_bot(category, endCursor)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return JSONResponse(data, 200)
+    return response_200(data)
 
 
 @router.get(
     "/searchBots/{keyWord}/{endCursor}",
     summary="搜索bot",
-    responses={200: {"model": resp_models.SearchBotsRespBody}},
+    responses={
+        200: {"model": resp_models.BasicRespBody[resp_models.SearchBotsRespBody]}
+    },
 )
 async def _(
     keyWord: str = Path(description="关键字", example="GPT"),
@@ -216,9 +244,9 @@ async def _(
     try:
         data = await poe.client.search_bot(keyWord, endCursor)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return JSONResponse(data, 200)
+    return response_200(data)
 
 
 @router.get(
@@ -227,7 +255,7 @@ async def _(
     responses={
         200: {
             "description": "bot列表",
-            "model": list[resp_models.UserBotRespBody],
+            "model": resp_models.BasicRespBody[list[resp_models.UserBotRespBody]],
         }
     },
 )
@@ -241,15 +269,15 @@ async def _(user_data: dict = Depends(verify_token)):
         }
         for row in _rows
     ]
-    return JSONResponse(bot_list, 200)
+
+    return response_200(bot_list)
 
 
 @router.post(
     "/bot/{botName}",
     summary="添加bot",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "添加成功"},
+        200: {"description": "添加成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -259,7 +287,7 @@ async def _(
     try:
         bot_info = await poe.client.get_bot_info(botName)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     user = user_data["user"]
     await Bot.add_bot(
@@ -271,7 +299,8 @@ async def _(
         bot_info["botId"],
     )
     user_action.info(f"用户 {user} 添加bot {botName}")
-    return Response(status_code=204)
+
+    return response_200()
 
 
 @router.get(
@@ -280,7 +309,7 @@ async def _(
     responses={
         200: {
             "description": "基础bot列表",
-            "model": list[resp_models.BasicBotRespBody],
+            "model": resp_models.BasicRespBody[list[resp_models.BasicBotRespBody]],
         }
     },
 )
@@ -290,15 +319,17 @@ async def _(
     try:
         bot_list = await poe.client.get_basic_bot_list()
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return JSONResponse(bot_list, 200)
+    return response_200(bot_list)
 
 
 @router.post(
     "/uploadSource",
     summary="上传自定义bot引用的资源",
-    responses={200: {"model": resp_models.UploadSourceRespBody}},
+    responses={
+        200: {"model": resp_models.BasicRespBody[resp_models.UploadSourceRespBody]}
+    },
 )
 async def _(
     sourceType: str = Form(description="text 或 file"),
@@ -320,15 +351,17 @@ async def _(
     try:
         source_data = await poe.client.upload_knowledge_source(_data, files)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return source_data
+    return response_200(source_data)
 
 
 @router.get(
     "/getTextSource/{sourceId}",
     summary="获取bot引用资源内容用于修改（仅限文本）",
-    responses={200: {"model": resp_models.GetTextSourceRespBody}},
+    responses={
+        200: {"model": resp_models.BasicRespBody[resp_models.GetTextSourceRespBody]}
+    },
 )
 async def _(
     sourceId: int = Path(description="文本资源id", example=2380421),
@@ -337,17 +370,16 @@ async def _(
     try:
         source_data = await poe.client.get_text_knowledge_source(sourceId)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return source_data
+    return response_200(source_data)
 
 
 @router.post(
     "/editTextSource",
     summary="编辑bot引用资源（仅限文本）",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "修改成功"},
+        200: {"description": "修改成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -367,9 +399,9 @@ async def _(
             body.sourceId, body.title, body.content
         )
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return Response(status_code=204)
+    return response_200()
 
 
 @router.post(
@@ -377,8 +409,7 @@ async def _(
     summary="创建自定义bot",
     description="sourceIds可以空着",
     responses={
-        200: {"description": "无相关响应"},
-        204: {"description": "创建成功"},
+        200: {"description": "创建成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -404,12 +435,10 @@ async def _(
         date_string = strftime(
             "%Y-%m-%d %H:%M:%S", localtime(await User.get_expire_date(user) / 1000)
         )
-        return JSONResponse(
-            {"code": 2009, "msg": f"你的账号授权已于{date_string}过期，无法对话"}, 402
-        )
+        return response_400(2009, f"你的账号授权已于{date_string}过期，无法对话")
 
     if await Bot.bot_exist(user, body.botName):
-        return JSONResponse({"code": 2001, "msg": "已经有相同名字的bot"}, 402)
+        return response_400(2001, "已经有相同名字的bot")
 
     try:
         # 创建bot
@@ -422,7 +451,7 @@ async def _(
             body.sourceIds,
         )
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     await Bot.add_bot(
         user,
@@ -436,13 +465,15 @@ async def _(
         f"用户 {user} 添加自定义bot {body.botName}（{bot_info['botHandle']}）"
     )
 
-    return Response(status_code=204)
+    return response_200()
 
 
 @router.get(
     "/editBot/{botName}",
     summary="获取待编辑bot信息",
-    responses={200: {"model": resp_models.GetEditBotRespBody}},
+    responses={
+        200: {"model": resp_models.BasicRespBody[resp_models.GetEditBotRespBody]}
+    },
 )
 async def _(
     botName: str = Path(description="bot名称", example="CatBot"),
@@ -454,9 +485,9 @@ async def _(
     try:
         edit_bot_info = await poe.client.get_edit_bot_info(bot_handle)
     except Exception as e:
-        return handle_exception(repr(e))
-    # todo bot_info未筛选
-    return JSONResponse(edit_bot_info, 200)
+        return response_500(repr(e))
+
+    return response_200(edit_bot_info)
 
 
 @router.post(
@@ -464,12 +495,7 @@ async def _(
     summary="修改自定义bot信息",
     description="addSourceIds 和 removeSourceIds 如果不变就空着",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "修改成功",
-        },
+        200: {"description": "修改成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -493,14 +519,13 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    # todo 自定义bot不能重名
 
     bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
     if bot_type != "自定义":
-        return JSONResponse({"code": 2001, "msg": "只能修改自定义bot"}, 402)
+        return response_400(2001, "只能修改自定义bot")
 
     if botName != body.botName and await Bot.bot_exist(user, body.botName):
-        return JSONResponse({"code": 2001, "msg": "已经有相同名字的bot"}, 402)
+        return response_400(2001, "已经有相同名字的bot")
 
     try:
         # 获取bot信息
@@ -516,23 +541,18 @@ async def _(
             body.removeSourceIds,
         )
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     await Bot.update_botName(user, body.botId, body.botName)
 
-    return Response(status_code=204)
+    return response_200()
 
 
 @router.delete(
     "/bot/{botName}",
     summary="删除bot",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "删除成功",
-        },
+        200: {"description": "删除成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -547,7 +567,7 @@ async def _(
             await poe.client.delete_chat(row[0], row[6])
             await Chat.delete_chat(user, row[0])
         except Exception as e:
-            return handle_exception(repr(e))
+            return response_500(repr(e))
 
     # 判断是否为自定义bot，如果是需要替换handle，handle为真实名称，并删除
     try:
@@ -555,7 +575,7 @@ async def _(
         if bot_type == "自定义":
             await poe.client.delete_bot(bot_handle, bot_id)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     await Bot.remove_bot(user, botName)
 
@@ -563,40 +583,15 @@ async def _(
         botName += f"（{bot_handle}）"
 
     user_action.info(f"用户 {user} 删除bot {botName}")
-    return Response(status_code=204)
+
+    return response_200()
 
 
 @router.get(
     "/bot/{botName}",
     summary="查看bot信息",
     responses={
-        200: {
-            "description": """
-allowImage和allowFile 指是否支持图片或文件上传<br>
-uploadFileSizeLimit 指文件上传大小限制，50000000就是50MB<br>
-price 是每次对话需要的积分<br>
-remainTalkTimes 是剩余积分可与这个bot的对话次数<br>
-added 指是否已经添加到我的bot里""",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "botName": "ChatGPT",
-                        "botId": 3004,
-                        "botHandle": "chinchilla",
-                        "description": "这个是GPT3.5",
-                        "allowImage": True,
-                        "allowFile": True,
-                        "uploadFileSizeLimit": 50000000,
-                        "imgUrl": "https://xxx",
-                        "price": 20,
-                        "remainTalkTimes": 66,
-                        "botType": "官方/第三方/自定义",
-                        "added": True,
-                        "canAccess": True,
-                    }
-                }
-            },
-        },
+        200: {"model": resp_models.BasicRespBody[resp_models.GetBotInfoRespBody]}
     },
 )
 async def _(
@@ -616,7 +611,7 @@ async def _(
     try:
         bot_info = await poe.client.get_bot_info(botName)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     # 如果为自定义bot，返回要改回去用户设置的botName
     if custom_bot_displayname:
@@ -628,7 +623,7 @@ async def _(
     remain_points = await User.get_remain_points(user)
     bot_info["remainTalkTimes"] = int(remain_points / bot_info["price"])
 
-    return JSONResponse(bot_info, 200)
+    return response_200(bot_info)
 
 
 @router.get(
@@ -637,28 +632,7 @@ async def _(
     responses={
         200: {
             "description": "会话列表",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "chatCode": "abc23kjkwei",
-                            "title": "会话1",
-                            "bot": "ChatGPT",
-                            "imgUrl": "https://xxx",
-                            "lastTalkTime": 1719676800000,
-                            "disable": 0,
-                        },
-                        {
-                            "chatCode": "werwea123sda",
-                            "title": "会话2",
-                            "bot": "ChatGPT",
-                            "imgUrl": "https://xxx",
-                            "lastTalkTime": 1719676800000,
-                            "disable": 0,
-                        },
-                    ]
-                }
-            },
+            "model": resp_models.BasicRespBody[list[resp_models.ChatRespBody]],
         },
     },
 )
@@ -676,11 +650,11 @@ async def _(
             "bot": row[2],
             "imgUrl": row[3],
             "lastTalkTime": row[4],
-            "disable": row[5],
+            "disable": True if row[5] else False,
         }
         for row in _rows
     ]
-    return JSONResponse(chat_list, 200)
+    return response_200(chat_list)
 
 
 @router.get(
@@ -689,55 +663,10 @@ async def _(
     responses={
         200: {
             "description": """
-botInfo跟bot详细信息一样，只有cursor为0才返回<br>
-attachments 是附件，如文件<br>
+botInfo只有cursor为0才返回<br>
+attachments 是附件<br>
 chat_break 指使用了清空上下文""",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "botInfo": {
-                            "botName": "ChatGPT",
-                            "botId": 3004,
-                            "botHandle": "chinchilla",
-                            "description": "这个是GPT3.5",
-                            "allowImage": True,
-                            "allowFile": True,
-                            "uploadFileSizeLimit": 50000000,
-                            "imgUrl": "https://xxx",
-                            "price": 20,
-                            "botType": "官方",
-                            "canAccess": True,
-                        },
-                        "historyNodes": [
-                            {
-                                "messageId": 2692997857,
-                                "creationTime": 1692964266475260,
-                                "text": "总结这份文件",
-                                "attachments": [],
-                                "author": "human",
-                            },
-                            {
-                                "messageId": 2692997880,
-                                "creationTime": 1692964266638975,
-                                "text": "好的，内容XXX",
-                                "attachments": [],
-                                "author": "bot",
-                            },
-                            {
-                                "messageId": 2692997880,
-                                "creationTime": 1692964266638975,
-                                "text": "",
-                                "attachments": [],
-                                "author": "chat_break",
-                            },
-                        ],
-                        "pageInfo": {
-                            "hasPreviousPage": True,
-                            "startCursor": "2692997857",
-                        },
-                    }
-                }
-            },
+            "model": resp_models.BasicRespBody[resp_models.ChatInfoRespBody],
         },
     },
 )
@@ -751,26 +680,21 @@ async def _(
         botName, chatId, title = await Chat.get_chat_info(user, chatCode)
         chat_info = await poe.client.get_chat_info(chatCode, chatId, cursor)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     # 判断是否为自定义bot，如果是需要替换handle为用户设置的名称
     bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
     if bot_type == "自定义":
         chat_info["botInfo"]["botName"] = botName
 
-    return JSONResponse(chat_info, 200)
+    return response_200(chat_info)
 
 
 @router.post(
     "/titleUpdate/{chatCode}",
     summary="修改会话标题",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "修改成功",
-        },
+        200: {"description": "修改成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -786,7 +710,8 @@ async def _(
 ):
     user = user_data["user"]
     await Chat.update_title(user, chatCode, body.title)
-    return Response(status_code=204)
+
+    return response_200()
 
 
 @router.post(
@@ -795,27 +720,20 @@ async def _(
     responses={
         200: {
             "description": """
-消息类型type有5种<br/>
-1. newChat （新建会话，需要跳转到对话页面）<br/>
-    data例子 {"chatCode": XXXYYY, "botInfo": [巴拉巴拉]} botInfo参考接口《查看bot信息》的响应 <br/>
-2. humanMessageCreated （问题id、时间）<br/>
-    data例子 {"messageId": 205457903902, "creationTime": 17192415022112113, "text": "", "attachments": [], "author": "human"} <br/>
-3. botMessageCreated （回答id、时间）<br/>
-    data例子 {"messageId": 205457903903, "creationTime": 1719241503367779, "text": "", "attachments": [], "author": "bot"} <br/>
-4. botMessageAdded （回答内容）<br/>
-    data例子 {"state": "incomplete/complete/cancelled", "text": "回答的内容"} <br/>
-5. chatTitleUpdated （会话标题，只有新会话才有）<br/>
-    data例子 {"title": "标题"} <br/>
-7. talkError （回答出错）<br/>
-    data例子 {"err_msg": "错误原因"} """,
-            "content": {
-                "application/json": {
-                    "example": {
-                        "type": "消息类型",
-                        "data": "回答内容",
-                    },
-                }
-            },
+消息类型type有6种<br/>
+1. newChat -- 新建会话，需要跳转到对话页面 <br/>
+<br/>
+2. humanMessageCreated -- 问题id、时间 <br/>
+<br/>
+3. botMessageCreated -- 回答id、时间 <br/>
+<br/>
+4. botMessageAdded -- 回答内容<br/>
+<br/>
+5. chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
+<br/>
+6. talkError -- 回答出错 <br/>
+""",
+            "model": resp_models.BasicRespBody[resp_models.TalkRespBody],
         }
     },
 )
@@ -839,7 +757,7 @@ async def _(
         try:
             bot_info = await poe.client.get_bot_info(botName)
         except Exception as e:
-            return handle_exception(repr(e))
+            return response_500(repr(e))
         await Bot.add_bot(
             user,
             botName,
@@ -874,7 +792,7 @@ async def _(
             bot_handle, chatId, question, price, file_list
         )
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     new_chat = False
     if chatCode == "0":
@@ -919,15 +837,21 @@ async def _(
     description="messageId是要重新回答的id，price是这个bot的所需积分",
     responses={
         200: {
-            "description": "跟发送问题的响应一样",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "type": "消息类型",
-                        "data": "回答内容",
-                    },
-                }
-            },
+            "description": """
+消息类型type有6种<br/>
+1. newChat -- 新建会话，需要跳转到对话页面 <br/>
+<br/>
+2. humanMessageCreated -- 问题id、时间 <br/>
+<br/>
+3. botMessageCreated -- 回答id、时间 <br/>
+<br/>
+4. botMessageAdded -- 回答内容<br/>
+<br/>
+5. chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
+<br/>
+6. talkError -- 回答出错 <br/>
+""",
+            "model": resp_models.BasicRespBody[resp_models.TalkRespBody],
         }
     },
 )
@@ -954,7 +878,7 @@ async def _(
     try:
         await poe.client.answer_again(chatCode, messageId, price)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     botName, chatId, title = await Chat.get_chat_info(user, chatCode)
 
@@ -979,12 +903,7 @@ async def _(
     summary="停止回答",
     description="写要停止回答的messageId",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "停止成功",
-        },
+        200: {"description": "停止成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -1001,9 +920,9 @@ async def _(
     try:
         await poe.client.talk_stop(chatCode, body.messageId)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return Response(status_code=204)
+    return response_200()
 
 
 @router.delete(
@@ -1011,18 +930,8 @@ async def _(
     summary="清除上下文记忆",
     responses={
         200: {
-            "description": "响应的数据是chat_break的数据",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "messageId": 2692997880,
-                        "creationTime": 1692964266638975,
-                        "text": "",
-                        "attachments": [],
-                        "author": "chat_break",
-                    },
-                }
-            },
+            "description": "响应一个消息节点，author为chat_break",
+            "model": resp_models.BasicRespBody[resp_models.MessageNodeRespBody],
         }
     },
 )
@@ -1036,21 +945,16 @@ async def _(
     try:
         data = await poe.client.send_chat_break(chatCode, chatId)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
-    return JSONResponse(data, 200)
+    return response_200(data)
 
 
 @router.delete(
     "/chat/{chatCode}",
     summary="删除会话",
     responses={
-        200: {
-            "description": "无相关响应",
-        },
-        204: {
-            "description": "删除成功",
-        },
+        200: {"description": "删除成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
@@ -1062,8 +966,9 @@ async def _(
     try:
         await poe.client.delete_chat(chatCode, chatId)
     except Exception as e:
-        return handle_exception(repr(e))
+        return response_500(repr(e))
 
     await Chat.delete_chat(user, chatCode)
     user_action.info(f"用户 {user} 删除会话 bot{botName} 会话{chatCode}")
-    return Response(status_code=204)
+
+    return response_200()
