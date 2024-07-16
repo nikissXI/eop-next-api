@@ -1,9 +1,9 @@
+from enum import Enum
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 from services.poe_lib.type import (
     BotMessageAdded,
-    BotMessageCreated,
     ChatTitleUpdated,
     TalkError,
 )
@@ -52,9 +52,8 @@ class UserInfoRespBody(BaseModel):
         title="每月积分",
         examples=[2000],
     )
-    isAdmin: int = Field(
+    isAdmin: bool = Field(
         title="是否为管理员",
-        examples=[0, 1],
     )
     resetDate: int = Field(
         title="重置积分时间",
@@ -77,6 +76,12 @@ class Category(BaseModel):
     )
 
 
+class BotType(Enum):
+    offical = "官方"
+    third_part = "第三方"
+    customize = "自定义"
+
+
 class Bot(BaseModel):
     model: str = Field(
         title="bot名称",
@@ -90,12 +95,11 @@ class Bot(BaseModel):
         title="描述",
         examples=["由gpt-3.5-turbo驱动。", "练习时长两年半"],
     )
-    botType: str = Field(
+    botType: BotType = Field(
         title="bot类型",
-        examples=["官方", "第三方", "自定义"],
     )
     monthlyActive: int = Field(
-        title="每月使用用户",
+        title="每月使用用户，官方bot都是0",
         examples=[0, 111],
     )
 
@@ -107,7 +111,6 @@ class BotListPageInfo(BaseModel):
     )
     hasNextPage: bool = Field(
         title="是否有下一页",
-        examples=[True, False],
     )
 
 
@@ -141,9 +144,8 @@ class UserBotRespBody(BaseModel):
         title="bot头像链接",
         examples=["https://xxx/bot.jpg"],
     )
-    botType: str = Field(
+    botType: BotType = Field(
         title="bot类型",
-        examples=["官方", "第三方", "自定义"],
     )
 
 
@@ -166,7 +168,6 @@ class BasicBotRespBody(BaseModel):
     )
     isImageGen: bool = Field(
         title="是否为图像生成模型",
-        examples=[True, False],
     )
 
 
@@ -192,14 +193,18 @@ class GetTextSourceRespBody(BaseModel):
     )
 
 
+class SourceType(Enum):
+    text_type = "text"
+    file_type = "file"
+
+
 class SourceBody(BaseModel):
     sourceId: int = Field(
         title="资源id",
         examples=[2413096],
     )
-    sourceType: str = Field(
+    sourceType: SourceType = Field(
         title="资源类型",
-        examples=["text", "file"],
     )
     title: str = Field(
         title="资源名称",
@@ -277,11 +282,9 @@ class GetBotInfoRespBody(BaseModel):
     )
     allowImage: bool = Field(
         title="是否允许发送图片",
-        examples=[True, False],
     )
     allowFile: bool = Field(
         title="是否允许发送文件",
-        examples=[True, False],
     )
     uploadFileSizeLimit: int = Field(
         title="上传的附件大小上限（50MB）",
@@ -299,17 +302,14 @@ class GetBotInfoRespBody(BaseModel):
         title="剩余积分还可以对话多少次",
         examples=[66],
     )
-    botType: str = Field(
+    botType: BotType = Field(
         title="bot类型",
-        examples=["官方", "第三方", "自定义"],
     )
     added: bool = Field(
-        title="用户是否添加到我的bot",
-        examples=[True, False],
+        title="用户是否已添加到我的bot",
     )
     canAccess: bool = Field(
         title="该bot是否可用",
-        examples=[True, False],
     )
 
 
@@ -336,7 +336,6 @@ class ChatRespBody(BaseModel):
     )
     disable: bool = Field(
         title="会话是否禁用",
-        examples=[True, False],
     )
 
 
@@ -359,11 +358,9 @@ class BotInfo(BaseModel):
     )
     allowImage: bool = Field(
         title="是否允许发送图片",
-        examples=[True, False],
     )
     allowFile: bool = Field(
         title="是否允许发送文件",
-        examples=[True, False],
     )
     uploadFileSizeLimit: int = Field(
         title="上传的附件大小上限（50MB）",
@@ -377,13 +374,11 @@ class BotInfo(BaseModel):
         title="对话消耗积分",
         examples=[20],
     )
-    botType: str = Field(
+    botType: BotType = Field(
         title="bot类型",
-        examples=["官方", "第三方", "自定义"],
     )
     canAccess: bool = Field(
         title="该bot是否可用",
-        examples=[True, False],
     )
 
 
@@ -398,6 +393,12 @@ class Attachments(BaseModel):
             "https://pfst.cf2.poecdn.net/base/text/0723b69e0a0c72fdb2885f3c072c0706169f07c8b2bff3d57552e40a92e89d14?pmaid=113715453"
         ],
     )
+
+
+class Author(Enum):
+    human_author = "human"
+    bot_author = "bot"
+    chat_break_author = "chat_break"
 
 
 class MessageNodeRespBody(BaseModel):
@@ -416,16 +417,14 @@ class MessageNodeRespBody(BaseModel):
     attachments: list[Attachments] = Field(
         title="附件列表",
     )
-    author: str = Field(
+    author: Author = Field(
         title="作者",
-        examples=["human", "bot", "chat_break"],
     )
 
 
 class ChatPageInfo(BaseModel):
     hasPreviousPage: bool = Field(
         title="是否前一页",
-        examples=[True, False],
     )
     startCursor: str = Field(
         title="翻页游标",

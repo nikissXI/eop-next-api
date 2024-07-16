@@ -172,7 +172,7 @@ async def _(user_data: dict = Depends(verify_token)):
             "user": user_info.user,
             "remainPoints": user_info.remain_points,
             "monthPoints": user_info.month_points,
-            "isAdmin": user_info.admin,
+            "isAdmin": True if user_info.admin else False,
             "resetDate": user_info.reset_date,
             "expireDate": user_info.expire_date,
         },

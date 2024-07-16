@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -35,9 +36,8 @@ class UserInfoRespBody(BaseModel):
         title="每月积分",
         examples=[2000],
     )
-    isAdmin: int = Field(
+    isAdmin: bool = Field(
         title="是否为管理员",
-        examples=[0, 1],
     )
     resetDate: int = Field(
         title="重置积分时间",
@@ -75,6 +75,11 @@ class ConfigRespBody(BaseModel):
     )
 
 
+class PlanType(Enum):
+    yearly = "yearly"
+    monthly = "monthly"
+
+
 class AccountRespBody(BaseModel):
     email: str = Field(
         title="email",
@@ -82,9 +87,8 @@ class AccountRespBody(BaseModel):
     )
     subscriptionActivated: bool = Field(
         title="是否购买订阅",
-        examples=[True, False],
     )
-    planType: str | None = Field(
+    planType: PlanType | None = Field(
         title="订阅计划，没订阅的话该值为None",
         examples=["monthly", "yearly"],
     )

@@ -26,8 +26,8 @@ class AddUserReqBody(BaseModel):
     monthPoints: int = Field(
         title="每月可用积分",
     )
-    admin: int = Field(
-        title="是否为管理员：1是，0否",
+    admin: bool = Field(
+        title="是否为管理员",
     )
     months: int = Field(
         title="有效期多少个月",
@@ -44,8 +44,8 @@ class RenewUserReqBody(BaseModel):
     monthPoints: int = Field(
         title="每月可用积分",
     )
-    admin: int = Field(
-        title="是否为管理员：1是，0否",
+    admin: bool = Field(
+        title="是否为管理员",
     )
     addMonths: int = Field(
         title="有效期增加多少个月，0就是不变",

@@ -56,7 +56,7 @@ async def _(
                 "user": _user.user,
                 "remainPoints": _user.remain_points,
                 "monthPoints": _user.month_points,
-                "isAdmin": _user.admin,
+                "isAdmin": True if _user.admin else False,
                 "resetDate": _user.reset_date,
                 "expireDate": _user.expire_date,
             }
@@ -79,7 +79,7 @@ async def _(
                 "user": "username",
                 "passwd": "sha256 Password",
                 "monthPoints": 2000,
-                "admin": 0,
+                "admin": False,
                 "months": 2,
             }
         ],
@@ -93,8 +93,8 @@ async def _(
         body.user,
         body.passwd,
         body.monthPoints,
-        body.admin,
-        666 if body.admin == 1 else body.months,
+        1 if body.admin else 0,
+        666 if body.admin else body.months,
     )
 
     return response_200()
@@ -151,7 +151,7 @@ async def _(
                 "user": "user_name",
                 "remainPoints": 1000,
                 "monthPoints": 2000,
-                "admin": 0,
+                "admin": False,
                 "addMonths": 3,
             }
         ],
@@ -171,7 +171,7 @@ async def _(
             "user": user_info.user,
             "remainPoints": user_info.remain_points,
             "monthPoints": user_info.month_points,
-            "isAdmin": user_info.admin,
+            "isAdmin": 1 if user_info.admin else 0,
             "resetDate": user_info.reset_date,
             "expireDate": user_info.expire_date,
         },
