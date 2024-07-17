@@ -69,7 +69,10 @@ async def _(
     summary="添加新用户",
     description="密码使用sha256加密，months就是有效期多少个月",
     responses={
-        200: {"description": "增加成功", "model": resp_models.BasicRespBody[None]},
+        200: {
+            "description": "增加成功",
+            "model": resp_models.BasicRespBody[resp_models.UserInfoRespBody],
+        }
     },
 )
 async def _(
@@ -79,7 +82,7 @@ async def _(
                 "user": "username",
                 "passwd": "sha256 Password",
                 "monthPoints": 2000,
-                "admin": False,
+                "isAdmin": False,
                 "months": 2,
             }
         ],
@@ -93,11 +96,22 @@ async def _(
         body.user,
         body.passwd,
         body.monthPoints,
-        1 if body.admin else 0,
-        666 if body.admin else body.months,
+        1 if body.isAdmin else 0,
+        666 if body.isAdmin else body.months,
     )
 
-    return response_200()
+    user_info = await User.get_info(body.user)
+
+    return response_200(
+        {
+            "user": user_info.user,
+            "remainPoints": user_info.remain_points,
+            "monthPoints": user_info.month_points,
+            "isAdmin": 1 if user_info.admin else 0,
+            "resetDate": user_info.reset_date,
+            "expireDate": user_info.expire_date,
+        },
+    )
 
 
 @router.delete(
@@ -141,7 +155,7 @@ async def _(
 @router.post(
     "/user/update",
     summary="更新用户信息",
-    description="admin字段，0是普通用户，1是管理员；addMonths是续多少个月，0就是不变",
+    description="isAdmin字段，0是普通用户，1是管理员；addMonths是续多少个月，0就是不变",
     responses={200: {"model": resp_models.BasicRespBody[resp_models.UserInfoRespBody]}},
 )
 async def _(
@@ -151,7 +165,7 @@ async def _(
                 "user": "user_name",
                 "remainPoints": 1000,
                 "monthPoints": 2000,
-                "admin": False,
+                "isAdmin": False,
                 "addMonths": 3,
             }
         ],
@@ -161,7 +175,7 @@ async def _(
     if not await User.user_exist(body.user):
         return JSONResponse({"code": 2001, "msg": "用户不存在"}, 402)
     await User.update_info(
-        body.user, body.remainPoints, body.monthPoints, body.admin, body.addMonths
+        body.user, body.remainPoints, body.monthPoints, body.isAdmin, body.addMonths
     )
 
     user_info = await User.get_info(body.user)
