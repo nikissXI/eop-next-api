@@ -20,9 +20,9 @@ from ujson import dump, dumps, load, loads
 from utils.tool_util import debug_logger, logger
 
 from .type import (
-    ChatTitleUpdated,
     BotMessageAdded,
     BotMessageCreated,
+    ChatTitleUpdated,
     RefetchChannel,
     ServerError,
     TalkError,
