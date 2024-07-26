@@ -465,8 +465,14 @@ class DataType(Enum):
     talkError = "talkError"
 
 
+class DataContent(Enum):
+    NewChat = NewChat
+    MessageNodeRespBody = MessageNodeRespBody
+    BotMessageAdded = BotMessageAdded
+    ChatTitleUpdated = ChatTitleUpdated
+    TalkError = TalkError
+
+
 class TalkRespBody(BaseModel):
     dataType: DataType = Field(title="数据类型")
-    dataContent: (
-        NewChat | MessageNodeRespBody | BotMessageAdded | ChatTitleUpdated | TalkError
-    ) = Field(title="数据内容")
+    dataContent: DataContent = Field(title="数据内容")

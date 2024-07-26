@@ -615,7 +615,10 @@ async def _(
 
     # 计算可对话次数
     remain_points = await User.get_remain_points(user)
-    bot_info["remainTalkTimes"] = int(remain_points / bot_info["price"])
+    if bot_info["price"]:
+        bot_info["remainTalkTimes"] = int(remain_points / bot_info["price"])
+    else:
+        bot_info["remainTalkTimes"] = 0
 
     return response_200(bot_info)
 
