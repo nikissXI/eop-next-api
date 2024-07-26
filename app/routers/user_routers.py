@@ -421,7 +421,7 @@ async def _(
                 "baseBotModel": "chinchilla",
                 "description": "这是个猫娘",
                 "prompt": "You are the CatBot. You will try to respond to the user's questions, but you get easily distracted.",
-                "citeSource": True,
+                "citeSource": False,
                 "sourceIds": [2380421, 2380434],
             }
         ],
