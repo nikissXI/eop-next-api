@@ -137,6 +137,7 @@ def filter_basic_bot_info(_bot_list: list) -> list[dict]:
                 "botId": _bot_info["botId"],
                 "model": _bot_info["model"],
                 "isImageGen": _bot_info["isImageGen"],
+                "isVideoGen": _bot_info["isVideoGen"],
             }
         )
     return bot_list

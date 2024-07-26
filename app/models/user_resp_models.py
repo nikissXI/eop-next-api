@@ -169,6 +169,9 @@ class BasicBotRespBody(BaseModel):
     isImageGen: bool = Field(
         title="是否为图像生成模型",
     )
+    isVideoGen: bool = Field(
+        title="是否为视频生成模型",
+    )
 
 
 class UploadSourceRespBody(BaseModel):
@@ -453,20 +456,17 @@ class NewChat(BaseModel):
     )
 
 
+class DataType(Enum):
+    newChat = "newChat"
+    humanMessageCreated = "humanMessageCreated"
+    botMessageCreated = "botMessageCreated"
+    botMessageAdded = "botMessageAdded"
+    chatTitleUpdated = "chatTitleUpdated"
+    talkError = "talkError"
+
+
 class TalkRespBody(BaseModel):
-    data_type: str = Field(
-        title="数据类型",
-        examples=[
-            "newChat",
-            "humanMessageCreated",
-            "botMessageCreated",
-            "botMessageAdded",
-            "chatTitleUpdated",
-            "talkError",
-        ],
-    )
-    data_content: (
+    dataType: DataType = Field(title="数据类型")
+    dataContent: (
         NewChat | MessageNodeRespBody | BotMessageAdded | ChatTitleUpdated | TalkError
-    ) = Field(
-        title="数据内容",
-    )
+    ) = Field(title="数据内容")

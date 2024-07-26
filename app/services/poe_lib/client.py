@@ -915,6 +915,7 @@ class Poe_Client:
                         "apiKey": generate_random_handle(32),
                         "apiUrl": None,
                         "baseBotId": baseBotId,
+                        # "botCategory": 2,  # todo
                         "customMessageLimit": None,
                         "description": description,
                         "displayName": None,
@@ -936,6 +937,17 @@ class Poe_Client:
                 )
             except Exception as e:
                 raise Exception(f"创建bot失败: {repr(e)}")
+            try:
+                async with request(
+                    "GET",
+                    f"https://poe.com/_next/data/w4diyMjOxdjD6IZZxDJDt/{handle}.json?handle={handle}",
+                    headers=self.headers,
+                    timeout=ClientTimeout(5),
+                    proxy=self.proxy,
+                ) as response:
+                    status_code = response.status
+            except Exception as e:
+                pass
 
             poeBotCreate = result["data"]["poeBotCreate"]
             status = poeBotCreate["status"]

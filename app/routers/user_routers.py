@@ -80,7 +80,7 @@ async def ai_reply(
                     {
                         "code": 0,
                         "msg": "success",
-                        "data": {"data_type": data_type, "data_content": data},
+                        "data": {"dataType": data_type, "dataContent": data},
                     }
                 )
                 + "\n"
@@ -91,17 +91,11 @@ async def ai_reply(
     if new_chat:
         yield _yield_data(
             "newChat",
-            {
-                "chatCode": chatCode,
-                "botInfo": chat_data["botInfo"],
-            },
+            {"chatCode": chatCode, "botInfo": chat_data["botInfo"]},
         )
 
     # 用户的问题元数据
-    yield _yield_data(
-        "humanMessageCreated",
-        chat_data["messageNode"],
-    )
+    yield _yield_data("humanMessageCreated", chat_data["messageNode"])
 
     async for _data in poe.client.get_answer(chatId, messageId, new_chat):
         # bot的回答元数据
