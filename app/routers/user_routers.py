@@ -620,6 +620,9 @@ async def _(
     else:
         bot_info["remainTalkTimes"] = 0
 
+    if added:
+        bot_info["botType"] = bot_type
+
     return response_200(bot_info)
 
 

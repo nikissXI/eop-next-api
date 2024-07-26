@@ -106,7 +106,10 @@ def filter_bot_info(_bot_info: dict) -> dict:
         else:
             bot_type = "第三方"
     else:
-        bot_type = ""
+        if "OFFICIAL" in _bot_info["translatedBotTags"]:
+            bot_type = "官方"
+        else:
+            bot_type = "第三方"
 
     img_url = get_img_url(_bot_info["displayName"], _bot_info["picture"])
 
