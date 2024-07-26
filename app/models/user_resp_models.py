@@ -76,7 +76,7 @@ class Category(BaseModel):
     )
 
 
-class BotType(Enum):
+class BotType(str, Enum):
     offical = "官方"
     third_part = "第三方"
     customize = "自定义"
@@ -196,7 +196,7 @@ class GetTextSourceRespBody(BaseModel):
     )
 
 
-class SourceType(Enum):
+class SourceType(str, Enum):
     text_type = "text"
     file_type = "file"
 
@@ -398,7 +398,7 @@ class Attachments(BaseModel):
     )
 
 
-class Author(Enum):
+class Author(str, Enum):
     human_author = "human"
     bot_author = "bot"
     chat_break_author = "chat_break"
@@ -465,14 +465,8 @@ class DataType(Enum):
     talkError = "talkError"
 
 
-class DataContent(Enum):
-    NewChat = NewChat
-    MessageNodeRespBody = MessageNodeRespBody
-    BotMessageAdded = BotMessageAdded
-    ChatTitleUpdated = ChatTitleUpdated
-    TalkError = TalkError
-
-
 class TalkRespBody(BaseModel):
     dataType: DataType = Field(title="数据类型")
-    dataContent: DataContent = Field(title="数据内容")
+    dataContent: (
+        NewChat | MessageNodeRespBody | BotMessageAdded | ChatTitleUpdated | TalkError
+    ) = Field(title="数据内容")
