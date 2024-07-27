@@ -534,11 +534,11 @@ class Poe_Client:
             subscription_name = payload["subscription_name"]
             # 只要回答创建、生成、标题更新
             if subscription_name not in [
-                "messageCreated",
                 "messageAdded",
                 "chatTitleUpdated",
             ]:
                 if subscription_name not in [
+                    "messageCreated",
                     "messagePointLimitUpdated",
                     "viewerStateUpdated",
                     "messageCancelled",
