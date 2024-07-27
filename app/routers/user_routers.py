@@ -121,6 +121,7 @@ async def ai_reply(
                     "creationTime": _data.creationTime,
                     "text": _data.text,
                     "attachments": [],
+                    "author": "bot",
                 },
             )
 
