@@ -20,9 +20,9 @@ from ujson import dump, dumps, load, loads
 from utils.tool_util import debug_logger, logger
 
 from .type import (
-    BotMessageAdded,
-    BotMessageCreated,
+    BotMessageAdd,
     ChatTitleUpdated,
+    HumanMessageCreated,
     RefetchChannel,
     ServerError,
     TalkError,
@@ -554,23 +554,26 @@ class Poe_Client:
 
             _data = payload["data"][subscription_name]
             debug_logger.info(_data)
-            # 问题的消息数据
-            if subscription_name == "messageCreated":
-                data = BotMessageCreated(
-                    messageId=_data["messageId"],
-                    creationTime=_data["creationTime"],
-                )
-                # chat_code = _data["chat"]["chatCode"]
-                chat_id = _data["chat"]["chatId"]
-                # logger.warning(_data)
+            # # 问题的消息数据
+            # if subscription_name == "messageCreated":
+            #     data = HumanMessageCreated(
+            #         messageId=_data["messageId"],
+            #         creationTime=_data["creationTime"],
+            #     )
+            #     # chat_code = _data["chat"]["chatCode"]
+            #     chat_id = _data["chat"]["chatId"]
+            #     # logger.warning(_data)
             # bot的回答数据
-            elif subscription_name == "messageAdded":
+            if subscription_name == "messageAdded":
                 # 去掉空人类的问题、重置记忆
                 if payload["data"]["messageAdded"]["author"] in ["human", "chat_break"]:
                     continue
-                data = BotMessageAdded(
+                data = BotMessageAdd(
                     state=_data["state"],
+                    messageId=_data["messageId"],
+                    creationTime=_data["creationTime"],
                     text=_data["text"],
+                    attachments=[],
                 )
                 chat_id = int(payload["unique_id"][13:])
                 # logger.warning(_data)
@@ -709,7 +712,7 @@ class Poe_Client:
         - questionMessageId  问题的id
         - new_chat  是否为新会话
         """
-        get_MessageCreated = False
+        # get_MessageCreated = False
         timeout = 15
         # 创建接收回答的队列
         while True:
@@ -725,30 +728,30 @@ class Poe_Client:
                     yield TalkError(errMsg="获取回答超时")
                 return
 
-            # 需要先拿到 BotMessageCreated
-            if not get_MessageCreated:
-                # 如果不是 BotMessageCreated 就忽略（因为这个一定是新消息的第一个）
-                if not isinstance(data, BotMessageCreated):
-                    continue
+            # # 需要先拿到 BotMessageCreated
+            # if not get_MessageCreated:
+            #     # 如果不是 BotMessageCreated 就忽略（因为这个一定是新消息的第一个）
+            #     if not isinstance(data, BotMessageCreated):
+            #         continue
+            # # 检查没问题就改True
+            # get_MessageCreated = True
+
+            if isinstance(data, BotMessageAdd):
                 # 如果是旧的也忽略
                 if data.messageId < questionMessageId:
                     continue
-
-            # 检查没问题就改True
-            get_MessageCreated = True
-            # 输出数据
-            yield data
-
-            if isinstance(data, BotMessageAdded):
+                yield data
+                # 如果是完成了或取消了
                 if data.state != "incomplete":
                     # 如果不是新会话直接返回
                     if not new_chat:
                         return
                     # 减少timeout，等title更新
-                    timeout = 5
+                    timeout = 3
 
             # 如果新会话可能要更新title，在最后
             if isinstance(data, ChatTitleUpdated):
+                yield data
                 return
 
     async def answer_again(self, chatCode: str, messageId: int, price: int):

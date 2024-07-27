@@ -12,9 +12,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from services.jwt_auth import create_token, verify_token
 from services.poe_client import poe
 from services.poe_lib.type import (
-    BotMessageAdded,
-    BotMessageCreated,
+    BotMessageAdd,
     ChatTitleUpdated,
+    HumanMessageCreated,
     TalkError,
 )
 from ujson import dumps, loads
@@ -95,26 +95,33 @@ async def ai_reply(
         )
 
     # 用户的问题元数据
-    yield _yield_data("humanMessageCreated", chat_data["messageNode"])
+    yield _yield_data("humanMessageAdd", chat_data["messageNode"])
 
     async for _data in poe.client.get_answer(chatId, messageId, new_chat):
-        # bot的回答元数据
-        if isinstance(_data, BotMessageCreated):
-            yield _yield_data(
-                "botMessageCreated",
-                {
-                    "messageId": _data.messageId,
-                    "creationTime": _data.creationTime,
-                    "text": "",
-                    "attachments": [],
-                    "author": "bot",
-                },
-            )
+        # # bot的回答元数据
+        # if isinstance(_data, HumanMessageCreated):
+        #     yield _yield_data(
+        #         "botMessageAdd",
+        #         {
+        #             "messageId": _data.messageId,
+        #             "creationTime": _data.creationTime,
+        #             "text": "",
+        #             "attachments": [],
+        #             "author": "bot",
+        #         },
+        #     )
 
         # AI的回答
-        if isinstance(_data, BotMessageAdded):
+        if isinstance(_data, BotMessageAdd):
             yield _yield_data(
-                "botMessageAdded", {"state": _data.state, "text": _data.text}
+                "botMessageAdd",
+                {
+                    "state": _data.state,
+                    "messageId": _data.messageId,
+                    "creationTime": _data.creationTime,
+                    "text": _data.text,
+                    "attachments": [],
+                },
             )
 
         # 标题更新
@@ -720,18 +727,16 @@ async def _(
     responses={
         200: {
             "description": """
-消息类型type有6种<br/>
-1. newChat -- 新建会话，需要跳转到对话页面 <br/>
+消息类型type有5种<br/>
+newChat -- 新建会话，需要跳转到对话页面 <br/>
 <br/>
-2. humanMessageCreated -- 问题id、时间 <br/>
+humanMessageAdd -- 问题内容 <br/>
 <br/>
-3. botMessageCreated -- 回答id、时间 <br/>
+botMessageAdd -- 回答内容 <br/>
 <br/>
-4. botMessageAdded -- 回答内容<br/>
+chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
 <br/>
-5. chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
-<br/>
-6. talkError -- 回答出错 <br/>
+talkError -- 回答出错 <br/>
 """,
             "model": resp_models.BasicRespBody[resp_models.TalkRespBody],
         }
@@ -838,18 +843,14 @@ async def _(
     responses={
         200: {
             "description": """
-消息类型type有6种<br/>
-1. newChat -- 新建会话，需要跳转到对话页面 <br/>
+消息类型type有4种<br/>
+humanMessageAdd -- 问题内容 <br/>
 <br/>
-2. humanMessageCreated -- 问题id、时间 <br/>
+botMessageAdd -- 回答内容 <br/>
 <br/>
-3. botMessageCreated -- 回答id、时间 <br/>
+chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
 <br/>
-4. botMessageAdded -- 回答内容<br/>
-<br/>
-5. chatTitleUpdated -- 会话标题，只有新会话才有 <br/>
-<br/>
-6. talkError -- 回答出错 <br/>
+talkError -- 回答出错 <br/>
 """,
             "model": resp_models.BasicRespBody[resp_models.TalkRespBody],
         }

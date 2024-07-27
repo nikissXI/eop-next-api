@@ -2,11 +2,7 @@ from enum import Enum
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
-from services.poe_lib.type import (
-    BotMessageAdded,
-    ChatTitleUpdated,
-    TalkError,
-)
+from services.poe_lib.type import ChatTitleUpdated, TalkError
 
 DataT = TypeVar("DataT")
 
@@ -404,7 +400,16 @@ class Author(str, Enum):
     chat_break_author = "chat_break"
 
 
+class State(str, Enum):
+    incomplete = "incomplete"
+    complete = "complete"
+    cancelled = "cancelled"
+
+
 class MessageNodeRespBody(BaseModel):
+    state: State = Field(
+        title="消息状态",
+    )
     messageId: int = Field(
         title="消息id",
         examples=[2692997857],
@@ -458,15 +463,14 @@ class NewChat(BaseModel):
 
 class DataType(Enum):
     newChat = "newChat"
-    humanMessageCreated = "humanMessageCreated"
-    botMessageCreated = "botMessageCreated"
-    botMessageAdded = "botMessageAdded"
+    humanMessageAdd = "humanMessageAdd"
+    botMessageAdd = "botMessageAdd"
     chatTitleUpdated = "chatTitleUpdated"
     talkError = "talkError"
 
 
 class TalkRespBody(BaseModel):
     dataType: DataType = Field(title="数据类型")
-    dataContent: (
-        NewChat | MessageNodeRespBody | BotMessageAdded | ChatTitleUpdated | TalkError
-    ) = Field(title="数据内容")
+    dataContent: NewChat | MessageNodeRespBody | ChatTitleUpdated | TalkError = Field(
+        title="数据内容"
+    )
