@@ -681,6 +681,7 @@ class Poe_Client:
             chatCode = ""
             chatId = 0
         messageNode = {
+            "state": result["message"]["node"]["state"],
             "messageId": result["message"]["node"]["messageId"],
             "creationTime": result["message"]["node"]["creationTime"],
             "text": result["message"]["node"]["text"],
