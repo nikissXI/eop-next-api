@@ -819,6 +819,9 @@ async def _(
         new_chat = True
         # 把bot类型补上
         chat_data["botType"] = bot_type
+        # 如果是自定义bot需要替换botName
+        if bot_type == "自定义":
+            chat_data["botInfo"]["botName"] = botName
     # 获取消息id
     messageId = chat_data["messageNode"]["messageId"]
     # 减去用户积分
