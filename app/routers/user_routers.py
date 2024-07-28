@@ -124,6 +124,8 @@ async def ai_reply(
                     "author": "bot",
                 },
             )
+            if _data.state != "incomplete":
+                await Chat.update_last_content(user, chatCode, _data.text)
 
         # 标题更新
         if isinstance(_data, ChatTitleUpdated):
@@ -566,7 +568,7 @@ async def _(
     _rows = await Chat.get_user_chat(user, botName)
     for row in _rows:
         try:
-            await poe.client.delete_chat(row[0], row[6])
+            await poe.client.delete_chat(row[0], row[7])
             await Chat.delete_chat(user, row[0])
         except Exception as e:
             return response_500(repr(e))
@@ -658,7 +660,8 @@ async def _(
             "bot": row[2],
             "imgUrl": row[3],
             "lastTalkTime": row[4],
-            "disable": True if row[5] else False,
+            "lastContent": row[5],
+            "disable": True if row[6] else False,
         }
         for row in _rows
     ]

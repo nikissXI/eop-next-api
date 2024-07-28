@@ -131,7 +131,7 @@ async def _(
     _rows = await Chat.get_user_chat(user)
     for row in _rows:
         try:
-            await poe.client.delete_chat(row[0], row[6])
+            await poe.client.delete_chat(row[0], row[7])
         except Exception as e:
             return response_500(repr(e))
 

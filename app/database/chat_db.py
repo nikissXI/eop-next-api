@@ -13,6 +13,7 @@ class Chat(Model):
     botName = fields.TextField()
     img_url = fields.TextField()
     last_talk_time = fields.IntField()
+    last_content = fields.TextField()
     disable = fields.IntField(default=0)
 
     @classmethod
@@ -28,6 +29,7 @@ class Chat(Model):
             title=title,
             botName=botName,
             img_url=img_url,
+            last_content="",
             last_talk_time=current_timestamp,
         )
 
@@ -45,7 +47,7 @@ class Chat(Model):
     @classmethod
     async def get_user_chat(
         cls, user: str, botName: str = ""
-    ) -> list[tuple[str, str, str, str, str, int, int]]:
+    ) -> list[tuple[str, str, str, str, int, str, int, int]]:
         """获取用户的所有会话"""
         # 指定bot
         if botName:
@@ -55,6 +57,7 @@ class Chat(Model):
                 "botName",
                 "img_url",
                 "last_talk_time",
+                "last_content",
                 "disable",
                 "chat_id",
             )
@@ -65,6 +68,7 @@ class Chat(Model):
             "botName",
             "img_url",
             "last_talk_time",
+            "last_content",
             "disable",
             "chat_id",
         )
@@ -91,6 +95,13 @@ class Chat(Model):
             cls.filter(user=user, code=code)
             .limit(1)
             .update(last_talk_time=int(time() * 1000))
+        )
+
+    @classmethod
+    async def update_last_content(cls, user: str, code: str, last_content: str):
+        """更新最后对话内容"""
+        await (
+            cls.filter(user=user, code=code).limit(1).update(last_content=last_content)
         )
 
     @classmethod
