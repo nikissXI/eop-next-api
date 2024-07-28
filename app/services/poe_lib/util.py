@@ -86,7 +86,7 @@ def filter_bot_result(_edges: list) -> list[dict[str, str]]:
 
         bots.append(
             {
-                "name": botName,
+                "botName": botName,
                 "imgUrl": img_url,
                 "description": description,
                 "botType": bot_type,

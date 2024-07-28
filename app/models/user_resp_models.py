@@ -79,7 +79,7 @@ class BotType(str, Enum):
 
 
 class Bot(BaseModel):
-    model: str = Field(
+    botName: str = Field(
         title="bot名称",
         examples=["ChatGPT", "iKun"],
     )
