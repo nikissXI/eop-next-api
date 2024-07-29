@@ -1136,3 +1136,22 @@ class Poe_Client:
 
         if resp["data"] is None and resp["errors"]:
             raise Exception(f"bot {botName} 删除失败: {resp['errors'][0]['message']}")
+
+    async def remove_bot(self, botName: str, bot_id: int):
+        """
+        从bot列表移除
+
+        参数:
+        - botName bot名称
+        - bot_id bot id
+        """
+        try:
+            resp = await self.send_query(
+                "BotInfoCardActionBar_poeRemoveBotFromUserList_Mutation",
+                {"botId": bot_id},
+            )
+        except Exception as e:
+            raise Exception(f"bot {botName} 移除失败: {repr(e)}")
+
+        if resp["data"] is None and resp["errors"]:
+            raise Exception(f"bot {botName} 移除失败: {resp['errors'][0]['message']}")

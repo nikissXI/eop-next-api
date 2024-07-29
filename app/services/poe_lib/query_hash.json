@@ -1,5 +1,6 @@
 {
     "BotInfoCardActionBar_poeBotDelete_Mutation": "9694835e91866f461bd93a0469d29a3faeadde2aae9ff6bd658e3f4b48b93a33",
+    "BotInfoCardActionBar_poeRemoveBotFromUserList_Mutation": "e422a1cd201be724b2a4f0ce5d1ea82845f8a9099f8f17e698de0df15ed73b3c",
     "createBotIndexPageQuery": "503347f107f79d900dc79694071fead0152df03a49d0807219c3b3467e2118e6",
     "ChatListPaginationQuery": "f7555df859a9f49cd7c066f0f47e11e09122c3f08b805cf3f27bd9da31e3bc3f",
     "CreateBotMain_poeBotCreate_Mutation": "39d85c9ecc36bb1f91d219f1ad5520294bd757c1b1df65d00b3167acd214707b",

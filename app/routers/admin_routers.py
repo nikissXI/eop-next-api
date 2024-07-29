@@ -304,3 +304,30 @@ async def _(
         dump(body.subHash, w, indent=4)
 
     return response_200()
+
+
+# @router.delete(
+#     "/user/{botName}",
+#     summary="测试接口",
+#     responses={
+#         200: {"description": "删除成功", "model": resp_models.BasicRespBody[None]},
+#     },
+# )
+# async def _(
+#     botName: str = Path(description="botName", example="ChatGPT"),
+#     _verify: dict = Depends(verify_admin),
+# ):
+#     user = _verify["user"]
+#     # 判断是否为自定义bot，如果是需要替换handle，handle为真实名称，并删除
+#     try:
+#         bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
+#         if bot_type == "自定义":
+#             await poe.client.delete_bot(bot_handle, bot_id)
+
+#         if bot_type == "第三方":
+#             await poe.client.remove_bot(bot_handle, bot_id)
+
+#     except Exception as e:
+#         return response_500(repr(e))
+
+#     return response_200()

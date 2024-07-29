@@ -466,7 +466,7 @@ async def _(
         bot_info["botId"],
     )
     user_action.info(
-        f"用户 {user} 添加自定义bot {body.botName}（{bot_info['botHandle']}）"
+        f"用户 {user} 添加自定义bot {body.botName} {bot_info['botHandle']}"
     )
 
     return response_200()
@@ -578,6 +578,10 @@ async def _(
         bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
         if bot_type == "自定义":
             await poe.client.delete_bot(bot_handle, bot_id)
+
+        if bot_type == "第三方":
+            await poe.client.remove_bot(bot_handle, bot_id)
+
     except Exception as e:
         return response_500(repr(e))
 
