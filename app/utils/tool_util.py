@@ -77,12 +77,22 @@ class Filter404(logging.Filter):
         return "404" not in record.getMessage()
 
 
+class FilterOPTIONS(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "OPTIONS" not in record.getMessage()
+
+
 # Apply the custom filter to Uvicorn's access logger
 logging.getLogger("uvicorn.access").addFilter(Filter404())
+logging.getLogger("uvicorn.access").addFilter(FilterOPTIONS())
 
 
 class Custom404Middleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
+        # if request.method == "OPTIONS":
+        #     # Prevent logging for OPTIONS requests
+        #     return Response(status_code=200)
+
         response = await call_next(request)
         if response.status_code == 404:
             # Prevent logging for 404 responses
