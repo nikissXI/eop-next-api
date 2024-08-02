@@ -139,6 +139,9 @@ async def ai_reply(
             logger.error(
                 f"用户:{user}  {botName} ({botHandle})   chatCode:{chatCode}  {_data.errMsg}"
             )
+            user_action.info(
+                f"出错 用户:{user}  {botName} ({botHandle})   chatCode:{chatCode}  {_data.errMsg}"
+            )
 
 
 @router.post(
