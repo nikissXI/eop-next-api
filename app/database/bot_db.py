@@ -5,7 +5,7 @@ from .db import Model
 
 class Bot(Model):
     user = fields.TextField()  # 所属用户
-    name = fields.TextField()  # 模型名称
+    bot_name = fields.TextField()  # 模型名称
     img_url = fields.TextField()  # 模型头像链接
     bot_type = fields.TextField()  # 模型类型  官方  自定义   第三方
     bot_handle = fields.TextField()  # Bot handle，某些时候用 todo，如果用不上就删了
@@ -18,17 +18,17 @@ class Bot(Model):
     async def add_bot(
         cls,
         user: str,
-        name: str,
+        bot_name: str,
         img_url: str,
         bot_type: str,
         bot_handle: str,
         bot_id: int,
     ):
         """添加模型"""
-        if not await cls.bot_exist(user, name):
+        if not (await cls.filter(user=user, bot_handle=bot_handle).limit(1).exists()):
             await cls.create(
                 user=user,
-                name=name,
+                bot_name=bot_name,
                 img_url=img_url,
                 bot_type=bot_type,
                 bot_handle=bot_handle,
@@ -36,33 +36,45 @@ class Bot(Model):
             )
 
     @classmethod
-    async def bot_exist(cls, user: str, name: str) -> bool:
-        return await cls.filter(user=user, name=name).limit(1).exists()
+    async def bot_exist(cls, user: str, bot_handle: str) -> bool:
+        return await cls.filter(user=user, bot_handle=bot_handle).limit(1).exists()
 
     @classmethod
-    async def get_bot_info(cls, user: str, name: str) -> tuple[str, str, int]:
+    async def custom_bot_exist(cls, user: str, bot_name: str) -> bool:
+        return (
+            await cls.filter(user=user, bot_name=bot_name, bot_type="自定义")
+            .limit(1)
+            .exists()
+        )
+
+    @classmethod
+    async def get_bot_info(cls, user: str, bot_handle: str) -> tuple[str, str, int]:
         """获取bot信息"""
-        _user = await cls.get(user=user, name=name)
-        return _user.bot_type, _user.bot_handle, _user.bot_id
+        _bot = await cls.get(user=user, bot_handle=bot_handle)
+        return _bot.bot_type, _bot.bot_name, _bot.bot_id
 
     @classmethod
-    async def remove_bot(cls, user: str, name: str = ""):
+    async def remove_bot(cls, user: str, bot_handle: str = ""):
         """删除模型"""
-        if name:
+        if bot_handle:
             # 指定删哪个模型
-            await cls.filter(user=user, name=name).limit(1).delete()
+            await cls.filter(user=user, bot_handle=bot_handle).limit(1).delete()
         else:
             # 某用户的所有模型
             await cls.filter(user=user).delete()
 
     @classmethod
-    async def get_user_bot(cls, user: str) -> list[tuple[str, str, str, int]]:
+    async def get_user_bot(cls, user: str) -> list[tuple[str, str, str, int, str]]:
         """获取用户模型列表"""
         return await cls.filter(user=user).values_list(
-            "name", "img_url", "bot_type", "bot_id"
+            "bot_name", "img_url", "bot_type", "bot_id", "bot_handle"
         )
 
     @classmethod
-    async def update_botName(cls, user: str, bot_id: int, name: str):
+    async def update_bot_name(cls, user: str, bot_handle: str, bot_name: str):
         """更新botName"""
-        await cls.filter(user=user, bot_id=bot_id).limit(1).update(name=name)
+        await (
+            cls.filter(user=user, bot_handle=bot_handle)
+            .limit(1)
+            .update(bot_name=bot_name)
+        )

@@ -131,18 +131,22 @@ async def _(
     _rows = await Chat.get_user_chat(user)
     for row in _rows:
         try:
-            await poe.client.delete_chat(row[0], row[7])
+            await poe.client.delete_chat(row[0], row[8])
         except Exception as e:
             return response_500(repr(e))
 
     # 删除用户创建的bot
     _rows = await Bot.get_user_bot(user)
     for row in _rows:
-        if row[2] == "自定义":
-            try:
-                await poe.client.delete_bot(row[0], row[3])
-            except Exception as e:
-                return response_500(repr(e))
+        try:
+            if row[2] == "自定义":
+                await poe.client.delete_bot(row[4], row[3])
+
+            if row[2] == "第三方":
+                await poe.client.remove_bot(row[0], row[3])
+
+        except Exception as e:
+            return response_500(repr(e))
 
     await Chat.delete_chat(user)
     await Bot.remove_bot(user)

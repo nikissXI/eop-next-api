@@ -399,11 +399,13 @@ class Poe_Client:
                 "HandleBotLandingPageQuery",
                 {"botHandle": botName},
             )
-            bot_info = filter_bot_info(result["data"]["bot"])
-            return bot_info
+            if result["data"]["bot"]:
+                return filter_bot_info(result["data"]["bot"])
 
         except Exception as e:
             raise Exception(f"获取bot详细信息失败: {repr(e)}")
+
+        raise Exception("bot不存在（可能被删除了）")
 
     async def get_chat_info(self, chat_code: str, chat_id: int, cursor: str) -> dict:
         """
@@ -910,7 +912,7 @@ class Poe_Client:
         - sourceIds  要引用的资源id
         """
         while True:
-            handle = generate_random_handle(20)
+            handle = generate_random_handle(20).lower()
             try:
                 result = await self.send_query(
                     "CreateBotMain_poeBotCreate_Mutation",
@@ -970,15 +972,18 @@ class Poe_Client:
             "botId": bot_id,
         }
 
-    async def get_edit_bot_info(self, botName: str) -> dict:
+    async def get_edit_bot_info(self, botName: str, botHandle) -> dict:
         """
         获取待编辑bot信息
 
         参数:
         - botName  bot名称
+        - botHandle  bot Handle
         """
         try:
-            _bot_info = await self.send_query("get_edit_bot_info", {"botName": botName})
+            _bot_info = await self.send_query(
+                "get_edit_bot_info", {"botName": botHandle}
+            )
         except Exception as e:
             raise Exception(f"获取待编辑bot信息失败: {repr(e)}")
 

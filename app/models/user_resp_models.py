@@ -132,7 +132,7 @@ class SearchBotsRespBody(BaseModel):
 
 
 class UserBotRespBody(BaseModel):
-    name: str = Field(
+    botName: str = Field(
         title="bot名称",
         examples=["ChatGPT", "iKun"],
     )
@@ -142,6 +142,10 @@ class UserBotRespBody(BaseModel):
     )
     botType: BotType = Field(
         title="bot类型",
+    )
+    botHandle: str = Field(
+        title="bot handle",
+        examples=["1Fp4BqjkQKpmiSj5Taey"],
     )
 
 
@@ -215,6 +219,13 @@ class SourceBody(BaseModel):
     )
 
 
+class CreateBotBody(BaseModel):
+    botHandle: str = Field(
+        title="bot handle",
+        examples=["1Fp4BqjkQKpmiSj5Taey"],
+    )
+
+
 class CustomBotInfo(BaseModel):
     botName: str = Field(
         title="bot名称",
@@ -262,56 +273,6 @@ class GetEditBotRespBody(BaseModel):
     )
 
 
-class GetBotInfoRespBody(BaseModel):
-    botName: str = Field(
-        title="bot名称",
-        examples=["ChatGPT"],
-    )
-    botId: int = Field(
-        title="bot id",
-        examples=[3004],
-    )
-    botHandle: str = Field(
-        title="bot handle",
-        examples=["chinchilla"],
-    )
-    description: str = Field(
-        title="bot描述",
-        examples=["这个是GPT3.5"],
-    )
-    allowImage: bool = Field(
-        title="是否允许发送图片",
-    )
-    allowFile: bool = Field(
-        title="是否允许发送文件",
-    )
-    uploadFileSizeLimit: int = Field(
-        title="上传的附件大小上限（50MB）",
-        examples=[50000000],
-    )
-    imgUrl: str = Field(
-        title="bot头像链接",
-        examples=["https://xxx/bot.jpg"],
-    )
-    price: int = Field(
-        title="对话消耗积分",
-        examples=[20],
-    )
-    remainTalkTimes: int = Field(
-        title="剩余积分还可以对话多少次",
-        examples=[66],
-    )
-    botType: BotType = Field(
-        title="bot类型",
-    )
-    added: bool = Field(
-        title="用户是否已添加到我的bot",
-    )
-    canAccess: bool = Field(
-        title="该bot是否可用",
-    )
-
-
 class ChatRespBody(BaseModel):
     chatCode: str = Field(
         title="会话code",
@@ -321,9 +282,13 @@ class ChatRespBody(BaseModel):
         title="会话名称",
         examples=["会话1"],
     )
-    bot: str = Field(
+    botName: str = Field(
         title="bot名称",
         examples=["ChatGPT"],
+    )
+    botHandle: str = Field(
+        title="bot handle",
+        examples=["chinchilla"],
     )
     imgUrl: str = Field(
         title="bot头像链接",
@@ -379,6 +344,9 @@ class BotInfo(BaseModel):
     )
     botType: BotType = Field(
         title="bot类型",
+    )
+    added: bool = Field(
+        title="用户是否已添加到我的bot",
     )
     canAccess: bool = Field(
         title="该bot是否可用",

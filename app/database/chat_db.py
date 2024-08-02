@@ -10,7 +10,8 @@ class Chat(Model):
     chat_id = fields.IntField()
     user = fields.TextField()
     title = fields.TextField()
-    botName = fields.TextField()
+    bot_name = fields.TextField()
+    bot_handle = fields.TextField()
     img_url = fields.TextField()
     last_talk_time = fields.IntField()
     last_content = fields.TextField()
@@ -18,7 +19,14 @@ class Chat(Model):
 
     @classmethod
     async def new_chat(
-        cls, code: str, chat_id: int, user: str, title: str, botName: str, img_url: str
+        cls,
+        code: str,
+        chat_id: int,
+        user: str,
+        title: str,
+        bot_name: str,
+        bot_handle: str,
+        img_url: str,
     ):
         """新会话"""
         current_timestamp = int(time() * 1000)
@@ -27,17 +35,18 @@ class Chat(Model):
             chat_id=chat_id,
             user=user,
             title=title,
-            botName=botName,
+            bot_name=bot_name,
+            bot_handle=bot_handle,
             img_url=img_url,
             last_content="",
             last_talk_time=current_timestamp,
         )
 
     @classmethod
-    async def get_chat_info(cls, user: str, code: str) -> tuple[str, int, str]:
+    async def get_chat_info(cls, user: str, code: str) -> tuple[str, str, int, str]:
         """获取chat信息"""
         _chat = await cls.get(user=user, code=code)
-        return _chat.botName, _chat.chat_id, _chat.title
+        return _chat.bot_name, _chat.bot_handle, _chat.chat_id, _chat.title
 
     @classmethod
     async def chat_exist(cls, user: str, chat_code: str) -> bool:
@@ -46,15 +55,16 @@ class Chat(Model):
 
     @classmethod
     async def get_user_chat(
-        cls, user: str, botName: str = ""
-    ) -> list[tuple[str, str, str, str, int, str, int, int]]:
+        cls, user: str, bot_handle: str = ""
+    ) -> list[tuple[str, str, str, str, str, int, str, int, int]]:
         """获取用户的所有会话"""
         # 指定bot
-        if botName:
-            return await cls.filter(user=user, botName=botName).values_list(
+        if bot_handle:
+            return await cls.filter(user=user, bot_handle=bot_handle).values_list(
                 "code",
                 "title",
-                "botName",
+                "bot_name",
+                "bot_handle",
                 "img_url",
                 "last_talk_time",
                 "last_content",
@@ -65,7 +75,8 @@ class Chat(Model):
         return await cls.filter(user=user).values_list(
             "code",
             "title",
-            "botName",
+            "bot_name",
+            "bot_handle",
             "img_url",
             "last_talk_time",
             "last_content",

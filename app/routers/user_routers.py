@@ -65,8 +65,9 @@ async def reply_pre_check(user: str, chatCode: str, remain_points: int, price: i
 async def ai_reply(
     user: str,
     chatCode: str,
-    chatId: int,
+    chat_id: int,
     botName: str,
+    botHandle: str,
     messageId: int,
     chat_data: dict,
     new_chat: bool,
@@ -97,7 +98,7 @@ async def ai_reply(
     # 用户的问题元数据
     yield _yield_data("humanMessageAdd", chat_data["messageNode"])
 
-    async for _data in poe.client.get_answer(chatId, messageId, new_chat):
+    async for _data in poe.client.get_answer(chat_id, messageId, new_chat):
         # # bot的回答元数据
         # if isinstance(_data, HumanMessageCreated):
         #     yield _yield_data(
@@ -135,7 +136,9 @@ async def ai_reply(
         # 出错
         if isinstance(_data, TalkError):
             yield _yield_data("talkError", {"errMsg": _data.errMsg})
-            logger.error(f"用户:{user}  bot:{botName}  code:{chatCode}  {_data.errMsg}")
+            logger.error(
+                f"用户:{user}  {botName} ({botHandle})   chatCode:{chatCode}  {_data.errMsg}"
+            )
 
 
 @router.post(
@@ -267,9 +270,10 @@ async def _(user_data: dict = Depends(verify_token)):
     _rows = await Bot.get_user_bot(user_data["user"])
     bot_list = [
         {
-            "name": row[0],
+            "botName": row[0],
             "imgUrl": row[1],
             "botType": row[2],
+            "botHandle": row[4],
         }
         for row in _rows
     ]
@@ -413,7 +417,10 @@ async def _(
     summary="创建自定义bot",
     description="sourceIds可以空着",
     responses={
-        200: {"description": "创建成功", "model": resp_models.BasicRespBody[None]},
+        200: {
+            "description": "创建成功",
+            "model": resp_models.BasicRespBody[resp_models.CreateBotBody],
+        },
     },
 )
 async def _(
@@ -441,15 +448,17 @@ async def _(
         )
         return response_400(2009, f"你的账号授权已于{date_string}过期，无法对话")
 
-    if await Bot.bot_exist(user, body.botName):
-        return response_400(2001, "已经有相同名字的bot")
+    if await Bot.custom_bot_exist(user, body.botName):
+        return response_400(2001, "已经有相同名字的自定义bot")
 
     try:
         # 创建bot
         bot_info = await poe.client.create_bot(
             body.baseBotId,
             body.baseBotModel,
-            body.description,
+            body.description
+            if body.description
+            else f"由用户{user}创建的{body.botName}",
             body.prompt,
             body.citeSource,
             body.sourceIds,
@@ -469,25 +478,26 @@ async def _(
         f"用户 {user} 添加自定义bot {body.botName} {bot_info['botHandle']}"
     )
 
-    return response_200()
+    return response_200({"botHandle": bot_info["botHandle"]})
 
 
 @router.get(
-    "/editBot/{botName}",
+    "/editBot/{botHandle}",
     summary="获取待编辑bot信息",
     responses={
         200: {"model": resp_models.BasicRespBody[resp_models.GetEditBotRespBody]}
     },
 )
 async def _(
-    botName: str = Path(description="bot名称", example="CatBot"),
+    botHandle: str = Path(description="bot Handle", example="1Fp4BqjkQKpmiSj5Taey"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
 
     try:
-        edit_bot_info = await poe.client.get_edit_bot_info(bot_handle)
+        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botHandle)
+        # 自定义bot的时候是用bot Handle
+        edit_bot_info = await poe.client.get_edit_bot_info(bot_name, botHandle)
     except Exception as e:
         return response_500(repr(e))
 
@@ -495,7 +505,7 @@ async def _(
 
 
 @router.post(
-    "/editBot/{botName}",
+    "/editBot",
     summary="修改自定义bot信息",
     description="addSourceIds 和 removeSourceIds 如果不变就空着",
     responses={
@@ -503,7 +513,6 @@ async def _(
     },
 )
 async def _(
-    botName: str = Path(description="bot名称", example="CatBot"),
     body: req_models.EditBotReqBody = Body(
         examples=[
             {
@@ -524,12 +533,12 @@ async def _(
 ):
     user = user_data["user"]
 
-    bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
+    bot_type, bot_name, bot_id = await Bot.get_bot_info(user, body.botHandle)
     if bot_type != "自定义":
         return response_400(2001, "只能修改自定义bot")
 
-    if botName != body.botName and await Bot.bot_exist(user, body.botName):
-        return response_400(2001, "已经有相同名字的bot")
+    if bot_name != body.botName and await Bot.custom_bot_exist(user, body.botName):
+        return response_400(2001, "已经有相同名字的自定义bot")
 
     try:
         # 获取bot信息
@@ -547,101 +556,82 @@ async def _(
     except Exception as e:
         return response_500(repr(e))
 
-    await Bot.update_botName(user, body.botId, body.botName)
+    await Bot.update_bot_name(user, body.botHandle, body.botName)
 
     return response_200()
 
 
 @router.delete(
-    "/bot/{botName}",
+    "/bot/{botHandle}",
     summary="删除bot",
     responses={
         200: {"description": "删除成功", "model": resp_models.BasicRespBody[None]},
     },
 )
 async def _(
-    botName: str = Path(description="bot名称", example="ChatGPT"),
+    botHandle: str = Path(description="bot Handle", example="1Fp4BqjkQKpmiSj5Taey"),
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
     # 先删除这个bot下的会话
-    _rows = await Chat.get_user_chat(user, botName)
+    _rows = await Chat.get_user_chat(user, botHandle)
     for row in _rows:
         try:
-            await poe.client.delete_chat(row[0], row[7])
+            await poe.client.delete_chat(row[0], row[8])
             await Chat.delete_chat(user, row[0])
         except Exception as e:
             return response_500(repr(e))
 
-    # 判断是否为自定义bot，如果是需要替换handle，handle为真实名称，并删除
     try:
-        bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
+        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botHandle)
         if bot_type == "自定义":
-            await poe.client.delete_bot(bot_handle, bot_id)
+            await poe.client.delete_bot(botHandle, bot_id)
 
         if bot_type == "第三方":
-            await poe.client.remove_bot(bot_handle, bot_id)
+            await poe.client.remove_bot(bot_name, bot_id)
 
     except Exception as e:
         return response_500(repr(e))
 
-    await Bot.remove_bot(user, botName)
+    await Bot.remove_bot(user, botHandle)
 
-    if bot_type == "自定义":
-        botName += f"（{bot_handle}）"
-
-    user_action.info(f"用户 {user} 删除bot {botName}")
+    user_action.info(f"用户 {user} 删除bot {bot_name} {botHandle}")
 
     return response_200()
 
 
 @router.get(
     "/bot/{botName}",
-    summary="查看bot信息",
-    responses={
-        200: {"model": resp_models.BasicRespBody[resp_models.GetBotInfoRespBody]}
-    },
+    summary="查看bot信息（如果是自定义bot需要把botName改为botHandle）",
+    responses={200: {"model": resp_models.BasicRespBody[resp_models.BotInfo]}},
 )
 async def _(
     botName: str = Path(description="bot名称", example="ChatGPT"),
     user_data: dict = Depends(verify_token),
 ):
-    user = user_data["user"]
-    added = await Bot.bot_exist(user, botName)
-
-    # 判断是否为自定义bot，如果是需要替换handle，handle为真实名称
-    custom_bot_displayname = ""
-    if added:
-        bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
-        if bot_type == "自定义":
-            custom_bot_displayname = botName
-            botName = bot_handle
     try:
         bot_info = await poe.client.get_bot_info(botName)
     except Exception as e:
         return response_500(repr(e))
 
-    # 如果为自定义bot，返回要改回去用户设置的botName
-    if custom_bot_displayname:
-        bot_info["botName"] = custom_bot_displayname
-
+    user = user_data["user"]
+    added = await Bot.bot_exist(user, botName)
     bot_info["added"] = added
-
-    # 计算可对话次数
-    remain_points = await User.get_remain_points(user)
-    if bot_info["price"]:
-        bot_info["remainTalkTimes"] = int(remain_points / bot_info["price"])
-    else:
-        bot_info["remainTalkTimes"] = 0
-
+    # 判断是否为自定义bot，如果是需要替换名称为自定义名称
     if added:
+        # 如果是自定义bot，botName等于botHandle
+        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botName)
+        # 如果是自定义bot，botName要改为自定义的
+        if bot_type == "自定义":
+            bot_info["botName"] = bot_name
+        # 如果已经添加就使用数据库的类型，否则可能private会判断错误
         bot_info["botType"] = bot_type
 
     return response_200(bot_info)
 
 
 @router.get(
-    "/chats/{botName}",
+    "/chats/{botHandle}",
     summary="拉取会话",
     responses={
         200: {
@@ -651,21 +641,22 @@ async def _(
     },
 )
 async def _(
-    botName: str = Path(description="bot名称，如果写all则拉取所有", example="all"),
+    botHandle: str = Path(description="bot Handle，如果写all则拉取所有", example="all"),
     user_data: dict = Depends(verify_token),
 ):
-    if botName == "all":
-        botName = ""
-    _rows = await Chat.get_user_chat(user_data["user"], botName)
+    if botHandle == "all":
+        botHandle = ""
+    _rows = await Chat.get_user_chat(user_data["user"], botHandle)
     chat_list = [
         {
             "chatCode": row[0],
             "title": row[1],
-            "bot": row[2],
-            "imgUrl": row[3],
-            "lastTalkTime": row[4],
-            "lastContent": row[5],
-            "disable": True if row[6] else False,
+            "botName": row[2],
+            "botHandle": row[3],
+            "imgUrl": row[4],
+            "lastTalkTime": row[5],
+            "lastContent": row[6],
+            "disable": True if row[7] else False,
         }
         for row in _rows
     ]
@@ -692,15 +683,16 @@ async def _(
 ):
     user = user_data["user"]
     try:
-        botName, chatId, title = await Chat.get_chat_info(user, chatCode)
-        chat_info = await poe.client.get_chat_info(chatCode, chatId, cursor)
+        bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
+        chat_info = await poe.client.get_chat_info(chatCode, chat_id, cursor)
     except Exception as e:
         return response_500(repr(e))
 
     # 判断是否为自定义bot，如果是需要替换handle为用户设置的名称
-    bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
+    bot_type, bot_name, bot_id = await Bot.get_bot_info(user, bot_handle)
     if bot_type == "自定义":
-        chat_info["botInfo"]["botName"] = botName
+        chat_info["botInfo"]["botName"] = bot_name
+        chat_info["botInfo"]["added"] = True
 
     return response_200(chat_info)
 
@@ -752,7 +744,8 @@ talkError -- 回答出错 <br/>
 )
 async def _(
     chatCode: str = Path(description="chat code，如果为0则新建会话", example="0"),
-    botName: str = Form(description="bot名称"),
+    botName: str = Form(description="bot name"),
+    botHandle: str = Form(description="bot handle"),
     question: str = Form(None, description="问题内容，可以只发文件不发文本"),
     price: int = Form(description="所需积分"),
     files: list[UploadFile] = File(None, description="要上传的附件，不需要就不发"),
@@ -765,8 +758,10 @@ async def _(
     # 预检查
     if json_response := await reply_pre_check(user, chatCode, remain_points, price):
         return json_response
-    # 新会话判断是否添加了bot，如果没添加就加上
-    if chatCode == "0" and not await Bot.bot_exist(user, botName):
+    #################
+    ### 新会话判断是否添加了bot，如果没添加就加上
+    #################
+    if chatCode == "0" and not await Bot.bot_exist(user, botHandle):
         try:
             bot_info = await poe.client.get_bot_info(botName)
         except Exception as e:
@@ -779,14 +774,14 @@ async def _(
             bot_info["botHandle"],
             bot_info["botId"],
         )
-        user_action.info(f"用户 {user} 添加bot {botName}")
     #################
     ### 提问环节
     #################
-    chatId = 0
+    chat_id = 0
     if chatCode != "0":
-        botName, chatId, title = await Chat.get_chat_info(user, chatCode)
-    bot_type, bot_handle, bot_id = await Bot.get_bot_info(user, botName)
+        bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
+    # 检查是否为用户的bot，顺便拿bot type
+    bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botHandle)
     # 处理附件
     file_list: list[tuple] = []
     if files:
@@ -802,7 +797,7 @@ async def _(
     # 发起问题请求
     try:
         chat_data = await poe.client.send_question(
-            bot_handle, chatId, question, price, file_list
+            botHandle, chat_id, question, price, file_list
         )
     except Exception as e:
         return response_500(repr(e))
@@ -810,38 +805,41 @@ async def _(
     new_chat = False
     if chatCode == "0":
         # 保存新会话记录
-        user_action.info(
-            f"用户 {user} 新会话 {botName} chatCode {chat_data['chatCode']}"
-        )
         await Chat.new_chat(
             chat_data["chatCode"],
             chat_data["chatId"],
             user,
             "新建聊天",
             botName,
+            botHandle,
             chat_data["botInfo"]["imgUrl"],
         )
         chatCode = chat_data["chatCode"]
-        chatId = chat_data["chatId"]
+        chat_id = chat_data["chatId"]
         new_chat = True
         # 把bot类型补上
         chat_data["botType"] = bot_type
         # 如果是自定义bot需要替换botName
         if bot_type == "自定义":
             chat_data["botInfo"]["botName"] = botName
+            chat_data["botInfo"]["added"] = True
     # 获取消息id
     messageId = chat_data["messageNode"]["messageId"]
     # 减去用户积分
     await User.update_remain_points(user, remain_points - price)
     # 更新最后对话时间
     await Chat.update_last_talk_time(user, chatCode)
-    user_action.info(f"用户 {user} 对话 {botName} chatCode {chatCode} 积分 {price}")
+    user_action.info(
+        f"用户 {user} 对话 {botName} ({botHandle})  chatCode {chatCode} 积分 {price}"
+    )
 
     #################
     ### 回答环节
     #################
     return StreamingResponse(
-        ai_reply(user, chatCode, chatId, botName, messageId, chat_data, new_chat),
+        ai_reply(
+            user, chatCode, chat_id, botName, botHandle, messageId, chat_data, new_chat
+        ),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -892,19 +890,21 @@ async def _(
     except Exception as e:
         return response_500(repr(e))
 
-    botName, chatId, title = await Chat.get_chat_info(user, chatCode)
+    bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
 
     # 减去用户积分
     await User.update_remain_points(user, remain_points - price)
     # 更新最后对话时间
     await Chat.update_last_talk_time(user, chatCode)
-    user_action.info(f"用户 {user} 对话 {botName} chatCode {chatCode} 积分 {price}")
+    user_action.info(
+        f"用户 {user} 对话 {bot_name} ({bot_handle}) chatCode {chatCode} 积分 {price}"
+    )
 
     #################
     ### 回答环节
     #################
     return StreamingResponse(
-        ai_reply(user, chatCode, chatId, botName, messageId, {}, False),
+        ai_reply(user, chatCode, chat_id, bot_name, bot_handle, messageId, {}, False),
         media_type="text/event-stream",
         status_code=200,
     )
@@ -952,10 +952,10 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    botName, chatId, title = await Chat.get_chat_info(user, chatCode)
+    bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
 
     try:
-        data = await poe.client.send_chat_break(chatCode, chatId)
+        data = await poe.client.send_chat_break(chatCode, chat_id)
     except Exception as e:
         return response_500(repr(e))
 
@@ -974,13 +974,13 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    botName, chatId, title = await Chat.get_chat_info(user, chatCode)
+    bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
     try:
-        await poe.client.delete_chat(chatCode, chatId)
+        await poe.client.delete_chat(chatCode, chat_id)
     except Exception as e:
         return response_500(repr(e))
 
     await Chat.delete_chat(user, chatCode)
-    user_action.info(f"用户 {user} 删除会话 bot{botName} 会话{chatCode}")
+    user_action.info(f"用户 {user} {bot_name} ({bot_handle})  删除会话 {chatCode}")
 
     return response_200()
