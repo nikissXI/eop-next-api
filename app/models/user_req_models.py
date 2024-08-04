@@ -110,3 +110,9 @@ class EditSourceReqBody(BaseModel):
     content: str = Field(
         title="内容",
     )
+
+
+class Translate(BaseModel):
+    text: str = Field(
+        title="要翻译的内容",
+    )

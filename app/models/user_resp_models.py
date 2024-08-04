@@ -481,3 +481,9 @@ class TalkRespBody(BaseModel):
     dataContent: NewChat | MessageNodeRespBody | ChatTitleUpdated | TalkError = Field(
         title="数据内容"
     )
+
+
+class TranslateRespBody(BaseModel):
+    zh_text: str = Field(
+        title="中文译文",
+    )
