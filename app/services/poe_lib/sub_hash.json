@@ -3,7 +3,7 @@
         {
             "subscriptionName": "messageAdded",
             "query": null,
-            "queryHash": "13152cd6534c6a4723cb259624c9d6fe8cbee72aaef49b3207056cb442352fc8"
+            "queryHash": "f422b12ac3dc75aa2c1c128f6e4432550f4e98f87649dd1b26b8fd636ed92ab1"
         },
         {
             "subscriptionName": "messageCancelled",
@@ -18,12 +18,12 @@
         {
             "subscriptionName": "messageCreated",
             "query": null,
-            "queryHash": "61d6e049f963f88ee9a87a9ddb308db8d543f60e046374242b166c656bf8ac36"
+            "queryHash": "2b51823489f77348fb74e6d6b4defbca1d5f18ff67ceec12529c36e894a10399"
         },
         {
             "subscriptionName": "viewerStateUpdated",
             "query": null,
-            "queryHash": "865bd98bd63142e6c0861c2927e66d85b2d5aaf511f4ba24f1733dff6594c220"
+            "queryHash": "03169de18b76396784ed970bd6f33eb48763d763b3732711525181bf8a3a6bc2"
         },
         {
             "subscriptionName": "chatTitleUpdated",
@@ -43,7 +43,7 @@
         {
             "subscriptionName": "chatMemberAdded",
             "query": null,
-            "queryHash": "caeefc6438df7e9a12a689bda7698965359d33cf84f18cda9cdc89d1aff0fd9c"
+            "queryHash": "d3b6898564297e79a0229c06f0c96d998730f686269d9f00dfdeabb2711151fa"
         },
         {
             "subscriptionName": "chatSettingsUpdated",
@@ -53,7 +53,7 @@
         {
             "subscriptionName": "chatModalStateChanged",
             "query": null,
-            "queryHash": "235c8a2d5e1dd677b8f04547e3435562a542c14bbc0d69076f9f59e45a762bef"
+            "queryHash": "8dcd92366d3ea9a867957f1ac9443d8ca25140a206dff4957b99f40ec6f46994"
         }
     ]
 }
