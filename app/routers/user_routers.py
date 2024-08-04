@@ -584,14 +584,6 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     user = user_data["user"]
-    # 先删除这个bot下的会话
-    _rows = await Chat.get_user_chat(user, botHandle)
-    for row in _rows:
-        try:
-            await poe.client.delete_chat(row[0], row[8])
-            await Chat.delete_chat(user, row[0])
-        except Exception as e:
-            return response_500(repr(e))
 
     try:
         bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botHandle)
