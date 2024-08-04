@@ -65,6 +65,12 @@ class ServerError(Exception):
     pass
 
 
+class UnsupportedFileType(Exception):
+    """文件类型不支持"""
+
+    pass
+
+
 class RefetchChannel(Exception):
     """重新连接WS"""
 

@@ -359,10 +359,26 @@ class Attachments(BaseModel):
         examples=["tmp.txt"],
     )
     url: str = Field(
-        title="下载链接",
+        title="文件链接",
         examples=[
-            "https://pfst.cf2.poecdn.net/base/text/0723b69e0a0c72fdb2885f3c072c0706169f07c8b2bff3d57552e40a92e89d14?pmaid=113715453"
+            "https://pfst.cf2.poecdn.net/base/text/0723b69e0a0c72fdb2885f3c072c0706169f07c8b2bff3d57552e40a92e89d14"
         ],
+    )
+    mimeType: str = Field(
+        title="文件类型",
+        examples=["text/plain"],
+    )
+    width: None | int = Field(
+        title="非图片时为null",
+        examples=[None, 1000],
+    )
+    height: None | int = Field(
+        title="非图片时为null",
+        examples=[None, 1000],
+    )
+    size: int = Field(
+        title="文件大小，单位B",
+        examples=[114514],
     )
 
 

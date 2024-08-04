@@ -26,6 +26,7 @@ from .type import (
     RefetchChannel,
     ServerError,
     TalkError,
+    UnsupportedFileType,
 )
 from .util import (
     GQL_URL,
@@ -39,6 +40,7 @@ from .util import (
     filter_basic_bot_info,
     filter_bot_info,
     filter_bot_result,
+    filter_files_info,
     generate_data,
     generate_random_handle,
     str_time,
@@ -450,13 +452,7 @@ class Poe_Client:
                     "messageId": edge["node"]["messageId"],
                     "creationTime": edge["node"]["creationTime"],
                     "text": edge["node"]["text"],
-                    "attachments": [
-                        {
-                            "name": a["name"],
-                            "url": a["url"],
-                        }
-                        for a in edge["node"]["attachments"]
-                    ],
+                    "attachments": filter_files_info(edge["node"]["attachments"]),
                     "author": edge["node"]["author"]
                     if edge["node"]["author"] in ["chat_break", "human"]
                     else "bot",
@@ -575,7 +571,7 @@ class Poe_Client:
                     messageId=_data["messageId"],
                     creationTime=_data["creationTime"],
                     text=_data["text"],
-                    attachments=[],
+                    attachments=filter_files_info(_data["attachments"]),
                 )
                 chat_id = int(payload["unique_id"][13:])
                 # logger.warning(_data)
@@ -673,6 +669,8 @@ class Poe_Client:
 
         result = result["data"]["messageEdgeCreate"]
         if result["status"] != "success":
+            if result["status"] == "unsupported_file_type":
+                raise UnsupportedFileType()
             raise Exception(result["statusMessage"])
 
         botInfo = filter_bot_info(result["bot"])
@@ -687,13 +685,7 @@ class Poe_Client:
             "messageId": result["message"]["node"]["messageId"],
             "creationTime": result["message"]["node"]["creationTime"],
             "text": result["message"]["node"]["text"],
-            "attachments": [
-                {
-                    "name": a["name"],
-                    "url": a["url"],
-                }
-                for a in result["message"]["node"]["attachments"]
-            ],
+            "attachments": filter_files_info(result["message"]["node"]["attachments"]),
             "author": "human",
         }
 
@@ -833,6 +825,11 @@ class Poe_Client:
             raise Exception(f"上传bot引用资源失败: {repr(e)}")
 
         if result["data"]["knowledgeSourceCreate"]["status"] != "success":
+            if (
+                result["data"]["knowledgeSourceCreate"]["status"]
+                == "unsupported_file_type"
+            ):
+                raise UnsupportedFileType()
             err_msg = result["data"]["knowledgeSourceCreate"]["statusMessage"]
             raise Exception(f"上传bot引用资源失败: {err_msg}")
 
@@ -888,6 +885,12 @@ class Poe_Client:
             raise Exception(f"编辑bot引用资源（仅限文本）失败: {repr(e)}")
 
         if result["data"]["knowledgeSourceEdit"]["status"] != "success":
+            if (
+                result["data"]["knowledgeSourceEdit"]["status"]
+                == "unsupported_file_type"
+            ):
+                raise UnsupportedFileType()
+
             err_msg = result["data"]["knowledgeSourceEdit"]["statusMessage"]
             raise Exception(f"获取bot引用资源（仅限文本）失败: {err_msg}")
 

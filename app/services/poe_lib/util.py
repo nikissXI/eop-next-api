@@ -7,6 +7,8 @@ from time import localtime, strftime
 from ujson import dumps
 from utils.tool_util import logger
 
+from .type import Attachments
+
 SUB_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "sub_hash.json")
 QUERY_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "query_hash.json")
 GQL_URL = "https://poe.com/api/gql_POST"
@@ -144,3 +146,19 @@ def filter_basic_bot_info(_bot_list: list) -> list[dict]:
             }
         )
     return bot_list
+
+
+def filter_files_info(_files: list) -> list[Attachments]:
+    _file_list = []
+    for _f in _files:
+        _file_list.append(
+            {
+                "name": _f["name"],
+                "url": _f["url"],
+                "mimeType": _f["file"]["mimeType"],
+                "width": _f["file"]["width"],
+                "height": _f["file"]["height"],
+                "size": _f["file"]["size"],
+            }
+        )
+    return _file_list

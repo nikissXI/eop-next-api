@@ -16,6 +16,7 @@ from services.poe_lib.type import (
     ChatTitleUpdated,
     HumanMessageCreated,
     TalkError,
+    UnsupportedFileType,
 )
 from ujson import dumps, loads
 from utils.tool_util import logger, user_action
@@ -361,6 +362,10 @@ async def _(
 
     try:
         source_data = await poe.client.upload_knowledge_source(_data, files)
+
+    except UnsupportedFileType:
+        return response_400(2003, "文件类型不支持")
+
     except Exception as e:
         return response_500(repr(e))
 
@@ -409,6 +414,9 @@ async def _(
         await poe.client.edit_text_knowledge_source(
             body.sourceId, body.title, body.content
         )
+    except UnsupportedFileType:
+        return response_400(2003, "文件类型不支持")
+
     except Exception as e:
         return response_500(repr(e))
 
@@ -802,6 +810,9 @@ async def _(
         chat_data = await poe.client.send_question(
             botHandle, chat_id, question, price, file_list
         )
+    except UnsupportedFileType:
+        return response_400(2003, "文件类型不支持")
+
     except Exception as e:
         return response_500(repr(e))
 
