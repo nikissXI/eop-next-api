@@ -137,16 +137,19 @@ class Poe_Client:
         监听hash文件，热更新
         """
         while True:
-            await sleep(1)
-            _stat = stat(SUB_HASH_PATH)
-            if _stat.st_mtime != self.sub_hash_file_stat.st_mtime:
-                self.read_sub_hash()
-                logger.warning("更新sub_hash")
+            try:
+                await sleep(1)
+                _stat = stat(SUB_HASH_PATH)
+                if _stat.st_mtime != self.sub_hash_file_stat.st_mtime:
+                    self.read_sub_hash()
+                    logger.warning("更新sub_hash")
 
-            _stat = stat(QUERY_HASH_PATH)
-            if _stat.st_mtime != self.query_hash_file_stat.st_mtime:
-                self.read_query_hash()
-                logger.warning("更新query_hash")
+                _stat = stat(QUERY_HASH_PATH)
+                if _stat.st_mtime != self.query_hash_file_stat.st_mtime:
+                    self.read_query_hash()
+                    logger.warning("更新query_hash")
+            except Exception as e:
+                logger.error(f"更新hash文件出错：{repr(e)}")
 
     async def send_query(
         self,
