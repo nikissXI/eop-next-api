@@ -149,7 +149,7 @@ class UserBotRespBody(BaseModel):
     )
 
 
-class BasicBotRespBody(BaseModel):
+class BasicBot(BaseModel):
     botName: str = Field(
         title="bot名称",
         examples=["ChatGPT", "DALL-E-3"],
@@ -171,6 +171,28 @@ class BasicBotRespBody(BaseModel):
     )
     isVideoGen: bool = Field(
         title="是否为视频生成模型",
+    )
+
+
+class BasicBotRespBody(BaseModel):
+    botList: list[BasicBot] = Field(
+        title="基础bot列表",
+    )
+    suggestPromptBot: int = Field(
+        title="建议使用的提示词bot",
+        examples=[2380421],
+    )
+    suggestImageBot: int = Field(
+        title="建议使用的图像bot",
+        examples=[2380421],
+    )
+    suggestVideoBot: int = Field(
+        title="建议使用的视频bot",
+        examples=[2380421],
+    )
+    suggestRoleplayBot: int = Field(
+        title="建议使用的角色扮演bot",
+        examples=[2380421],
     )
 
 

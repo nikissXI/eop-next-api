@@ -786,7 +786,7 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"会话{chatCode}停止回答失败: {repr(e)}")
 
-    async def get_basic_bot_list(self) -> list[dict]:
+    async def get_basic_bot_data(self) -> dict:
         """
         获取自定义bot可使用的基础bot列表
         """
@@ -798,9 +798,18 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"获取基础bot列表失败: {repr(e)}")
 
-        _bot_list: list = result["data"]["viewer"]["botsAllowedForUserCreation"]
+        _data = result["data"]["viewer"]
 
-        return filter_basic_bot_info(_bot_list)
+        basic_bot_list = filter_basic_bot_info(_data["botsAllowedForUserCreation"])
+        basic_bot_data = {
+            "basic_bot_list": basic_bot_list,
+            "suggestPromptBot": _data["defaultPromptBotForUserCreation"]["botId"],
+            "suggestImageBot": _data["defaultImageBotForUserCreation"]["botId"],
+            "suggestVideoBot": _data["defaultVideoBotForUserCreation"]["botId"],
+            "suggestRoleplayBot": _data["defaultRoleplayBotForUserCreation"]["botId"],
+        }
+
+        return basic_bot_data
 
     async def upload_knowledge_source(
         self, json_data: dict, files: list[tuple] | None = None

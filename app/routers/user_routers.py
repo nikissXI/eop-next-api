@@ -321,7 +321,7 @@ async def _(
     responses={
         200: {
             "description": "基础bot列表",
-            "model": resp_models.BasicRespBody[list[resp_models.BasicBotRespBody]],
+            "model": resp_models.BasicRespBody[resp_models.BasicBotRespBody],
         }
     },
 )
@@ -329,11 +329,11 @@ async def _(
     user_data: dict = Depends(verify_token),
 ):
     try:
-        bot_list = await poe.client.get_basic_bot_list()
+        basic_bot_data = await poe.client.get_basic_bot_data()
     except Exception as e:
         return response_500(repr(e))
 
-    return response_200(bot_list)
+    return response_200(basic_bot_data)
 
 
 @router.post(
