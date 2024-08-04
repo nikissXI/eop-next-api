@@ -3,7 +3,8 @@
 ################
 import logging
 from hashlib import sha256
-from logging import DEBUG, FileHandler, Formatter, StreamHandler, getLogger
+from logging import DEBUG, Formatter, getLogger
+from logging.handlers import TimedRotatingFileHandler
 from random import choice
 from string import ascii_letters, digits
 
@@ -101,8 +102,9 @@ class Custom404Middleware(BaseHTTPMiddleware):
 
 
 user_action = getLogger("user_action")
-file_handler = FileHandler("user_action.log")
-# formatter = Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+file_handler = TimedRotatingFileHandler(
+    "user_action.log", when="D", interval=1, backupCount=7
+)
 formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 user_action.addHandler(file_handler)
@@ -110,7 +112,9 @@ user_action.setLevel(DEBUG)
 
 
 debug_logger = getLogger("debug_logger")
-file_handler = FileHandler("debug_logger.log")
+file_handler = TimedRotatingFileHandler(
+    "debug_logger.log", when="D", interval=1, backupCount=7
+)
 formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 debug_logger.addHandler(file_handler)

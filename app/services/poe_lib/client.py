@@ -598,7 +598,6 @@ class Poe_Client:
             """创建ws连接"""
             async with ClientSession() as session:
                 async with session.ws_connect(self.channel_url, proxy=self.proxy) as ws:
-                    # logger.info("连接ws channel成功")
                     async for msg in ws:
                         if msg.type == WSMsgType.TEXT:
                             if msg.data != '{"type":"pong"}':
@@ -610,13 +609,13 @@ class Poe_Client:
                     await ws.close()
 
         except RefetchChannel:
-            self.ws_data_queue.clear()
-            logger.info("ws channel正常关闭")
+            pass
 
         except Exception as e:
             logger.error(f"ws channel连接出错: {repr(e)}")
             logger.error(format_exc())
 
+        self.ws_data_queue.clear()
         self.ws_client_task = None
 
     async def send_question(
