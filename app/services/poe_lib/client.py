@@ -801,7 +801,7 @@ class Poe_Client:
 
         basic_bot_list = filter_basic_bot_info(_data["botsAllowedForUserCreation"])
         basic_bot_data = {
-            "basic_bot_list": basic_bot_list,
+            "botList": basic_bot_list,
             "suggestPromptBot": _data["defaultPromptBotForUserCreation"]["botId"],
             "suggestImageBot": _data["defaultImageBotForUserCreation"]["botId"],
             "suggestVideoBot": _data["defaultVideoBotForUserCreation"]["botId"],
