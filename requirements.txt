@@ -10,3 +10,4 @@ ujson
 apscheduler
 python-dateutil
 pydantic_settings
+httpx[http2]
