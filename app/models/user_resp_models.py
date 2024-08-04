@@ -324,9 +324,6 @@ class ChatRespBody(BaseModel):
         title="最后一次对话内容",
         examples=["wtf"],
     )
-    disable: bool = Field(
-        title="会话是否禁用",
-    )
 
 
 class BotInfo(BaseModel):

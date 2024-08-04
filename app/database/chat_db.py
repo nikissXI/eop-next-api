@@ -15,7 +15,6 @@ class Chat(Model):
     img_url = fields.TextField()
     last_talk_time = fields.IntField()
     last_content = fields.TextField()
-    disable = fields.IntField(default=0)
 
     @classmethod
     async def new_chat(
@@ -56,7 +55,7 @@ class Chat(Model):
     @classmethod
     async def get_user_chat(
         cls, user: str, bot_handle: str = ""
-    ) -> list[tuple[str, str, str, str, str, int, str, int, int]]:
+    ) -> list[tuple[str, str, str, str, str, int, str, int]]:
         """获取用户的所有会话"""
         # 指定bot
         if bot_handle:
@@ -68,7 +67,6 @@ class Chat(Model):
                 "img_url",
                 "last_talk_time",
                 "last_content",
-                "disable",
                 "chat_id",
             )
 
@@ -80,7 +78,6 @@ class Chat(Model):
             "img_url",
             "last_talk_time",
             "last_content",
-            "disable",
             "chat_id",
         )
 

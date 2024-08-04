@@ -659,7 +659,6 @@ async def _(
             "imgUrl": row[4],
             "lastTalkTime": row[5],
             "lastContent": row[6],
-            "disable": True if row[7] else False,
         }
         for row in _rows
     ]
