@@ -700,10 +700,11 @@ async def _(
         return response_500(repr(e))
 
     # 判断是否为自定义bot，如果是需要替换handle为用户设置的名称
-    bot_type, bot_name, bot_id = await Bot.get_bot_info(user, bot_handle)
-    if bot_type == "自定义":
-        chat_info["botInfo"]["botName"] = bot_name
-        chat_info["botInfo"]["added"] = True
+    if await Bot.bot_exist(user, bot_handle):
+        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, bot_handle)
+        if bot_type == "自定义":
+            chat_info["botInfo"]["botName"] = bot_name
+            chat_info["botInfo"]["added"] = True
 
     return response_200(chat_info)
 
