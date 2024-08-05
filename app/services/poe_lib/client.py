@@ -555,7 +555,7 @@ class Poe_Client:
                 continue
 
             _data = payload["data"][subscription_name]
-            debug_logger.info(_data)
+            debug_logger.debug(_data)
             # # 问题的消息数据
             # if subscription_name == "messageCreated":
             #     data = HumanMessageCreated(
