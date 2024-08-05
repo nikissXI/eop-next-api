@@ -627,12 +627,12 @@ async def _(
         return response_500(repr(e))
 
     user = user_data["user"]
-    added = await Bot.bot_exist(user, botName)
+    added = await Bot.bot_exist(user, bot_info["botHandle"])
     bot_info["added"] = added
     # 判断是否为自定义bot，如果是需要替换名称为自定义名称
     if added:
         # 如果是自定义bot，botName等于botHandle
-        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botName)
+        bot_type, bot_name, bot_id = await Bot.get_bot_info(user, bot_info["botHandle"])
         # 如果是自定义bot，botName要改为自定义的
         if bot_type == "自定义":
             bot_info["botName"] = bot_name
@@ -770,7 +770,7 @@ async def _(
     if json_response := await reply_pre_check(user, chatCode, remain_points, price):
         return json_response
     #################
-    ### 新会话判断是否添加了bot，如果没添加就加上
+    ### 新会话判断是否添加了bot，如果没添加就加上（自定义bot一定已添加）
     #################
     if chatCode == "0" and not await Bot.bot_exist(user, botHandle):
         try:
