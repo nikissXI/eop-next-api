@@ -9,6 +9,7 @@ class Global_env(BaseSettings):
     API_PATH: str = "/"
     HOST: str = "127.0.0.1"
     PORT: int = 80
+    LOG_LEVEL: str = "INFO"
     ORIGINS: list[str] = ["*"]
     SSL_KEYFILE_PATH: str | None = None
     SSL_CERTFILE_PATH: str | None = None

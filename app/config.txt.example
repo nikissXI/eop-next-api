@@ -5,6 +5,8 @@ HOST = "127.0.0.1"
 PORT = 80
 # 跨域配置
 ORIGINS = '["https://*.xxx.com", "http://*.xxx.com"]'
+# 日志等级
+LOG_LEVEL = INFO
 
 # jwt的key和加密方式
 SECRET_KEY = "secret_key"

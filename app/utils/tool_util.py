@@ -11,6 +11,8 @@ from string import ascii_letters, digits
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from .env_util import gv
+
 fastapi_logger_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -108,7 +110,7 @@ file_handler = TimedRotatingFileHandler(
 formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 user_action.addHandler(file_handler)
-user_action.setLevel(DEBUG)
+user_action.setLevel(gv.LOG_LEVEL)
 
 
 debug_logger = getLogger("debug_logger")
@@ -118,7 +120,7 @@ file_handler = TimedRotatingFileHandler(
 formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)
 debug_logger.addHandler(file_handler)
-debug_logger.setLevel(DEBUG)
+debug_logger.setLevel(gv.LOG_LEVEL)
 
 
 def generate_random_password(length=16) -> tuple[str, str]:
