@@ -15,6 +15,7 @@ from services.poe_client import poe
 from services.poe_lib.type import (
     BotMessageAdd,
     ChatTitleUpdated,
+    FileTooLarge,
     HumanMessageCreated,
     TalkError,
     UnsupportedFileType,
@@ -368,6 +369,9 @@ async def _(
     except UnsupportedFileType:
         return response_400(2003, "文件类型不支持")
 
+    except FileTooLarge:
+        return response_400(2004, "文件过大")
+
     except Exception as e:
         return response_500(repr(e))
 
@@ -418,6 +422,9 @@ async def _(
         )
     except UnsupportedFileType:
         return response_400(2003, "文件类型不支持")
+
+    except FileTooLarge:
+        return response_400(2004, "文件过大")
 
     except Exception as e:
         return response_500(repr(e))
@@ -805,6 +812,9 @@ async def _(
         )
     except UnsupportedFileType:
         return response_400(2003, "文件类型不支持")
+
+    except FileTooLarge:
+        return response_400(2004, "文件过大")
 
     except Exception as e:
         return response_500(repr(e))

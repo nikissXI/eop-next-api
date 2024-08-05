@@ -71,6 +71,12 @@ class UnsupportedFileType(Exception):
     pass
 
 
+class FileTooLarge(Exception):
+    """文件过大"""
+
+    pass
+
+
 class RefetchChannel(Exception):
     """重新连接WS"""
 

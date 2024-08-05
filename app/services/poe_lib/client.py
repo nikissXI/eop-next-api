@@ -22,6 +22,7 @@ from utils.tool_util import debug_logger, logger
 from .type import (
     BotMessageAdd,
     ChatTitleUpdated,
+    FileTooLarge,
     HumanMessageCreated,
     RefetchChannel,
     ServerError,
@@ -673,6 +674,10 @@ class Poe_Client:
         if result["status"] != "success":
             if result["status"] == "unsupported_file_type":
                 raise UnsupportedFileType()
+
+            if result["status"] == "file_too_large":
+                raise FileTooLarge()
+
             raise Exception(result["statusMessage"])
 
         botInfo = filter_bot_info(result["bot"])
@@ -835,16 +840,18 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"上传bot引用资源失败: {repr(e)}")
 
-        if result["data"]["knowledgeSourceCreate"]["status"] != "success":
-            if (
-                result["data"]["knowledgeSourceCreate"]["status"]
-                == "unsupported_file_type"
-            ):
+        _data = result["data"]["knowledgeSourceCreate"]
+        if _data["status"] != "success":
+            if _data["status"] == "unsupported_file_type":
                 raise UnsupportedFileType()
-            err_msg = result["data"]["knowledgeSourceCreate"]["statusMessage"]
+
+            if _data["status"] == "file_too_large":
+                raise FileTooLarge()
+
+            err_msg = _data["statusMessage"]
             raise Exception(f"上传bot引用资源失败: {err_msg}")
 
-        _source = result["data"]["knowledgeSourceCreate"]["source"]
+        _source = _data["source"]
         sourceId: int = _source["knowledgeSourceId"]
         sourceTitle: int = _source["title"]
 
@@ -901,6 +908,9 @@ class Poe_Client:
                 == "unsupported_file_type"
             ):
                 raise UnsupportedFileType()
+
+            if result["data"]["knowledgeSourceEdit"]["status"] == "file_too_large":
+                raise FileTooLarge()
 
             err_msg = result["data"]["knowledgeSourceEdit"]["statusMessage"]
             raise Exception(f"获取bot引用资源（仅限文本）失败: {err_msg}")
