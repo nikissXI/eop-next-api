@@ -773,7 +773,7 @@ async def _(
     #################
     ### 新会话判断是否添加了bot，如果没添加就加上（自定义bot一定已添加）
     #################
-    if chatCode == "0" and not await Bot.bot_exist(user, botHandle):
+    if not await Bot.bot_exist(user, botHandle):
         try:
             bot_info = await poe.client.get_bot_info(botName)
         except Exception as e:
