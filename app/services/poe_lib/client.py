@@ -619,7 +619,6 @@ class Poe_Client:
             logger.error(f"ws channel连接出错: {repr(e)}")
             logger.error(format_exc())
 
-        self.ws_data_queue.clear()
         self.ws_client_task = None
 
     async def send_question(

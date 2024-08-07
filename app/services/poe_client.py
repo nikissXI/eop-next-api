@@ -40,6 +40,13 @@ async def _():
         user_action.info(f"{user}重置可用积分为{monthPoints}")
 
 
+# 每日5点时清理队列内存
+@scheduler.scheduled_job("cron", hour=5)
+async def _():
+    if poe.client.ws_client_task is None:
+        poe.client.ws_data_queue.clear()
+
+
 async def login_poe() -> str:
     p_b, p_lat, formkey, proxy = await Config.get_setting()
     if proxy:
