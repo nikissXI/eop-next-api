@@ -9,8 +9,7 @@ from utils.tool_util import logger
 
 from .type import Attachments
 
-SUB_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "sub_hash.json")
-QUERY_HASH_PATH = path.join(path.dirname(path.abspath(__file__)), "query_hash.json")
+HASHES_PATH = path.join(path.dirname(path.abspath(__file__)), "hashes.json")
 GQL_URL = "https://poe.com/api/gql_POST"
 GQL_URL_FILE = "https://poe.com/api/gql_upload_POST"
 SETTING_URL = "https://poe.com/api/settings"

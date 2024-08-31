@@ -105,7 +105,7 @@ class Custom404Middleware(BaseHTTPMiddleware):
 
 user_action = getLogger("user_action")
 file_handler = TimedRotatingFileHandler(
-    "user_action.log", when="D", interval=1, backupCount=7
+    "user_action.log", when="D", interval=7, backupCount=7
 )
 formatter = Formatter("%(asctime)s - %(message)s", "%Y-%m-%d %H:%M:%S")
 file_handler.setFormatter(formatter)

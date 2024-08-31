@@ -1,5 +1,6 @@
 from asyncio import (
     Event,
+    Lock,
     Queue,
     TimeoutError,
     create_task,
@@ -7,9 +8,9 @@ from asyncio import (
     wait_for,
 )
 from hashlib import md5
-from os import stat, stat_result
+from os import path
 from random import randint
-from re import sub
+from re import findall, sub
 from secrets import token_hex
 from traceback import format_exc
 from typing import AsyncGenerator
@@ -24,6 +25,7 @@ from .type import (
     ChatTitleUpdated,
     FileTooLarge,
     HumanMessageCreated,
+    NeedDeleteChat,
     RefetchChannel,
     ServerError,
     TalkError,
@@ -32,10 +34,9 @@ from .type import (
 from .util import (
     GQL_URL,
     GQL_URL_FILE,
+    HASHES_PATH,
     IMG_URL_CACHE,
-    QUERY_HASH_PATH,
     SETTING_URL,
-    SUB_HASH_PATH,
     base64_decode,
     base64_encode,
     filter_basic_bot_info,
@@ -56,40 +57,41 @@ class Poe_Client:
         self.sdid = ""
         self.proxy = proxy
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36 Edg/115.0.1901.203",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0",
             "Accept": "*/*",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
             "Cookie": f"p-b={self.p_b}; p-lat={self.p_lat}",
+            "Origin": "https://poe.com",
             "Poe-Formkey": self.formkey,
-            "Sec-Ch-Ua": '"Microsoft Edge";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
+            "priority": "u=1, i",
+            "Referer": "https://poe.com/",
+            "Sec-Ch-Ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Microsoft Edge";v="128"',
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
             "Upgrade-Insecure-Requests": "1",
-            "Origin": "https://poe.com",
-            "Referer": "https://poe.com/",
         }
         self.channel_url = ""
-        self.hash_file_watch_task = None
         self.ws_client_task = None
-        self.refresh_ws_event = Event()
+        # self.refresh_ws_event = Event()
         self.last_min_seq = 0
         self.ws_data_queue: dict[int, Queue] = {}
         self.get_chat_code: dict[str, int] = {}
-        self.sub_hash: dict[str, str] = {}
-        self.sub_hash_file_stat: stat_result
-        self.query_hash: dict[str, str] = {}
-        self.query_hash_file_stat: stat_result
+        self.hashes: dict[str, str] = {}
         self.login_success: bool = False
+        self.send_question_lock: Lock = Lock()
 
-    def refresh_ws_lock(self):
-        self.refresh_ws_event.clear()
+    # def refresh_ws_lock(self):
+    #     self.refresh_ws_event.clear()
 
-    def refresh_ws_unlock(self):
-        self.refresh_ws_event.set()
+    # def refresh_ws_unlock(self):
+    #     self.refresh_ws_event.set()
 
-    def refresh_ws_is_lock(self) -> bool:
-        return not self.refresh_ws_event.is_set()
+    # def refresh_ws_is_lock(self) -> bool:
+    #     return not self.refresh_ws_event.is_set()
 
     async def login(self):
         """
@@ -100,9 +102,7 @@ class Poe_Client:
 
         self.login_success = False
         logger.info("Poe登陆中。。。。。。")
-        self.read_sub_hash()
-        self.read_query_hash()
-        self.hash_file_watch_task = create_task(self.watch_hash_file())
+        await self.read_hashes()
 
         user_info = await self.get_account_info()
         text = f"\n登陆成功！账号信息如下\n -- 邮箱: {user_info['email']}\n -- 购买订阅: {user_info['subscriptionActivated']}"
@@ -114,48 +114,111 @@ class Poe_Client:
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
-        self.refresh_ws_unlock()
+        # self.refresh_ws_unlock()
         return self
 
-    def read_sub_hash(self):
+    async def read_hashes(self):
         """
-        读取sub_hash
+        读取hashes
         """
-        self.sub_hash_file_stat = stat(SUB_HASH_PATH)
-        with open(SUB_HASH_PATH, "r", encoding="utf-8") as r:
-            self.sub_hash = load(r)
+        if path.exists(HASHES_PATH):
+            with open(HASHES_PATH, "r", encoding="utf-8") as r:
+                self.hashes = load(r)
+        else:
+            logger.warning("未发现hashes.json文件，正在拉取，大概需要1~2分钟")
+            await self.update_hashes()
 
-    def read_query_hash(self):
-        """
-        读取query_hash
-        """
-        self.query_hash_file_stat = stat(QUERY_HASH_PATH)
-        with open(QUERY_HASH_PATH, "r", encoding="utf-8") as r:
-            self.query_hash = load(r)
+    async def update_hashes(self):
+        async with request(
+            "GET",
+            "https://poe.com/login?redirect_url=%2F",
+            headers=self.headers,
+            timeout=ClientTimeout(5),
+            proxy=self.proxy,
+        ) as response:
+            text = await response.text()
 
-    async def watch_hash_file(self):
-        """
-        监听hash文件，热更新
-        """
-        while True:
-            try:
-                await sleep(1)
-                _stat = stat(SUB_HASH_PATH)
-                if _stat.st_mtime != self.sub_hash_file_stat.st_mtime:
-                    self.read_sub_hash()
-                    logger.warning("更新sub_hash")
+        chunks_regex = (
+            r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks.+?\.js"
+        )
+        manifest_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/\S{21}\/_buildManifest\.js"
+        webpack_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks\/webpack.+?.js"
+        base_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/"
 
-                _stat = stat(QUERY_HASH_PATH)
-                if _stat.st_mtime != self.query_hash_file_stat.st_mtime:
-                    self.read_query_hash()
-                    logger.warning("更新query_hash")
-            except Exception as e:
-                logger.error(f"更新hash文件出错：{repr(e)}")
+        chunks = findall(chunks_regex, text)
+        manifest_url = findall(manifest_regex, text)[0]
+        webpack_url = findall(webpack_regex, text)[0]
+        base_url = findall(base_regex, text)[0]
+
+        async with request(
+            "GET",
+            manifest_url,
+            headers=self.headers,
+            timeout=ClientTimeout(5),
+            proxy=self.proxy,
+        ) as response:
+            text = await response.text()
+
+        resources_regex = r'"(static/.+?)"'
+        resources_list = findall(resources_regex, text)
+        urls = []
+
+        async with request(
+            "GET",
+            webpack_url,
+            headers=self.headers,
+            timeout=ClientTimeout(5),
+            proxy=self.proxy,
+        ) as response:
+            text = await response.text()
+
+        webpack_chunks_regex = r'\+\(({.+?})\)\[.\]\+"\.js"'
+        webpack_items_regex = r'(\d+):"([0-9a-zA-Z]{16})"'
+        json_text = findall(webpack_chunks_regex, text)[0]
+        webpack_chunks = findall(webpack_items_regex, json_text)
+
+        for chunk_id, chunk_hash in webpack_chunks:
+            urls.append(base_url + f"static/chunks/{chunk_id}.{chunk_hash}.js")
+        for resource in resources_list:
+            urls.append(base_url + resource)
+        urls = list(set(urls + chunks))
+
+        queries = {}
+        for url in urls:
+            if not url.endswith(".js"):
+                continue
+
+            async with request(
+                "GET",
+                url,
+                headers=self.headers,
+                timeout=ClientTimeout(5),
+                proxy=self.proxy,
+            ) as response:
+                if response.status != 200:
+                    continue
+
+                text = await response.text()
+
+            hashes_regex = r'params:{id:"([0-9a-zA-Z]{64})".+?name:"(\S+?)"'
+            hashes_list = findall(hashes_regex, text)
+
+            for query_hash, query_name in hashes_list:
+                if "_" in query_name:
+                    query_name = query_name.split("_")[1]
+                query_name = query_name[0].upper() + query_name[1:]
+                queries[query_name] = query_hash
+
+        with open(HASHES_PATH, "w", encoding="utf-8") as w:
+            dump(queries, w, indent=4, sort_keys=True)
+        self.hashes = queries
+        logger.info("更新hashes文件完毕")
 
     async def send_query(
         self,
         query_name: str,
         variables: dict,
+        hash: str,
         forbidden_times: int = 0,
         file_list: list[tuple[str, bytes, str, str]] | None = None,
     ) -> dict:
@@ -208,7 +271,7 @@ class Poe_Client:
             # 发送带附件的问题
             if file_list:
                 form = FormData()
-                data = generate_data(query_name, variables, self.query_hash[query_name])
+                data = generate_data(query_name, variables, hash)
                 base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
                 form.add_field("queryInfo", data, content_type="application/json")
                 for file in file_list:
@@ -230,11 +293,12 @@ class Poe_Client:
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
+                    # logger.warning(f"get {query_name}  {status_code}")
                     text = await response.text()
 
             # 其他请求
             else:
-                data = generate_data(query_name, variables, self.query_hash[query_name])
+                data = generate_data(query_name, variables, hash)
                 base_string = data + self.formkey + "4LxgHM6KpFqokX0Ox"
                 async with request(
                     "POST",
@@ -252,6 +316,7 @@ class Poe_Client:
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
+                    # logger.warning(f"post {query_name}  {status_code}")
                     text = await response.text()
 
             try:
@@ -261,7 +326,6 @@ class Poe_Client:
             if json_data["data"] is None:
                 if json_data["errors"][0]["message"] == "Server Error":
                     raise ServerError()
-
                 raise Exception(text)
 
             return json_data
@@ -287,7 +351,9 @@ class Poe_Client:
         获取账号信息
         """
         try:
-            result = await self.send_query("settingsPageQuery", {})
+            result = await self.send_query(
+                "settingsPageQuery", {}, self.hashes["SettingsPageQuery"]
+            )
             _v = result["data"]["viewer"]
             self.sdid = str(
                 uuid5(UUID("98765432101234567898765432101234"), _v["poeUser"]["id"])
@@ -326,6 +392,7 @@ class Poe_Client:
                 result = await self.send_query(
                     "exploreBotsIndexPageQuery",
                     {"categoryName": category},
+                    self.hashes["ExploreBotsIndexPageQuery"],
                 )
                 category_list: list[dict[str, str]] = [
                     {
@@ -342,6 +409,7 @@ class Poe_Client:
                         "count": 25,
                         "cursor": cursor,
                     },
+                    self.hashes["ExploreBotsListPaginationQuery"],
                 )
                 category_list = []
 
@@ -370,6 +438,7 @@ class Poe_Client:
                 result = await self.send_query(
                     "SearchResultsMainQuery",
                     {"entityType": "bot", "searchQuery": key_word},
+                    self.hashes["SearchResultsMainQuery"],
                 )
             else:
                 result = await self.send_query(
@@ -380,6 +449,7 @@ class Poe_Client:
                         "entityType": "bot",
                         "query": key_word,
                     },
+                    self.hashes["SearchResultsListPaginationQuery"],
                 )
 
         except Exception as e:
@@ -404,6 +474,7 @@ class Poe_Client:
             result = await self.send_query(
                 "HandleBotLandingPageQuery",
                 {"botHandle": botName},
+                self.hashes["HandleBotLandingPageQuery"],
             )
             if result["data"]["bot"]:
                 return filter_bot_info(result["data"]["bot"])
@@ -427,6 +498,7 @@ class Poe_Client:
                 result = await self.send_query(
                     "ChatPageQuery",
                     {"chatCode": chat_code},
+                    self.hashes["ChatPageQuery"],
                 )
             else:
                 result = await self.send_query(
@@ -436,6 +508,7 @@ class Poe_Client:
                         "cursor": cursor,
                         "id": base64_encode(f"Chat:{chat_id}"),
                     },
+                    self.hashes["ChatListPaginationQuery"],
                 )
 
         except Exception as e:
@@ -474,44 +547,168 @@ class Poe_Client:
         """
         此函数从设置_URL获取通道数据，更新ws地址，对话用的
         """
-        result = await self.send_query("setting", {})
+        result = await self.send_query("setting", {}, "")
+
         tchannel_data = result["tchannelData"]
         self.headers["Poe-Tchannel"] = tchannel_data["channel"]
         ws_domain = f"tch{randint(1, int(1e6))}"[:8]
         self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
         self.last_min_seq = int(tchannel_data["minSeq"])
 
-        await self.send_query("subscriptionsMutation", self.sub_hash)
+        await self.send_query(
+            "subscriptionsMutation",
+            {
+                "subscriptions": [
+                    {
+                        "subscriptionName": "messageAdded",
+                        "query": None,
+                        # "queryHash": "e26e3545469023d5bc2a074eb51bbd3b27d54975b3757f1ad2481991bc603312",
+                        "queryHash": self.hashes["MessageAdded"],
+                    },
+                    {
+                        "subscriptionName": "messageCancelled",
+                        "query": None,
+                        # "queryHash": "14647e90e5960ec81fa83ae53d270462c3743199fbb6c4f26f40f4c83116d2ff",
+                        "queryHash": self.hashes["MessageCancelled"],
+                    },
+                    {
+                        "subscriptionName": "messageDeleted",
+                        "query": None,
+                        # "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
+                        "queryHash": self.hashes["MessageDeleted"],
+                    },
+                    {
+                        "subscriptionName": "messageRead",
+                        "query": None,
+                        # "queryHash": "8c80ca00f63ad411ba7de0f1fa064490ed5f438d4a0e60fd9caa080b11af9495",
+                        "queryHash": self.hashes["MessageRead"],
+                    },
+                    {
+                        "subscriptionName": "messageCreated",
+                        "query": None,
+                        # "queryHash": "d4fc22895d3bd1a344292cf917e8a7f3f99db75a8368156cf5f8a3c2ca76041d",
+                        "queryHash": self.hashes["MessageCreated"],
+                    },
+                    {
+                        "subscriptionName": "messageStateUpdated",
+                        "query": None,
+                        # "queryHash": "117a49c685b4343e7e50b097b10a13b9555fedd61d3bf4030c450dccbeef5676",
+                        "queryHash": self.hashes["MessageStateUpdated"],
+                    },
+                    {
+                        "subscriptionName": "messageAttachmentAdded",
+                        "query": None,
+                        # "queryHash": "65798bb2f409d9457fc84698479f3f04186d47558c3d7e75b3223b6799b6788d",
+                        "queryHash": self.hashes["MessageAttachmentAdded"],
+                    },
+                    {
+                        "subscriptionName": "messageFollowupActionAdded",
+                        "query": None,
+                        # "queryHash": "d2e770beae7c217c77db4918ed93e848ae77df668603bc84146c161db149a2c7",
+                        "queryHash": self.hashes["MessageFollowupActionAdded"],
+                    },
+                    {
+                        "subscriptionName": "messageMetadataUpdated",
+                        "query": None,
+                        # "queryHash": "71c247d997d73fb0911089c1a77d5d8b8503289bc3701f9fb93c9b13df95aaa6",
+                        "queryHash": self.hashes["MessageMetadataUpdated"],
+                    },
+                    {
+                        "subscriptionName": "messageTextUpdated",
+                        "query": None,
+                        # "queryHash": "800eea48edc9c3a81aece34f5f1ff40dc8daa71dead9aec28f2b55523fe61231",
+                        "queryHash": self.hashes["MessageTextUpdated"],
+                    },
+                    {
+                        "subscriptionName": "viewerStateUpdated",
+                        "query": None,
+                        # "queryHash": "3b2014dba11e57e99faa68b6b6c4956f3e982556f0cf832d728534f4319b92c7",
+                        "queryHash": self.hashes["ViewerStateUpdated"],
+                    },
+                    {
+                        "subscriptionName": "unreadChatsUpdated",
+                        "query": None,
+                        # "queryHash": "d64b71e079245a2efaa40fc8b07d0d7757947d8cf8f7e0ea7423c0937b019b00",
+                        "queryHash": self.hashes["UnreadChatsUpdated"],
+                    },
+                    {
+                        "subscriptionName": "chatTitleUpdated",
+                        "query": None,
+                        # "queryHash": "ee062b1f269ecd02ea4c2a3f1e4b2f222f7574c43634a2da4ebeb616d8647e06",
+                        "queryHash": self.hashes["ChatTitleUpdated"],
+                    },
+                    {
+                        "subscriptionName": "knowledgeSourceUpdated",
+                        "query": None,
+                        # "queryHash": "7de63f89277bcf54f2323008850573809595dcef687f26a78561910cfd4f6c37",
+                        "queryHash": self.hashes["KnowledgeSourceUpdated"],
+                    },
+                    {
+                        "subscriptionName": "messagePointLimitUpdated",
+                        "query": None,
+                        # "queryHash": "ed3857668953d6e8849c1562f3039df16c12ffddaaac1db930b91108775ee16d",
+                        "queryHash": self.hashes["MessagePointLimitUpdated"],
+                    },
+                    {
+                        "subscriptionName": "chatMemberAdded",
+                        "query": None,
+                        # "queryHash": "21ef45e20cc8120c31a320c3104efe659eadf37d49249802eff7b15d883b917b",
+                        "queryHash": self.hashes["ChatMemberAdded"],
+                    },
+                    {
+                        "subscriptionName": "chatSettingsUpdated",
+                        "query": None,
+                        # "queryHash": "3b370c05478959224e3dbf9112d1e0490c22e17ffb4befd9276fc62e196b0f5b",
+                        "queryHash": self.hashes["ChatSettingsUpdated"],
+                    },
+                    {
+                        "subscriptionName": "chatModalStateChanged",
+                        "query": None,
+                        # "queryHash": "2bb5244d876baa860e10d76fa7439c67956b8341c84413ee5ca24bc97e37c777",
+                        "queryHash": self.hashes["ChatModalStateChanged"],
+                    },
+                ]
+            },
+            self.hashes["SubscriptionsMutation"],
+        )
 
     async def refresh_channel(self, get_new_channel: bool = True):
         """
         刷新ws地址
         """
         # 如果已经锁了就返回
-        if self.refresh_ws_is_lock():
-            return
+        # if self.refresh_ws_is_lock():
+        #     return
         # 取消之前的ws连接
         if self.ws_client_task:
             self.ws_client_task.cancel()
         # 锁定
-        self.refresh_ws_lock()
-        while self.refresh_ws_is_lock():
-            try:
-                if get_new_channel:
-                    self.channel_url = ""
-                    await self.get_new_channel()
-                    # logger.info("更新ws地址成功")
-                else:
-                    self.channel_url = sub(
-                        r"(min_seq=)\d+",
-                        r"\g<1>" + str(self.last_min_seq),
-                        self.channel_url,
-                    )
-                # 解除锁定
-                self.refresh_ws_unlock()
+        # self.refresh_ws_lock()
+        # retry_times = 1
+        # while self.refresh_ws_is_lock():
+        # while True:
+        # try:
+        if get_new_channel:
+            self.channel_url = ""
+            await self.get_new_channel()
+            # logger.info("更新ws地址成功")
+        else:
+            self.channel_url = sub(
+                r"(min_seq=)\d+",
+                r"\g<1>" + str(self.last_min_seq),
+                self.channel_url,
+            )
+            # 解除锁定
+            # self.refresh_ws_unlock()
+            # break
 
-            except Exception as e:
-                logger.error(f"刷新ws地址失败，将重试，错误信息: {repr(e)}")
+            # except Exception as e:
+            #     if retry_times > 0:
+            #         retry_times -= 1
+            #         await sleep(2)
+            #         continue
+
+            #     raise Exception(f"刷新ws地址失败，将重试，错误信息: {repr(e)}")
 
         # 创建新的ws连接任务
         self.ws_client_task = create_task(self.connect_to_channel())
@@ -528,6 +725,7 @@ class Poe_Client:
             loads(msg_str) for msg_str in ws_data.get("messages", "{}")
         ]
         for message in messages:
+            debug_logger.debug(message)
             message_type = message.get("message_type")
             if message_type == "refetchChannel":
                 raise RefetchChannel()
@@ -540,6 +738,7 @@ class Poe_Client:
                 "chatTitleUpdated",
             ]:
                 if subscription_name not in [
+                    "messageRead",
                     "messageCreated",
                     "messagePointLimitUpdated",
                     "viewerStateUpdated",
@@ -555,7 +754,6 @@ class Poe_Client:
                 continue
 
             _data = payload["data"][subscription_name]
-            debug_logger.debug(_data)
             # # 问题的消息数据
             # if subscription_name == "messageCreated":
             #     data = HumanMessageCreated(
@@ -640,10 +838,14 @@ class Poe_Client:
         - files  附件
         """
         # channel地址刷新中
-        await self.refresh_ws_event.wait()
+        # await self.refresh_ws_event.wait()
         # 没有ws连接就创建
+
         if self.ws_client_task is None:
-            await self.refresh_channel()
+            try:
+                await self.refresh_channel()
+            except Exception as e:
+                raise Exception(f"拉取WS地址出错: {repr(e)}")
 
         try:
             result = await self.send_query(
@@ -663,6 +865,7 @@ class Poe_Client:
                         "sourceType": "chat_input",
                     },
                 },
+                self.hashes["SendMessageMutation"],
                 file_list=files,
             )
 
@@ -676,6 +879,9 @@ class Poe_Client:
 
             if result["status"] == "file_too_large":
                 raise FileTooLarge()
+
+            if result["status"] == "no_access":
+                raise NeedDeleteChat()
 
             raise Exception(result["statusMessage"])
 
@@ -714,7 +920,7 @@ class Poe_Client:
         - new_chat  是否为新会话
         """
         # get_MessageCreated = False
-        timeout = 15
+        timeout = 10
         # 创建接收回答的队列
         while True:
             # 从队列拉取回复
@@ -725,8 +931,7 @@ class Poe_Client:
                 continue
             except TimeoutError:
                 # 如果timeout不是15，说明就是差个title，可以不要
-                if timeout != 15:
-                    yield TalkError(errMsg="获取回答超时")
+                yield TalkError(errMsg="获取回答超时")
                 return
 
             # # 需要先拿到 BotMessageCreated
@@ -768,6 +973,7 @@ class Poe_Client:
             await self.send_query(
                 "regenerateMessageMutation",
                 {"messageId": messageId, "messagePointsDisplayPrice": price},
+                self.hashes["RegenerateMessageMutation"],
             )
         except Exception as e:
             raise Exception(f"会话{chatCode}重新回答失败: {repr(e)}")
@@ -788,6 +994,7 @@ class Poe_Client:
                     "messageId": messageId,
                     "textLength": textLength,
                 },
+                self.hashes["MessageCancel"],
             )
         except Exception as e:
             raise Exception(f"会话{chatCode}停止回答失败: {repr(e)}")
@@ -800,6 +1007,7 @@ class Poe_Client:
             result = await self.send_query(
                 "createBotIndexPageQuery",
                 {"messageId": None},
+                self.hashes["CreateBotIndexPageQuery"],
             )
         except Exception as e:
             raise Exception(f"获取基础bot列表失败: {repr(e)}")
@@ -833,6 +1041,7 @@ class Poe_Client:
             result = await self.send_query(
                 "knowledge_CreateKnowledgeSourceMutation",
                 {"sourceInput": json_data},
+                self.hashes["CreateKnowledgeSourceMutation"],
                 file_list=files,
             )
 
@@ -871,6 +1080,7 @@ class Poe_Client:
             result = await self.send_query(
                 "KnowledgeSourceModalFlowQuery",
                 {"knowledgeSourceId": sourceId, "shouldFetch": True},
+                self.hashes["KnowledgeSourceModalFlowQuery"],
             )
 
         except Exception as e:
@@ -897,6 +1107,7 @@ class Poe_Client:
                     "knowledgeSourceId": sourceId,
                     "sourceInput": {"text_input": {"title": title, "content": content}},
                 },
+                self.hashes["EditKnowledgeSourceMutation"],
             )
         except Exception as e:
             raise Exception(f"编辑bot引用资源（仅限文本）失败: {repr(e)}")
@@ -963,6 +1174,7 @@ class Poe_Client:
                         "shouldCiteSources": citeSource,
                         "temperature": None,
                     },
+                    self.hashes["PoeBotCreate"],
                 )
             except Exception as e:
                 raise Exception(f"创建bot失败: {repr(e)}")
@@ -989,7 +1201,7 @@ class Poe_Client:
 
         bot_id = int(base64_decode(poeBotCreate["bot"]["id"])[4:])
         return {
-            "imgUrl": IMG_URL_CACHE["null"],
+            "imgUrl": IMG_URL_CACHE["None"],
             "botType": "自定义",
             "botHandle": poeBotCreate["bot"]["handle"],
             "botId": bot_id,
@@ -1005,7 +1217,9 @@ class Poe_Client:
         """
         try:
             _bot_info = await self.send_query(
-                "get_edit_bot_info", {"botName": botHandle}
+                "get_edit_bot_info",
+                {"botName": botHandle},
+                "",
             )
         except Exception as e:
             raise Exception(f"获取待编辑bot信息失败: {repr(e)}")
@@ -1095,6 +1309,7 @@ class Poe_Client:
                     "shouldCiteSources": citeSource,
                     "temperature": None,
                 },
+                self.hashes["PoeBotEdit"],
             )
         except Exception as e:
             raise Exception(f"编辑bot失败: {repr(e)}")
@@ -1118,6 +1333,7 @@ class Poe_Client:
                     "chatId": chat_id,
                     "clientNonce": token_hex(8),
                 },
+                self.hashes["SendChatBreakMutation"],
             )
         except Exception as e:
             raise Exception(f"会话{chatCode}清除上下文失败: {repr(e)}")
@@ -1142,7 +1358,9 @@ class Poe_Client:
         """
         try:
             await self.send_query(
-                "useDeleteChat_deleteChat_Mutation", {"chatId": chat_id}
+                "useDeleteChat_deleteChat_Mutation",
+                {"chatId": chat_id},
+                self.hashes["DeleteChat"],
             )
         except Exception as e:
             raise Exception(f"会话{chat_code}删除失败: {repr(e)}")
@@ -1157,7 +1375,9 @@ class Poe_Client:
         """
         try:
             resp = await self.send_query(
-                "BotInfoCardActionBar_poeBotDelete_Mutation", {"botId": bot_id}
+                "BotInfoCardActionBar_poeBotDelete_Mutation",
+                {"botId": bot_id},
+                self.hashes["PoeBotDelete"],
             )
         except Exception as e:
             raise Exception(f"bot {botName} 删除失败: {repr(e)}")
@@ -1177,6 +1397,7 @@ class Poe_Client:
             resp = await self.send_query(
                 "BotInfoCardActionBar_poeRemoveBotFromUserList_Mutation",
                 {"botId": bot_id},
+                self.hashes["PoeRemoveBotFromUserList"],
             )
         except Exception as e:
             raise Exception(f"bot {botName} 移除失败: {repr(e)}")

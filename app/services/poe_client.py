@@ -16,9 +16,9 @@ poe = Poe()
 scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 
 
-# 每日0点10秒时检查重置时间
 @scheduler.scheduled_job("cron", hour=0, minute=0, second=10)
 async def _():
+    """每日0点10秒时检查重置时间"""
     now = int(time() * 1000)
     _users = await User.list_user()
     for _user in _users:
@@ -38,6 +38,12 @@ async def _():
         await User.update_reset_date(user, resetDate)
         logger.info(f"{user}重置可用积分为{monthPoints}")
         user_action.info(f"{user}重置可用积分为{monthPoints}")
+
+
+@scheduler.scheduled_job("cron", hour=3)
+async def _():
+    """每日3点更新hash"""
+    await poe.client.update_hashes()
 
 
 # 每日5点时清理队列内存

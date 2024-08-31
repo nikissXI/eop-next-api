@@ -81,3 +81,9 @@ class RefetchChannel(Exception):
     """重新连接WS"""
 
     pass
+
+
+class NeedDeleteChat(Exception):
+    """会话已被删除"""
+
+    pass

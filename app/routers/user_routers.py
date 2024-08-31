@@ -17,6 +17,7 @@ from services.poe_lib.type import (
     ChatTitleUpdated,
     FileTooLarge,
     HumanMessageCreated,
+    NeedDeleteChat,
     TalkError,
     UnsupportedFileType,
 )
@@ -808,14 +809,19 @@ async def _(
             )
     # 发起问题请求
     try:
-        chat_data = await poe.client.send_question(
-            botHandle, chat_id, question, price, file_list
-        )
+        async with poe.client.send_question_lock:
+            chat_data = await poe.client.send_question(
+                botHandle, chat_id, question, price, file_list
+            )
     except UnsupportedFileType:
         return response_400(2003, "文件类型不支持")
 
     except FileTooLarge:
         return response_400(2004, "文件过大")
+
+    except NeedDeleteChat:
+        await Chat.delete_chat(user, chatCode)
+        return response_400(2005, "会话已被删除")
 
     except Exception as e:
         return response_500(repr(e))
