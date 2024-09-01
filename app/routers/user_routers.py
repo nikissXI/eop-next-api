@@ -104,19 +104,6 @@ async def ai_reply(
     yield _yield_data("humanMessageAdd", chat_data["messageNode"])
 
     async for _data in poe.client.get_answer(chat_id, messageId, new_chat):
-        # # bot的回答元数据
-        # if isinstance(_data, HumanMessageCreated):
-        #     yield _yield_data(
-        #         "botMessageAdd",
-        #         {
-        #             "messageId": _data.messageId,
-        #             "creationTime": _data.creationTime,
-        #             "text": "",
-        #             "attachments": [],
-        #             "author": "bot",
-        #         },
-        #     )
-
         # AI的回答
         if isinstance(_data, BotMessageAdd):
             yield _yield_data(

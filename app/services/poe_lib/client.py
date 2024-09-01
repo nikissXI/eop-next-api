@@ -1,5 +1,4 @@
 from asyncio import (
-    Event,
     Lock,
     Queue,
     TimeoutError,
@@ -16,7 +15,14 @@ from traceback import format_exc
 from typing import AsyncGenerator
 from uuid import UUID, uuid5
 
-from aiohttp import ClientSession, ClientTimeout, FormData, WSMsgType, request
+from aiohttp import (
+    ClientSession,
+    ClientTimeout,
+    ClientWebSocketResponse,
+    FormData,
+    WSMsgType,
+    request,
+)
 from ujson import dump, dumps, load, loads
 from utils.tool_util import debug_logger, logger
 
@@ -76,22 +82,12 @@ class Poe_Client:
         }
         self.channel_url = ""
         self.ws_client_task = None
-        # self.refresh_ws_event = Event()
         self.last_min_seq = 0
         self.ws_data_queue: dict[int, Queue] = {}
         self.get_chat_code: dict[str, int] = {}
         self.hashes: dict[str, str] = {}
         self.login_success: bool = False
         self.send_question_lock: Lock = Lock()
-
-    # def refresh_ws_lock(self):
-    #     self.refresh_ws_event.clear()
-
-    # def refresh_ws_unlock(self):
-    #     self.refresh_ws_event.set()
-
-    # def refresh_ws_is_lock(self) -> bool:
-    #     return not self.refresh_ws_event.is_set()
 
     async def login(self):
         """
@@ -111,10 +107,12 @@ class Poe_Client:
         logger.info(text)
         self.login_success = True
 
-        # 取消之前的ws连接
+        # 取消之前的ws任务
         if self.ws_client_task:
             self.ws_client_task.cancel()
-        # self.refresh_ws_unlock()
+        # 创建ws任务
+        self.ws_client_task = create_task(self.connect_to_channel())
+
         return self
 
     async def read_hashes(self):
@@ -484,6 +482,36 @@ class Poe_Client:
 
         raise Exception("bot不存在（可能被删除了）")
 
+    async def get_lastest_historyNode(self, chat_id: int, messageId: int) -> dict:
+        """
+        获取最后一个消息记录，用户拉取回答超时的时候用
+        """
+        try:
+            result = await self.send_query(
+                "ChatListPaginationQuery",
+                {
+                    "count": 25,
+                    "cursor": "0",
+                    "id": base64_encode(f"Chat:{chat_id}"),
+                },
+                self.hashes["ChatListPaginationQuery"],
+            )
+        except Exception as e:
+            raise Exception(f"获取chat详细信息失败: {repr(e)}")
+
+        edge = result["data"]["node"]["messagesConnection"]["edges"][-1]
+        historyNode = {
+            "messageId": edge["node"]["messageId"],
+            "creationTime": edge["node"]["creationTime"],
+            "text": edge["node"]["text"],
+            "attachments": filter_files_info(edge["node"]["attachments"]),
+        }
+
+        if historyNode["messageId"] < messageId:
+            return {}
+
+        return historyNode
+
     async def get_chat_info(self, chat_code: str, chat_id: int, cursor: str) -> dict:
         """
         获取chat详细信息
@@ -522,8 +550,7 @@ class Poe_Client:
             history_info = result["data"]["node"]["messagesConnection"]
 
         historyNodes = []
-        edges = history_info["edges"]
-        for edge in edges:
+        for edge in history_info["edges"]:
             historyNodes.append(
                 {
                     "messageId": edge["node"]["messageId"],
@@ -562,109 +589,91 @@ class Poe_Client:
                     {
                         "subscriptionName": "messageAdded",
                         "query": None,
-                        # "queryHash": "e26e3545469023d5bc2a074eb51bbd3b27d54975b3757f1ad2481991bc603312",
                         "queryHash": self.hashes["MessageAdded"],
                     },
                     {
                         "subscriptionName": "messageCancelled",
                         "query": None,
-                        # "queryHash": "14647e90e5960ec81fa83ae53d270462c3743199fbb6c4f26f40f4c83116d2ff",
                         "queryHash": self.hashes["MessageCancelled"],
                     },
                     {
                         "subscriptionName": "messageDeleted",
                         "query": None,
-                        # "queryHash": "91f1ea046d2f3e21dabb3131898ec3c597cb879aa270ad780e8fdd687cde02a3",
                         "queryHash": self.hashes["MessageDeleted"],
                     },
                     {
                         "subscriptionName": "messageRead",
                         "query": None,
-                        # "queryHash": "8c80ca00f63ad411ba7de0f1fa064490ed5f438d4a0e60fd9caa080b11af9495",
                         "queryHash": self.hashes["MessageRead"],
                     },
                     {
                         "subscriptionName": "messageCreated",
                         "query": None,
-                        # "queryHash": "d4fc22895d3bd1a344292cf917e8a7f3f99db75a8368156cf5f8a3c2ca76041d",
                         "queryHash": self.hashes["MessageCreated"],
                     },
                     {
                         "subscriptionName": "messageStateUpdated",
                         "query": None,
-                        # "queryHash": "117a49c685b4343e7e50b097b10a13b9555fedd61d3bf4030c450dccbeef5676",
                         "queryHash": self.hashes["MessageStateUpdated"],
                     },
                     {
                         "subscriptionName": "messageAttachmentAdded",
                         "query": None,
-                        # "queryHash": "65798bb2f409d9457fc84698479f3f04186d47558c3d7e75b3223b6799b6788d",
                         "queryHash": self.hashes["MessageAttachmentAdded"],
                     },
                     {
                         "subscriptionName": "messageFollowupActionAdded",
                         "query": None,
-                        # "queryHash": "d2e770beae7c217c77db4918ed93e848ae77df668603bc84146c161db149a2c7",
                         "queryHash": self.hashes["MessageFollowupActionAdded"],
                     },
                     {
                         "subscriptionName": "messageMetadataUpdated",
                         "query": None,
-                        # "queryHash": "71c247d997d73fb0911089c1a77d5d8b8503289bc3701f9fb93c9b13df95aaa6",
                         "queryHash": self.hashes["MessageMetadataUpdated"],
                     },
                     {
                         "subscriptionName": "messageTextUpdated",
                         "query": None,
-                        # "queryHash": "800eea48edc9c3a81aece34f5f1ff40dc8daa71dead9aec28f2b55523fe61231",
                         "queryHash": self.hashes["MessageTextUpdated"],
                     },
                     {
                         "subscriptionName": "viewerStateUpdated",
                         "query": None,
-                        # "queryHash": "3b2014dba11e57e99faa68b6b6c4956f3e982556f0cf832d728534f4319b92c7",
                         "queryHash": self.hashes["ViewerStateUpdated"],
                     },
                     {
                         "subscriptionName": "unreadChatsUpdated",
                         "query": None,
-                        # "queryHash": "d64b71e079245a2efaa40fc8b07d0d7757947d8cf8f7e0ea7423c0937b019b00",
                         "queryHash": self.hashes["UnreadChatsUpdated"],
                     },
                     {
                         "subscriptionName": "chatTitleUpdated",
                         "query": None,
-                        # "queryHash": "ee062b1f269ecd02ea4c2a3f1e4b2f222f7574c43634a2da4ebeb616d8647e06",
                         "queryHash": self.hashes["ChatTitleUpdated"],
                     },
                     {
                         "subscriptionName": "knowledgeSourceUpdated",
                         "query": None,
-                        # "queryHash": "7de63f89277bcf54f2323008850573809595dcef687f26a78561910cfd4f6c37",
                         "queryHash": self.hashes["KnowledgeSourceUpdated"],
                     },
                     {
                         "subscriptionName": "messagePointLimitUpdated",
                         "query": None,
-                        # "queryHash": "ed3857668953d6e8849c1562f3039df16c12ffddaaac1db930b91108775ee16d",
                         "queryHash": self.hashes["MessagePointLimitUpdated"],
                     },
                     {
                         "subscriptionName": "chatMemberAdded",
                         "query": None,
-                        # "queryHash": "21ef45e20cc8120c31a320c3104efe659eadf37d49249802eff7b15d883b917b",
                         "queryHash": self.hashes["ChatMemberAdded"],
                     },
                     {
                         "subscriptionName": "chatSettingsUpdated",
                         "query": None,
-                        # "queryHash": "3b370c05478959224e3dbf9112d1e0490c22e17ffb4befd9276fc62e196b0f5b",
                         "queryHash": self.hashes["ChatSettingsUpdated"],
                     },
                     {
                         "subscriptionName": "chatModalStateChanged",
                         "query": None,
-                        # "queryHash": "2bb5244d876baa860e10d76fa7439c67956b8341c84413ee5ca24bc97e37c777",
                         "queryHash": self.hashes["ChatModalStateChanged"],
                     },
                 ]
@@ -672,63 +681,22 @@ class Poe_Client:
             self.hashes["SubscriptionsMutation"],
         )
 
-    async def refresh_channel(self, get_new_channel: bool = True):
-        """
-        刷新ws地址
-        """
-        # 如果已经锁了就返回
-        # if self.refresh_ws_is_lock():
-        #     return
-        # 取消之前的ws连接
-        if self.ws_client_task:
-            self.ws_client_task.cancel()
-        # 锁定
-        # self.refresh_ws_lock()
-        # retry_times = 1
-        # while self.refresh_ws_is_lock():
-        # while True:
-        # try:
-        if get_new_channel:
-            self.channel_url = ""
-            await self.get_new_channel()
-            # logger.info("更新ws地址成功")
-        else:
-            self.channel_url = sub(
-                r"(min_seq=)\d+",
-                r"\g<1>" + str(self.last_min_seq),
-                self.channel_url,
-            )
-            # 解除锁定
-            # self.refresh_ws_unlock()
-            # break
-
-            # except Exception as e:
-            #     if retry_times > 0:
-            #         retry_times -= 1
-            #         await sleep(2)
-            #         continue
-
-            #     raise Exception(f"刷新ws地址失败，将重试，错误信息: {repr(e)}")
-
-        # 创建新的ws连接任务
-        self.ws_client_task = create_task(self.connect_to_channel())
-
     async def handle_ws_data(self, ws_data: dict):
         """
         处理ws中的数据
         """
 
         if "error" in ws_data:
-            raise Exception(dumps(ws_data))
+            logger.warning(f"get {ws_data}")
+            raise RefetchChannel("error")
 
         messages: list[dict] = [
             loads(msg_str) for msg_str in ws_data.get("messages", "{}")
         ]
         for message in messages:
-            debug_logger.debug(message)
             message_type = message.get("message_type")
             if message_type == "refetchChannel":
-                raise RefetchChannel()
+                raise RefetchChannel("refetch")
 
             payload: dict = message["payload"]
             subscription_name = payload["subscription_name"]
@@ -754,15 +722,6 @@ class Poe_Client:
                 continue
 
             _data = payload["data"][subscription_name]
-            # # 问题的消息数据
-            # if subscription_name == "messageCreated":
-            #     data = HumanMessageCreated(
-            #         messageId=_data["messageId"],
-            #         creationTime=_data["creationTime"],
-            #     )
-            #     # chat_code = _data["chat"]["chatCode"]
-            #     chat_id = _data["chat"]["chatId"]
-            #     # logger.warning(_data)
             # bot的回答数据
             if subscription_name == "messageAdded":
                 # 去掉空人类的问题、重置记忆
@@ -796,27 +755,47 @@ class Poe_Client:
         连接到poe的websocket，用于拉取回答
         """
 
-        try:
-            """创建ws连接"""
-            async with ClientSession() as session:
-                async with session.ws_connect(self.channel_url, proxy=self.proxy) as ws:
-                    async for msg in ws:
-                        if msg.type == WSMsgType.TEXT:
-                            if msg.data != '{"type":"pong"}':
-                                await self.handle_ws_data(loads(msg.data))
-                        elif msg.type == WSMsgType.CLOSED:
-                            break
-                        elif msg.type == WSMsgType.ERROR:
-                            break
-                    await ws.close()
+        async def _ping_server(ws: ClientWebSocketResponse):
+            while True:
+                await sleep(30)  # 等待30秒
+                ws._send_heartbeat()  # 发送ping消息
 
-        except RefetchChannel:
-            pass
+        error_times = 0
+        while error_times < 3:
+            try:
+                """获取ws地址"""
+                await self.get_new_channel()
+                """创建ws连接"""
+                async with ClientSession() as session:
+                    logger.info("ws channel connected")
+                    async with session.ws_connect(
+                        self.channel_url, proxy=self.proxy
+                    ) as ws:
+                        try:
+                            ping_task = create_task(_ping_server(ws))
+                            async for msg in ws:
+                                if msg.type == WSMsgType.TEXT:
+                                    debug_logger.debug(msg.data)
+                                    await self.handle_ws_data(loads(msg.data))
+                                else:
+                                    logger.warning(f"get unknown ws type: {msg.type}")
+                                    break
+                        finally:
+                            ping_task.cancel()  # 取消ping任务
+                            await ws.close()
 
-        except Exception as e:
-            logger.error(f"ws channel连接出错: {repr(e)}")
-            logger.error(format_exc())
+                error_times = 0
 
+            except RefetchChannel as e:
+                logger.warning({repr(e)})
+                error_times = 0
+
+            except Exception as e:
+                logger.error(f"ws channel连接出错: {repr(e)}")
+                logger.error(format_exc())
+                error_times += 1
+
+        logger.warning("ws channel disconnected")
         self.ws_client_task = None
 
     async def send_question(
@@ -837,15 +816,6 @@ class Poe_Client:
         - price
         - files  附件
         """
-        # channel地址刷新中
-        # await self.refresh_ws_event.wait()
-        # 没有ws连接就创建
-
-        if self.ws_client_task is None:
-            try:
-                await self.refresh_channel()
-            except Exception as e:
-                raise Exception(f"拉取WS地址出错: {repr(e)}")
 
         try:
             result = await self.send_query(
@@ -919,7 +889,6 @@ class Poe_Client:
         - questionMessageId  问题的id
         - new_chat  是否为新会话
         """
-        # get_MessageCreated = False
         timeout = 10
         # 创建接收回答的队列
         while True:
@@ -931,16 +900,22 @@ class Poe_Client:
                 continue
             except TimeoutError:
                 # 如果timeout不是15，说明就是差个title，可以不要
+                if _data := await self.get_lastest_historyNode(
+                    chatId, questionMessageId
+                ):
+                    logger.warning(f"获取回答超时，但拉了回来")
+                    data = BotMessageAdd(
+                        state="complete",
+                        messageId=_data["messageId"],
+                        creationTime=_data["creationTime"],
+                        text=_data["text"],
+                        attachments=filter_files_info(_data["attachments"]),
+                    )
+                    yield data
+                    return
+
                 yield TalkError(errMsg="获取回答超时")
                 return
-
-            # # 需要先拿到 BotMessageCreated
-            # if not get_MessageCreated:
-            #     # 如果不是 BotMessageCreated 就忽略（因为这个一定是新消息的第一个）
-            #     if not isinstance(data, BotMessageCreated):
-            #         continue
-            # # 检查没问题就改True
-            # get_MessageCreated = True
 
             if isinstance(data, BotMessageAdd):
                 # 如果是旧的也忽略
