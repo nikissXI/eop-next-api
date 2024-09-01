@@ -754,34 +754,37 @@ class Poe_Client:
         """
         连接到poe的websocket，用于拉取回答
         """
-
-        async def _ping_server(ws: ClientWebSocketResponse):
-            while True:
-                await sleep(30)  # 等待30秒
-                ws._send_heartbeat()  # 发送ping消息
-
         error_times = 0
         while error_times < 3:
             try:
                 """获取ws地址"""
                 await self.get_new_channel()
                 """创建ws连接"""
-                async with ClientSession() as session:
+                async with ClientSession(
+                    headers={
+                        "Accept-Encoding": "gzip",
+                        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+                        "Cache-Control": "no-cache",
+                        "Connection": "Upgrade",
+                        "Origin": "https://poe.com",
+                        "Pragma": "no-cache",
+                        "Upgrade": "websocket",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0",
+                    }
+                ) as session:
                     logger.info("ws channel connected")
                     async with session.ws_connect(
-                        self.channel_url, proxy=self.proxy
+                        self.channel_url, proxy=self.proxy, autoping=True, heartbeat=30
                     ) as ws:
                         try:
-                            ping_task = create_task(_ping_server(ws))
                             async for msg in ws:
+                                debug_logger.debug(msg.data)
                                 if msg.type == WSMsgType.TEXT:
-                                    debug_logger.debug(msg.data)
                                     await self.handle_ws_data(loads(msg.data))
                                 else:
                                     logger.warning(f"get unknown ws type: {msg.type}")
                                     break
                         finally:
-                            ping_task.cancel()  # 取消ping任务
                             await ws.close()
 
                 error_times = 0
