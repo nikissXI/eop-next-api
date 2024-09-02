@@ -1,3 +1,4 @@
+from asyncio import create_task
 from time import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -44,6 +45,11 @@ async def _():
 async def _():
     """每日3点更新hash"""
     await poe.client.update_hashes()
+    # 取消之前的ws任务
+    if poe.client.ws_client_task:
+        poe.client.ws_client_task.cancel()
+    # 创建ws任务
+    poe.client.ws_client_task = create_task(poe.client.connect_to_channel())
 
 
 # 每日5点时清理队列内存

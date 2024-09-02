@@ -107,6 +107,12 @@ class Poe_Client:
         logger.info(text)
         self.login_success = True
 
+        # 取消之前的ws任务
+        if self.ws_client_task:
+            self.ws_client_task.cancel()
+        # 创建ws任务
+        self.ws_client_task = create_task(self.connect_to_channel())
+
         return self
 
     async def read_hashes(self):
@@ -119,12 +125,6 @@ class Poe_Client:
         else:
             logger.warning("未发现hashes.json文件，正在拉取，大概需要1~2分钟")
             await self.update_hashes()
-
-        # 取消之前的ws任务
-        if self.ws_client_task:
-            self.ws_client_task.cancel()
-        # 创建ws任务
-        self.ws_client_task = create_task(self.connect_to_channel())
 
     async def update_hashes(self):
         async with request(
