@@ -232,14 +232,10 @@ async def _(
 
     return response_200(
         {
-            "code": 0,
-            "msg": "success",
-            "data": {
-                "p_b": p_b,
-                "p_lat": p_lat,
-                "formkey": formkey,
-                "proxy": proxy,
-            },
+            "p_b": p_b,
+            "p_lat": p_lat,
+            "formkey": formkey,
+            "proxy": proxy,
         },
     )
 
