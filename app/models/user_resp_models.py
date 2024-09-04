@@ -287,7 +287,7 @@ class CustomBotInfo(BaseModel):
 
 
 class GetEditBotRespBody(BaseModel):
-    basicBotList: list[BasicBotRespBody] = Field(
+    basicBotList: BasicBotRespBody = Field(
         title="自定义bot可使用的基础bot列表",
     )
     botInfo: CustomBotInfo = Field(
