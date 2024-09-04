@@ -247,12 +247,17 @@ class Poe_Client:
                     _json_str = text[pos + 51 :]
                     data = loads(_json_str[: _json_str.find("</script>")])
                     mainQuery = data["props"]["pageProps"]["data"]["mainQuery"]
+
                     return {
-                        "basicBotList": mainQuery["viewer"][
-                            "botsAllowedForUserCreation"
-                        ],
+                        "basicBotViewer": mainQuery["viewer"],
                         "botInfo": mainQuery["bot"],
                     }
+                    # return {
+                    #     "basicBotList": mainQuery["viewer"][
+                    #         "botsAllowedForUserCreation"
+                    #     ],
+                    #     "botInfo": mainQuery["bot"],
+                    # }
 
                 raise Exception("获取自定义bot编辑信息失败")
 
@@ -1194,7 +1199,7 @@ class Poe_Client:
         - botHandle  bot Handle
         """
         try:
-            _bot_info = await self.send_query(
+            _edit_bot_info = await self.send_query(
                 "get_edit_bot_info",
                 {"botName": botHandle},
                 "",
@@ -1202,6 +1207,26 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"获取待编辑bot信息失败: {repr(e)}")
 
+        basicBotViewer = _edit_bot_info["basicBotViewer"]
+        basicBotData = {
+            "botList": filter_basic_bot_info(
+                basicBotViewer["botsAllowedForUserCreation"]
+            ),
+            "suggestPromptBot": basicBotViewer["defaultPromptBotForUserCreation"][
+                "botId"
+            ],
+            "suggestImageBot": basicBotViewer["defaultImageBotForUserCreation"][
+                "botId"
+            ],
+            "suggestVideoBot": basicBotViewer["defaultVideoBotForUserCreation"][
+                "botId"
+            ],
+            "suggestRoleplayBot": basicBotViewer["defaultRoleplayBotForUserCreation"][
+                "botId"
+            ],
+        }
+
+        _bot_info = _edit_bot_info["botInfo"]
         sourceList = [
             {
                 "sourceId": s["node"]["knowledgeSourceId"],
@@ -1213,20 +1238,20 @@ class Poe_Client:
                 "title": s["node"]["title"],
                 "lastUpdatedTime": s["node"]["lastUpdatedTime"],
             }
-            for s in _bot_info["botInfo"]["knowledgeSourceConnection"]["edges"]
+            for s in _bot_info["knowledgeSourceConnection"]["edges"]
         ]
 
         bot_info = {
-            "basicBotList": filter_basic_bot_info(_bot_info["basicBotList"]),
+            "basicBotData": basicBotData,
             "botInfo": {
                 "botName": botName,
-                "botId": _bot_info["botInfo"]["botId"],
-                "botHandle": _bot_info["botInfo"]["handle"],
-                "baseBotId": _bot_info["botInfo"]["baseBotId"],
-                "baseBotModel": _bot_info["botInfo"]["model"],
-                "description": _bot_info["botInfo"]["description"],
-                "prompt": _bot_info["botInfo"]["promptPlaintext"],
-                "citeSource": _bot_info["botInfo"]["shouldCiteSources"],
+                "botId": _bot_info["botId"],
+                "botHandle": _bot_info["handle"],
+                "baseBotId": _bot_info["baseBotId"],
+                "baseBotModel": _bot_info["model"],
+                "description": _bot_info["description"],
+                "prompt": _bot_info["promptPlaintext"],
+                "citeSource": _bot_info["shouldCiteSources"],
                 "sourceList": sourceList,
             },
         }
