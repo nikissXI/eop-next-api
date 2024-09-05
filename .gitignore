@@ -6,3 +6,4 @@ data
 .env
 test
 .vscode
+*.log
