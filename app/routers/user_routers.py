@@ -556,7 +556,7 @@ async def _(
             body.botHandle,
             body.baseBotId,
             body.baseBotModel,
-            body.baseBotModel,
+            body.description,
             body.prompt,
             body.citeSource,
             body.addSourceIds,
