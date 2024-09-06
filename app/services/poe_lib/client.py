@@ -1184,7 +1184,7 @@ class Poe_Client:
 
         bot_id = int(base64_decode(poeBotCreate["bot"]["id"])[4:])
         return {
-            "imgUrl": IMG_URL_CACHE["None"],
+            "imgUrl": IMG_URL_CACHE["null"],
             "botType": "自定义",
             "botHandle": poeBotCreate["bot"]["handle"],
             "botId": bot_id,

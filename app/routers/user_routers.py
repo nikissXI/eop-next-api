@@ -1,5 +1,6 @@
 from io import BytesIO
 from time import localtime, strftime
+from traceback import format_exc
 from typing import AsyncIterable
 
 import models.user_req_models as req_models
