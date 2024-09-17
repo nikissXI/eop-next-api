@@ -4,10 +4,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 from jwt import decode as jwtDecode
 from jwt import encode as jwtEncode
-from passlib.context import CryptContext
 from utils.env_util import gv
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
 
