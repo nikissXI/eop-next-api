@@ -827,6 +827,7 @@ class Poe_Client:
         if self.ws_client_task is None:
             # 创建ws任务
             self.ws_client_task = create_task(self.connect_to_channel())
+            await sleep(1)
 
         try:
             result = await self.send_query(
