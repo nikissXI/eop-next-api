@@ -824,6 +824,9 @@ class Poe_Client:
         - price
         - files  附件
         """
+        if self.ws_client_task is None:
+            # 创建ws任务
+            self.ws_client_task = create_task(self.connect_to_channel())
 
         try:
             result = await self.send_query(
