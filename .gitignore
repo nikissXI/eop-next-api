@@ -7,3 +7,4 @@ data
 test
 .vscode
 *.log
+.idea
