@@ -81,7 +81,14 @@ def filter_bot_result(_edges: list) -> list[dict[str, str]]:
         # 描述
         description = _edge["node"]["description"].replace("\n", "")
         # 类型
-        bot_type = "官方" if "官方" in _edge["node"]["translatedBotTags"] else "第三方"
+        bot_type = (
+            "官方"
+            if (
+                "官方" in _edge["node"]["translatedBotTags"]
+                or "OFFICIAL" in _edge["node"]["translatedBotTags"]
+            )
+            else "第三方"
+        )
         # 月活用户，官方bot为null
         monthly_active = _edge["node"]["monthlyActiveUsers"]
 
@@ -107,7 +114,10 @@ def filter_bot_info(_bot_info: dict) -> dict:
         else:
             bot_type = "第三方"
     else:
-        if "OFFICIAL" in _bot_info["translatedBotTags"]:
+        if (
+            "官方" in _bot_info["translatedBotTags"]
+            or "OFFICIAL" in _bot_info["translatedBotTags"]
+        ):
             bot_type = "官方"
         else:
             bot_type = "第三方"
