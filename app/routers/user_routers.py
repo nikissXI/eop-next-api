@@ -114,12 +114,17 @@ async def ai_reply(
                     "messageId": _data.messageId,
                     "creationTime": _data.creationTime,
                     "text": _data.text,
-                    "attachments": _data.attachments,
+                    "attachments": [
+                        attachment.model_dump() for attachment in _data.attachments
+                    ],
                     "author": "bot",
                 },
             )
+
             if _data.state != "incomplete":
                 await Chat.update_last_content(user, chatCode, _data.text)
+            if _data.state not in ["complete", "incomplete", "cancelled"]:
+                yield _yield_data("talkError", {"errMsg": _data.messageStateText})
 
         # 标题更新
         if isinstance(_data, ChatTitleUpdated):

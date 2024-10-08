@@ -161,13 +161,21 @@ def filter_files_info(_files: list) -> list[Attachments]:
     _file_list = []
     for _f in _files:
         _file_list.append(
-            {
-                "name": _f["name"],
-                "url": _f["url"],
-                "mimeType": _f["file"]["mimeType"],
-                "width": _f["file"]["width"],
-                "height": _f["file"]["height"],
-                "size": _f["file"]["size"],
-            }
+            Attachments(
+                name=_f["name"],
+                url=_f["url"],
+                mimeType=_f["file"]["mimeType"],
+                width=_f["file"]["width"],
+                height=_f["file"]["height"],
+                size=_f["file"]["size"],
+            )
+            # {
+            #     "name": _f["name"],
+            #     "url": _f["url"],
+            #     "mimeType": _f["file"]["mimeType"],
+            #     "width": _f["file"]["width"],
+            #     "height": _f["file"]["height"],
+            #     "size": _f["file"]["size"],
+            # }
         )
     return _file_list

@@ -19,6 +19,22 @@ class Attachments(BaseModel):
             "https://pfst.cf2.poecdn.net/base/text/0723b69e0a0c72fdb2885f3c072c0706169f07c8b2bff3d57552e40a92e89d14?pmaid=113715453"
         ],
     )
+    mimeType: str = Field(
+        title="mimeType",
+        examples=["image/png"],
+    )
+    width: int = Field(
+        title="width",
+        examples=[1024],
+    )
+    height: int = Field(
+        title="height",
+        examples=[1024],
+    )
+    size: int = Field(
+        title="size",
+        examples=[1652645],
+    )
 
 
 class BotMessageAdd(BaseModel):
@@ -27,6 +43,12 @@ class BotMessageAdd(BaseModel):
     state: str = Field(
         title="回答状态",
         examples=["incomplete", "complete", "cancelled"],
+    )
+    messageStateText: str | None = Field(
+        title="异常状态文本",
+        examples=[
+            "信息或附件过大。请缩短信息或上传较小的附件，或考虑使用其他支持更大信息的机器人。"
+        ],
     )
     messageId: int = Field(
         title="消息id",

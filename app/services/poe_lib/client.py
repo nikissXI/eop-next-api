@@ -734,6 +734,9 @@ class Poe_Client:
                     continue
                 data = BotMessageAdd(
                     state=_data["state"],
+                    messageStateText=_data["messageStateText"]
+                    if "messageStateText" in _data
+                    else None,
                     messageId=_data["messageId"],
                     creationTime=_data["creationTime"],
                     text=_data["text"],
@@ -918,6 +921,9 @@ class Poe_Client:
                     logger.warning(f"获取回答超时，但拉了回来")
                     data = BotMessageAdd(
                         state="complete",
+                        messageStateText=_data["messageStateText"]
+                        if "messageStateText" in _data
+                        else None,
                         messageId=_data["messageId"],
                         creationTime=_data["creationTime"],
                         text=_data["text"],
