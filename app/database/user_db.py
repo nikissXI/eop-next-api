@@ -93,6 +93,8 @@ class User(Model):
         if add_months != 0:
             # 已过期，就是当前时间比过期时间大
             if int(time() * 1000) > _user.expire_date:
+                # 如果已过期的用户续就重置当前积分
+                remain_points = month_points
                 # 下一次重置时间
                 reset_date = int(
                     (datetime.now() + relativedelta(months=+1)).timestamp() * 1000
