@@ -8,3 +8,4 @@ test
 .vscode
 *.log
 .idea
+config.txt
