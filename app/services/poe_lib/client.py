@@ -228,7 +228,7 @@ class Poe_Client:
 
         if forbidden_times > 0:
             logger.warning(f"forbidden_times:{forbidden_times}")
-            await sleep(randint(1, 2))
+            await sleep(randint(2, 3))
 
         status_code = 0
         try:
@@ -337,12 +337,10 @@ class Poe_Client:
             raise ServerError("server error")
 
         except Exception as e:
-            # if (
-            #     # isinstance(e, ConnectError)
-            #     # or isinstance(e, ConnectTimeout) or
-            #     500 <= status_code < 600
-            # ) and forbidden_times < 1:
-            #     return await self.send_query(query_name, variables, forbidden_times + 1)
+            if (400 <= status_code < 600) and forbidden_times < 3:
+                return await self.send_query(
+                    query_name, variables, hash, forbidden_times + 1, file_list
+                )
 
             err_code = f"status_code:{status_code}，" if status_code else ""
             raise Exception(
@@ -999,7 +997,11 @@ class Poe_Client:
         try:
             result = await self.send_query(
                 "createBotIndexPageQuery",
-                {"messageId": None},
+                {
+                    "canvasNodeId": "",
+                    "includeCanvasData": False,
+                    "messageId": None,
+                },
                 self.hashes["CreateBotIndexPageQuery"],
             )
         except Exception as e:
