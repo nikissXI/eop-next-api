@@ -103,7 +103,7 @@ class Poe_Client:
         user_info = await self.get_account_info()
         text = f"\n登陆成功！账号信息如下\n -- 邮箱: {user_info['email']}\n -- 购买订阅: {user_info['subscriptionActivated']}"
         if user_info["subscriptionActivated"]:
-            text += f"\n -- 订阅类型: {user_info['planType']}\n -- 订阅截止: {str_time(user_info['expireTime'])}\n -- 月度积分: {user_info['remainPoints']}/{user_info['monthPoints']}（{user_info['remainPoints']/user_info['monthPoints']*100:.2f}%）\n -- 重置时间: {str_time(user_info['pointsResetTime'])}"
+            text += f"\n -- 订阅类型: {user_info['planType']}\n -- 订阅截止: {str_time(user_info['expireTime'])}\n -- 月度积分: {user_info['remainPoints']}/{user_info['monthPoints']}（{user_info['remainPoints'] / user_info['monthPoints'] * 100:.2f}%）\n -- 重置时间: {str_time(user_info['pointsResetTime'])}"
         logger.info(text)
         self.login_success = True
 
@@ -362,7 +362,9 @@ class Poe_Client:
 
             data = {
                 "email": _v["primaryEmail"],
-                "subscriptionActivated": _v["subscription"]["isActive"],
+                "subscriptionActivated": True
+                if _v["subscription"]["subscriptionProduct"]
+                else False,
                 "planType": None,
                 "expireTime": None,
                 "remainPoints": _v["messagePointInfo"]["messagePointBalance"],
@@ -372,7 +374,9 @@ class Poe_Client:
             }
 
             if data["subscriptionActivated"]:
-                data["planType"] = _v["subscription"]["planType"]
+                data["planType"] = (
+                    f"{_v['subscription']['subscriptionProduct']['displayName']} ({_v['subscription']['subscriptionProduct']['paidSubscriptionPeriod']})"
+                )
                 data["expireTime"] = _v["subscription"]["expiresTime"] / 1000
 
             return data
@@ -582,7 +586,7 @@ class Poe_Client:
         tchannel_data = result["tchannelData"]
         self.headers["Poe-Tchannel"] = tchannel_data["channel"]
         ws_domain = f"tch{randint(1, int(1e6))}"[:8]
-        self.channel_url = f'wss://{ws_domain}.tch.{tchannel_data["baseHost"]}/up/{tchannel_data["boxName"]}/updates?min_seq={tchannel_data["minSeq"]}&channel={tchannel_data["channel"]}&hash={tchannel_data["channelHash"]}'
+        self.channel_url = f"wss://{ws_domain}.tch.{tchannel_data['baseHost']}/up/{tchannel_data['boxName']}/updates?min_seq={tchannel_data['minSeq']}&channel={tchannel_data['channel']}&hash={tchannel_data['channelHash']}"
         self.last_min_seq = int(tchannel_data["minSeq"])
 
         await self.send_query(
