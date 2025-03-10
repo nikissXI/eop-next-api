@@ -30,6 +30,8 @@ from .type import (
     ChatTitleUpdated,
     FileTooLarge,
     NeedDeleteChat,
+    PriceCache,
+    PriceCost,
     RefetchChannel,
     ServerError,
     TalkError,
@@ -44,11 +46,11 @@ from .util import (
     base64_decode,
     base64_encode,
     filter_basic_bot_info,
-    filter_bot_info,
     filter_bot_result,
     filter_files_info,
     generate_data,
     generate_random_handle,
+    get_img_url,
     str_time,
 )
 
@@ -86,6 +88,7 @@ class Poe_Client:
         self.hashes: dict[str, str] = {}
         self.login_success: bool = False
         self.send_question_lock: Lock = Lock()
+        self.bot_price_cache: dict[str, PriceCache] = {}
 
     async def login(self):
         """
@@ -480,7 +483,7 @@ class Poe_Client:
                 self.hashes["HandleBotLandingPageQuery"],
             )
             if result["data"]["bot"]:
-                return filter_bot_info(result["data"]["bot"])
+                return await self.filter_bot_info(result["data"]["bot"])
 
         except Exception as e:
             raise Exception(f"获取bot详细信息失败: {repr(e)}")
@@ -548,7 +551,9 @@ class Poe_Client:
             raise Exception(f"获取chat详细信息失败: {repr(e)}")
 
         if cursor == "0":
-            botInfo = filter_bot_info(result["data"]["chatOfCode"]["defaultBotObject"])
+            botInfo = await self.filter_bot_info(
+                result["data"]["chatOfCode"]["defaultBotObject"]
+            )
             history_info = result["data"]["chatOfCode"]["messagesConnection"]
         else:
             botInfo = {}
@@ -567,6 +572,7 @@ class Poe_Client:
                     else "bot",
                 }
             )
+
         pageInfo = history_info["pageInfo"]
 
         return {
@@ -759,6 +765,7 @@ class Poe_Client:
             if subscription_name not in [
                 "messageAdded",
                 "chatTitleUpdated",
+                "jobCostUpdated",
             ]:
                 if subscription_name not in [
                     "messageRead",
@@ -770,8 +777,8 @@ class Poe_Client:
                     "knowledgeSourceUpdated",
                     "jobUpdated",
                     "messageFollowupActionUpdated",
-                    "jobCostUpdated",
                     "jobStarted",
+                    "chatDeleted",
                 ]:
                     logger.warning(
                         f"发现未知的subscription_name = {subscription_name}，数据已保存到本地"
@@ -797,14 +804,17 @@ class Poe_Client:
                     attachments=filter_files_info(_data["attachments"]),
                 )
                 chat_id = int(payload["unique_id"][13:])
-                # logger.warning(_data)
-            # 会话标题更新 chatTitleUpdated
-            else:
+
+            # 会话标题更新
+            elif subscription_name == "chatTitleUpdated":
                 data = ChatTitleUpdated(
                     title=_data["title"],
                 )
                 chat_id = int(payload["unique_id"][17:])
-                # logger.warning(_data)
+            # 花费更新
+            else:
+                data = PriceCost(price=_data["totalCostPoints"])
+                chat_id = int(_data["trigger"]["message"]["chat"]["chatId"])
 
             # 创建接收回答的队列
             if chat_id not in self.ws_data_queue:
@@ -868,7 +878,6 @@ class Poe_Client:
         handle: str,
         chat_id: int,
         question: str,
-        price: int,
         files: list[tuple],
     ) -> dict:
         """
@@ -895,8 +904,11 @@ class Poe_Client:
                     "chatId": chat_id if chat_id else None,
                     "clientNonce": token_hex(8),
                     "existingMessageAttachmentsIds": [],
-                    "messagePointsDisplayPrice": price,
+                    "messagePointsDisplayPrice": self.bot_price_cache[
+                        handle
+                    ].displayPrice,
                     "query": question,
+                    "referencedMessageId": None,
                     "sdid": self.sdid,
                     "shouldFetchChat": False if chat_id else True,
                     "source": {
@@ -911,6 +923,7 @@ class Poe_Client:
         except Exception as e:
             raise Exception(f"发送问题失败: {repr(e)}")
 
+        # logger.error(dumps(result, ensure_ascii=False))
         result = result["data"]["messageEdgeCreate"]
         if result["status"] != "success":
             if result["status"] == "unsupported_file_type":
@@ -924,7 +937,7 @@ class Poe_Client:
 
             raise Exception(result["statusMessage"])
 
-        botInfo = filter_bot_info(result["bot"])
+        botInfo = await self.filter_bot_info(result["bot"])
         if chat_id == 0:
             chatCode = result["chat"]["chatCode"]
             chatId = result["chat"]["chatId"]
@@ -994,20 +1007,28 @@ class Poe_Client:
                 if data.messageId < questionMessageId:
                     continue
                 yield data
-                # 如果是完成了或取消了
-                if data.state != "incomplete":
-                    # 如果不是新会话直接返回
-                    if not new_chat:
-                        return
-                    # 减少timeout，等title更新
-                    timeout = 3
 
-            # 如果新会话可能要更新title，在最后
+                # # 如果是完成了或取消了
+                # if data.state != "incomplete":
+                #     # 如果不是新会话直接返回
+                #     if not new_chat:
+                #         return
+                #     # 减少timeout，等title更新
+                #     timeout = 3
+
+            # 消费更新
+            if isinstance(data, PriceCost):
+                yield data
+                # 如果不是新会话，直接返回
+                if not new_chat:
+                    return
+
+            # 如果新会话要更新title，在最后
             if isinstance(data, ChatTitleUpdated):
                 yield data
                 return
 
-    async def answer_again(self, chatCode: str, messageId: int, price: int):
+    async def answer_again(self, handle: str, chatCode: str, messageId: int):
         """
         重新生成回复
 
@@ -1019,7 +1040,12 @@ class Poe_Client:
         try:
             await self.send_query(
                 "regenerateMessageMutation",
-                {"messageId": messageId, "messagePointsDisplayPrice": price},
+                {
+                    "messageId": messageId,
+                    "messagePointsDisplayPrice": self.bot_price_cache[
+                        handle
+                    ].displayPrice,
+                },
                 self.hashes["RegenerateMessageMutation"],
             )
         except Exception as e:
@@ -1475,3 +1501,55 @@ class Poe_Client:
 
         if resp["data"] is None and resp["errors"]:
             raise Exception(f"bot {botName} 移除失败: {resp['errors'][0]['message']}")
+
+    async def filter_bot_info(self, _bot_info: dict) -> dict:
+        if "isOfficialBot" in _bot_info:
+            if _bot_info["isOfficialBot"]:
+                bot_type = "官方"
+            elif _bot_info["isPrivateBot"]:
+                bot_type = "自定义"
+            else:
+                bot_type = "第三方"
+        else:
+            if (
+                "官方" in _bot_info["translatedBotTags"]
+                or "OFFICIAL" in _bot_info["translatedBotTags"]
+            ):
+                bot_type = "官方"
+            else:
+                bot_type = "第三方"
+
+        img_url = get_img_url(_bot_info["displayName"], _bot_info["picture"])
+
+        try:
+            # 尝试直接从结果解析（除了新会话都有的）
+            standardPrice = _bot_info["botPricing"]["standardMessagePrice"]
+            displayPrice = _bot_info["messagePointLimit"]["displayMessagePointPrice"]
+            self.bot_price_cache[_bot_info["nickname"]] = PriceCache(
+                standardPrice=standardPrice, displayPrice=displayPrice
+            )
+            price = standardPrice
+        except KeyError:
+            # 如果没有，那就尝试从缓存拉，如果没有就从详情获取
+            try:
+                price = self.bot_price_cache[_bot_info["nickname"]].standardPrice
+            except KeyError:
+                await self.get_bot_info(_bot_info["displayName"])
+                price = self.bot_price_cache[_bot_info["nickname"]].standardPrice
+
+        bot_info = {
+            "botName": _bot_info["displayName"],
+            "botId": _bot_info["botId"],
+            "botHandle": _bot_info["nickname"],
+            "description": _bot_info["description"]
+            if "description" in _bot_info
+            else "",
+            "allowImage": _bot_info["allowsImageAttachments"],
+            "allowFile": _bot_info["supportsFileUpload"],
+            "uploadFileSizeLimit": _bot_info["uploadFileSizeLimit"],
+            "imgUrl": img_url,
+            "price": price,
+            "botType": bot_type,
+            "canAccess": _bot_info["canUserAccessBot"],
+        }
+        return bot_info

@@ -21,18 +21,18 @@ class Attachments(BaseModel):
     )
     mimeType: str = Field(
         title="mimeType",
-        examples=["image/png"],
+        examples=["image/png", "text/javascript"],
     )
-    width: int = Field(
+    width: int | None = Field(
         title="width",
-        examples=[1024],
+        examples=[None, 1024],
     )
-    height: int = Field(
+    height: int | None = Field(
         title="height",
-        examples=[1024],
+        examples=[None, 1024],
     )
     size: int = Field(
-        title="size",
+        title="文件大小",
         examples=[1652645],
     )
 
@@ -72,6 +72,25 @@ class ChatTitleUpdated(BaseModel):
 
     title: str = Field(
         title="会话标题",
+    )
+
+
+class PriceCost(BaseModel):
+    """花费信息"""
+
+    price: int = Field(
+        title="消耗点数",
+    )
+
+
+class PriceCache(BaseModel):
+    """花费缓存"""
+
+    standardPrice: int = Field(
+        title="标准消息消耗",
+    )
+    displayPrice: int = Field(
+        title="显示消耗",
     )
 
 

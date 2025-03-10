@@ -105,41 +105,6 @@ def filter_bot_result(_edges: list) -> list[dict[str, str]]:
     return bots
 
 
-def filter_bot_info(_bot_info: dict) -> dict:
-    if "isOfficialBot" in _bot_info:
-        if _bot_info["isOfficialBot"]:
-            bot_type = "官方"
-        elif _bot_info["isPrivateBot"]:
-            bot_type = "自定义"
-        else:
-            bot_type = "第三方"
-    else:
-        if (
-            "官方" in _bot_info["translatedBotTags"]
-            or "OFFICIAL" in _bot_info["translatedBotTags"]
-        ):
-            bot_type = "官方"
-        else:
-            bot_type = "第三方"
-
-    img_url = get_img_url(_bot_info["displayName"], _bot_info["picture"])
-
-    bot_info = {
-        "botName": _bot_info["displayName"],
-        "botId": _bot_info["botId"],
-        "botHandle": _bot_info["nickname"],
-        "description": _bot_info["description"] if "description" in _bot_info else "",
-        "allowImage": _bot_info["allowsImageAttachments"],
-        "allowFile": _bot_info["supportsFileUpload"],
-        "uploadFileSizeLimit": _bot_info["uploadFileSizeLimit"],
-        "imgUrl": img_url,
-        "price": _bot_info["messagePointLimit"]["displayMessagePointPrice"],
-        "botType": bot_type,
-        "canAccess": _bot_info["canUserAccessBot"],
-    }
-    return bot_info
-
-
 def filter_basic_bot_info(_bot_list: list) -> list[dict]:
     bot_list = []
     for _bot_info in _bot_list:
@@ -168,14 +133,6 @@ def filter_files_info(_files: list) -> list[Attachments]:
                 width=_f["file"]["width"],
                 height=_f["file"]["height"],
                 size=_f["file"]["size"],
-            )
-            # {
-            #     "name": _f["name"],
-            #     "url": _f["url"],
-            #     "mimeType": _f["file"]["mimeType"],
-            #     "width": _f["file"]["width"],
-            #     "height": _f["file"]["height"],
-            #     "size": _f["file"]["size"],
-            # }
+            ).model_dump()
         )
     return _file_list

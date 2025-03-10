@@ -1,6 +1,5 @@
 from io import BytesIO
 from time import localtime, strftime
-from traceback import format_exc
 from typing import AsyncIterable
 
 import models.user_req_models as req_models
@@ -17,12 +16,12 @@ from services.poe_lib.type import (
     BotMessageAdd,
     ChatTitleUpdated,
     FileTooLarge,
-    HumanMessageCreated,
     NeedDeleteChat,
+    PriceCost,
     TalkError,
     UnsupportedFileType,
 )
-from ujson import dumps, loads
+from ujson import dump, dumps
 from utils.gtranslate.client import Translator
 from utils.tool_util import logger, user_action
 
@@ -77,6 +76,7 @@ async def ai_reply(
     messageId: int,
     chat_data: dict,
     new_chat: bool,
+    remain_points: int,
 ) -> AsyncIterable:
     """回答环节"""
 
@@ -130,6 +130,14 @@ async def ai_reply(
         if isinstance(_data, ChatTitleUpdated):
             await Chat.update_title(user, chatCode, _data.title)
             yield _yield_data("chatTitleUpdated", {"title": _data.title})
+
+        # 花费更新
+        if isinstance(_data, PriceCost):
+            # 减去用户积分
+            await User.update_remain_points(user, remain_points - _data.price)
+            user_action.info(
+                f"用户 {user} 对话 {botName} ({botHandle}) chatCode {chatCode} 积分 {_data.price}"
+            )
 
         # 出错
         if isinstance(_data, TalkError):
@@ -701,6 +709,9 @@ async def _(
             chat_info["botInfo"]["added"] = True
             chat_info["botInfo"]["botType"] = bot_type
 
+    with open("tmp.json", "w", encoding="utf-8") as w:
+        dump(chat_info, w, ensure_ascii=False)
+
     return response_200(chat_info)
 
 
@@ -805,7 +816,7 @@ async def _(
     try:
         async with poe.client.send_question_lock:
             chat_data = await poe.client.send_question(
-                botHandle, chat_id, question, price, file_list
+                botHandle, chat_id, question, file_list
             )
     except UnsupportedFileType:
         return response_400(2003, "文件类型不支持")
@@ -843,20 +854,23 @@ async def _(
             chat_data["botInfo"]["added"] = True
     # 获取消息id
     messageId = chat_data["messageNode"]["messageId"]
-    # 减去用户积分
-    await User.update_remain_points(user, remain_points - price)
     # 更新最后对话时间
     await Chat.update_last_talk_time(user, chatCode)
-    user_action.info(
-        f"用户 {user} 对话 {botName} ({botHandle})  chatCode {chatCode} 积分 {price}"
-    )
 
     #################
     ### 回答环节
     #################
     return StreamingResponse(
         ai_reply(
-            user, chatCode, chat_id, botName, botHandle, messageId, chat_data, new_chat
+            user,
+            chatCode,
+            chat_id,
+            botName,
+            botHandle,
+            messageId,
+            chat_data,
+            new_chat,
+            remain_points,
         ),
         media_type="text/event-stream",
         status_code=200,
@@ -902,27 +916,33 @@ async def _(
     # 预检查
     if json_response := await reply_pre_check(user, chatCode, remain_points, price):
         return json_response
-    # 发起重新回答的请求
-    try:
-        await poe.client.answer_again(chatCode, messageId, price)
-    except Exception as e:
-        return response_500(repr(e))
 
     bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
 
-    # 减去用户积分
-    await User.update_remain_points(user, remain_points - price)
+    # 发起重新回答的请求
+    try:
+        await poe.client.answer_again(bot_handle, chatCode, messageId)
+    except Exception as e:
+        return response_500(repr(e))
+
     # 更新最后对话时间
     await Chat.update_last_talk_time(user, chatCode)
-    user_action.info(
-        f"用户 {user} 对话 {bot_name} ({bot_handle}) chatCode {chatCode} 积分 {price}"
-    )
 
     #################
     ### 回答环节
     #################
     return StreamingResponse(
-        ai_reply(user, chatCode, chat_id, bot_name, bot_handle, messageId, {}, False),
+        ai_reply(
+            user,
+            chatCode,
+            chat_id,
+            bot_name,
+            bot_handle,
+            messageId,
+            {},
+            False,
+            remain_points,
+        ),
         media_type="text/event-stream",
         status_code=200,
     )
