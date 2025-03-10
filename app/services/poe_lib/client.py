@@ -9,7 +9,7 @@ from asyncio import (
 from hashlib import md5
 from os import path
 from random import randint
-from re import findall, sub
+from re import findall
 from secrets import token_hex
 from traceback import format_exc
 from typing import AsyncGenerator
@@ -18,19 +18,17 @@ from uuid import UUID, uuid5
 from aiohttp import (
     ClientSession,
     ClientTimeout,
-    ClientWebSocketResponse,
     FormData,
     WSMsgType,
     request,
 )
-from ujson import dump, dumps, load, loads
+from ujson import dump, load, loads
 from utils.tool_util import debug_logger, logger
 
 from .type import (
     BotMessageAdd,
     ChatTitleUpdated,
     FileTooLarge,
-    HumanMessageCreated,
     NeedDeleteChat,
     RefetchChannel,
     ServerError,
@@ -639,9 +637,29 @@ class Poe_Client:
                         "queryHash": self.hashes["MessageMetadataUpdated"],
                     },
                     {
+                        "subscriptionName": "messageReactionsUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["MessageReactionsUpdated"],
+                    },
+                    {
                         "subscriptionName": "messageTextUpdated",
                         "query": None,
                         "queryHash": self.hashes["MessageTextUpdated"],
+                    },
+                    {
+                        "subscriptionName": "jobStarted",
+                        "query": None,
+                        "queryHash": self.hashes["JobStarted"],
+                    },
+                    {
+                        "subscriptionName": "jobUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["JobUpdated"],
+                    },
+                    {
+                        "subscriptionName": "jobCostUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["JobCostUpdated"],
                     },
                     {
                         "subscriptionName": "viewerStateUpdated",
@@ -654,9 +672,29 @@ class Poe_Client:
                         "queryHash": self.hashes["UnreadChatsUpdated"],
                     },
                     {
+                        "subscriptionName": "canvasTabClosed",
+                        "query": None,
+                        "queryHash": self.hashes["CanvasTabClosed"],
+                    },
+                    {
+                        "subscriptionName": "canvasTabOpened",
+                        "query": None,
+                        "queryHash": self.hashes["CanvasTabOpened"],
+                    },
+                    {
+                        "subscriptionName": "canvasTabBackgrounded",
+                        "query": None,
+                        "queryHash": self.hashes["CanvasTabBackgrounded"],
+                    },
+                    {
                         "subscriptionName": "chatTitleUpdated",
                         "query": None,
                         "queryHash": self.hashes["ChatTitleUpdated"],
+                    },
+                    {
+                        "subscriptionName": "chatDeleted",
+                        "query": None,
+                        "queryHash": self.hashes["ChatDeleted"],
                     },
                     {
                         "subscriptionName": "knowledgeSourceUpdated",
@@ -669,9 +707,9 @@ class Poe_Client:
                         "queryHash": self.hashes["MessagePointLimitUpdated"],
                     },
                     {
-                        "subscriptionName": "chatMemberAdded",
+                        "subscriptionName": "chatMemberAddedWithContext",
                         "query": None,
-                        "queryHash": self.hashes["ChatMemberAdded"],
+                        "queryHash": self.hashes["ChatMemberAddedWithContext"],
                     },
                     {
                         "subscriptionName": "chatSettingsUpdated",
@@ -682,6 +720,16 @@ class Poe_Client:
                         "subscriptionName": "chatModalStateChanged",
                         "query": None,
                         "queryHash": self.hashes["ChatModalStateChanged"],
+                    },
+                    {
+                        "subscriptionName": "defaultBotOfChatChanged",
+                        "query": None,
+                        "queryHash": self.hashes["DefaultBotOfChatChanged"],
+                    },
+                    {
+                        "subscriptionName": "messageFollowupActionUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["MessageFollowupActionUpdated"],
                     },
                 ]
             },
@@ -720,6 +768,10 @@ class Poe_Client:
                     "messageCancelled",
                     "messageDeleted",
                     "knowledgeSourceUpdated",
+                    "jobUpdated",
+                    "messageFollowupActionUpdated",
+                    "jobCostUpdated",
+                    "jobStarted",
                 ]:
                     logger.warning(
                         f"发现未知的subscription_name = {subscription_name}，数据已保存到本地"
@@ -920,7 +972,7 @@ class Poe_Client:
                 if _data := await self.get_lastest_historyNode(
                     chatId, questionMessageId
                 ):
-                    logger.warning(f"获取回答超时，但拉了回来")
+                    logger.warning("获取回答超时，但拉了回来")
                     data = BotMessageAdd(
                         state="complete",
                         messageStateText=_data["messageStateText"]
@@ -1186,7 +1238,7 @@ class Poe_Client:
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
-            except Exception as e:
+            except Exception:
                 pass
 
             poeBotCreate = result["data"]["poeBotCreate"]
