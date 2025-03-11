@@ -138,6 +138,7 @@ async def ai_reply(
             user_action.info(
                 f"用户 {user} 对话 {botName} ({botHandle}) chatCode {chatCode} 积分 {_data.price}"
             )
+            yield _yield_data("chatPriceCost", {"price": _data.price})
 
         # 出错
         if isinstance(_data, TalkError):
