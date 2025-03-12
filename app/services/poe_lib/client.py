@@ -1525,6 +1525,10 @@ class Poe_Client:
             # 尝试直接从结果解析（除了新会话都有的）
             standardPrice = _bot_info["botPricing"]["standardMessagePrice"]
             displayPrice = _bot_info["messagePointLimit"]["displayMessagePointPrice"]
+
+            if not standardPrice:
+                standardPrice = displayPrice
+
             self.bot_price_cache[_bot_info["nickname"]] = PriceCache(
                 standardPrice=standardPrice, displayPrice=displayPrice
             )
