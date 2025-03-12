@@ -971,7 +971,7 @@ class Poe_Client:
         - questionMessageId  问题的id
         - new_chat  是否为新会话
         """
-        timeout = 10
+        timeout = 15
         # 创建接收回答的队列
         while True:
             # 从队列拉取回复
@@ -981,7 +981,6 @@ class Poe_Client:
                 self.ws_data_queue[chatId] = Queue()
                 continue
             except TimeoutError:
-                # 如果timeout不是15，说明就是差个title，可以不要
                 if _data := await self.get_lastest_historyNode(
                     chatId, questionMessageId
                 ):
@@ -1007,14 +1006,6 @@ class Poe_Client:
                 if data.messageId < questionMessageId:
                     continue
                 yield data
-
-                # # 如果是完成了或取消了
-                # if data.state != "incomplete":
-                #     # 如果不是新会话直接返回
-                #     if not new_chat:
-                #         return
-                #     # 减少timeout，等title更新
-                #     timeout = 3
 
             # 消费更新
             if isinstance(data, PriceCost):
