@@ -83,17 +83,6 @@ class PriceCost(BaseModel):
     )
 
 
-class PriceCache(BaseModel):
-    """花费缓存"""
-
-    standardPrice: int = Field(
-        title="标准消息消耗",
-    )
-    displayPrice: int = Field(
-        title="显示消耗",
-    )
-
-
 class TalkError(BaseModel):
     """错误"""
 

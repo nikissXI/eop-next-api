@@ -30,7 +30,6 @@ from .type import (
     ChatTitleUpdated,
     FileTooLarge,
     NeedDeleteChat,
-    PriceCache,
     PriceCost,
     RefetchChannel,
     ServerError,
@@ -88,7 +87,7 @@ class Poe_Client:
         self.hashes: dict[str, str] = {}
         self.login_success: bool = False
         self.send_question_lock: Lock = Lock()
-        self.bot_price_cache: dict[str, PriceCache] = {}
+        self.bot_price_cache: dict[str, int] = {}
 
     async def login(self):
         """
@@ -779,6 +778,7 @@ class Poe_Client:
                     "messageFollowupActionUpdated",
                     "jobStarted",
                     "chatDeleted",
+                    "chatMemberAddedWithContext",
                 ]:
                     logger.warning(
                         f"发现未知的subscription_name = {subscription_name}，数据已保存到本地"
@@ -904,9 +904,6 @@ class Poe_Client:
                     "chatId": chat_id if chat_id else None,
                     "clientNonce": token_hex(8),
                     "existingMessageAttachmentsIds": [],
-                    "messagePointsDisplayPrice": self.bot_price_cache[
-                        handle
-                    ].displayPrice,
                     "query": question,
                     "referencedMessageId": None,
                     "sdid": self.sdid,
@@ -1033,9 +1030,6 @@ class Poe_Client:
                 "regenerateMessageMutation",
                 {
                     "messageId": messageId,
-                    "messagePointsDisplayPrice": self.bot_price_cache[
-                        handle
-                    ].displayPrice,
                 },
                 self.hashes["RegenerateMessageMutation"],
             )
@@ -1513,24 +1507,17 @@ class Poe_Client:
         img_url = get_img_url(_bot_info["displayName"], _bot_info["picture"])
 
         try:
-            # 尝试直接从结果解析（除了新会话都有的）
-            standardPrice = _bot_info["botPricing"]["standardMessagePrice"]
-            displayPrice = _bot_info["messagePointLimit"]["displayMessagePointPrice"]
-
-            if not standardPrice:
-                standardPrice = displayPrice
-
-            self.bot_price_cache[_bot_info["nickname"]] = PriceCache(
-                standardPrice=standardPrice, displayPrice=displayPrice
-            )
-            price = standardPrice
+            self.bot_price_cache["botHandle"] = _bot_info["botPricing"][
+                "standardMessagePrice"
+            ]
         except KeyError:
-            # 如果没有，那就尝试从缓存拉，如果没有就从详情获取
-            try:
-                price = self.bot_price_cache[_bot_info["nickname"]].standardPrice
-            except KeyError:
-                await self.get_bot_info(_bot_info["displayName"])
-                price = self.bot_price_cache[_bot_info["nickname"]].standardPrice
+            logger.warning(f"拉取{_bot_info['displayName']}所需积分信息")
+            await self.get_bot_info(_bot_info["displayName"])
+
+        price = self.bot_price_cache["botHandle"]
+
+        if not price:
+            price = 200
 
         bot_info = {
             "botName": _bot_info["displayName"],

@@ -766,17 +766,13 @@ async def _(
     botName: str = Form(description="bot name"),
     botHandle: str = Form(description="bot handle"),
     question: str = Form(None, description="问题内容，可以只发文件不发文本"),
-    price: int = Form(description="所需积分"),
     files: list[UploadFile] = File(None, description="要上传的附件，不需要就不发"),
     user_data: dict = Depends(verify_token),
 ):
     if not question:
         question = ""
     user = user_data["user"]
-    remain_points = await User.get_remain_points(user)
-    # 预检查
-    if json_response := await reply_pre_check(user, chatCode, remain_points, price):
-        return json_response
+
     #################
     ### 新会话判断是否添加了bot，如果没添加就加上（自定义bot一定已添加）
     #################
@@ -793,6 +789,18 @@ async def _(
             bot_info["botHandle"],
             bot_info["botId"],
         )
+
+    remain_points = await User.get_remain_points(user)
+    # 预检查
+    try:
+        price = poe.client.bot_price_cache[botHandle]
+    except KeyError:
+        bot_info = await poe.client.get_bot_info(botName)
+        price = bot_info["price"]
+
+    if json_response := await reply_pre_check(user, chatCode, remain_points, price):
+        return json_response
+
     #################
     ### 提问环节
     #################
@@ -904,7 +912,6 @@ async def _(
         examples=[
             {
                 "messageId": 12312312,
-                "price": 20,
             }
         ],
     ),
@@ -912,11 +919,11 @@ async def _(
 ):
     user = user_data["user"]
     messageId = body.messageId
-    price = body.price
+    # price = body.price # todo
     remain_points = await User.get_remain_points(user)
-    # 预检查
-    if json_response := await reply_pre_check(user, chatCode, remain_points, price):
-        return json_response
+    # # 预检查
+    # if json_response := await reply_pre_check(user, chatCode, remain_points, price):
+    #     return json_response
 
     bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
 

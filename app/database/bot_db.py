@@ -8,7 +8,7 @@ class Bot(Model):
     bot_name = fields.TextField()  # 模型名称
     img_url = fields.TextField()  # 模型头像链接
     bot_type = fields.TextField()  # 模型类型  官方  自定义   第三方
-    bot_handle = fields.TextField()  # Bot handle，某些时候用 todo，如果用不上就删了
+    bot_handle = fields.TextField()  # Bot handle
     bot_id = fields.IntField()  # Bot id，某些时候用
 
     class Meta:

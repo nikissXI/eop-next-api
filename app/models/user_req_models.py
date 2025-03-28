@@ -54,9 +54,6 @@ class AnswerReqAgain(BaseModel):
     messageId: int = Field(
         title="要重新回答的消息id",
     )
-    price: int = Field(
-        title="消耗积分",
-    )
 
 
 class AnswerReqStop(BaseModel):
