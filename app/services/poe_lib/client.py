@@ -1511,11 +1511,13 @@ class Poe_Client:
                 "standardMessagePrice"
             ]
         except KeyError:
-            logger.warning(f"拉取{_bot_info['displayName']}所需积分信息")
-            await self.get_bot_info(_bot_info["displayName"])
+            try:
+                price = self.bot_price_cache["botHandle"]
+            except KeyError:
+                logger.warning(f"拉取{_bot_info['displayName']}所需积分信息")
+                await self.get_bot_info(_bot_info["displayName"])
 
         price = self.bot_price_cache["botHandle"]
-
         if not price:
             price = 200
 
