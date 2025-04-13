@@ -617,6 +617,11 @@ class Poe_Client:
                         "queryHash": self.hashes["MessageRead"],
                     },
                     {
+                        "subscriptionName": "messageEdited",
+                        "query": None,
+                        "queryHash": self.hashes["MessageEdited"],
+                    },
+                    {
                         "subscriptionName": "messageCreated",
                         "query": None,
                         "queryHash": self.hashes["MessageCreated"],
@@ -672,11 +677,6 @@ class Poe_Client:
                         "queryHash": self.hashes["ViewerStateUpdated"],
                     },
                     {
-                        "subscriptionName": "unreadChatsUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["UnreadChatsUpdated"],
-                    },
-                    {
                         "subscriptionName": "canvasTabClosed",
                         "query": None,
                         "queryHash": self.hashes["CanvasTabClosed"],
@@ -717,6 +717,16 @@ class Poe_Client:
                         "queryHash": self.hashes["ChatMemberAddedWithContext"],
                     },
                     {
+                        "subscriptionName": "chatMemberRemoved",
+                        "query": None,
+                        "queryHash": self.hashes["ChatMemberRemoved"],
+                    },
+                    {
+                        "subscriptionName": "viewerRemovedFromChat",
+                        "query": None,
+                        "queryHash": self.hashes["ViewerRemovedFromChat"],
+                    },
+                    {
                         "subscriptionName": "chatSettingsUpdated",
                         "query": None,
                         "queryHash": self.hashes["ChatSettingsUpdated"],
@@ -735,6 +745,16 @@ class Poe_Client:
                         "subscriptionName": "messageFollowupActionUpdated",
                         "query": None,
                         "queryHash": self.hashes["MessageFollowupActionUpdated"],
+                    },
+                    {
+                        "subscriptionName": "unseenCountsUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["UnseenCountsUpdated"],
+                    },
+                    {
+                        "subscriptionName": "chatMuteStatusUpdated",
+                        "query": None,
+                        "queryHash": self.hashes["ChatMuteStatusUpdated"],
                     },
                 ]
             },
