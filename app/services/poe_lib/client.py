@@ -131,7 +131,7 @@ class Poe_Client:
             "GET",
             "https://poe.com/login?redirect_url=%2F",
             headers=self.headers,
-            timeout=ClientTimeout(5),
+            timeout=ClientTimeout(15),
             proxy=self.proxy,
         ) as response:
             text = await response.text()
@@ -152,7 +152,7 @@ class Poe_Client:
             "GET",
             manifest_url,
             headers=self.headers,
-            timeout=ClientTimeout(5),
+            timeout=ClientTimeout(15),
             proxy=self.proxy,
         ) as response:
             text = await response.text()
@@ -165,7 +165,7 @@ class Poe_Client:
             "GET",
             webpack_url,
             headers=self.headers,
-            timeout=ClientTimeout(5),
+            timeout=ClientTimeout(15),
             proxy=self.proxy,
         ) as response:
             text = await response.text()
@@ -190,7 +190,7 @@ class Poe_Client:
                 "GET",
                 url,
                 headers=self.headers,
-                timeout=ClientTimeout(5),
+                timeout=ClientTimeout(15),
                 proxy=self.proxy,
             ) as response:
                 if response.status != 200:
@@ -237,7 +237,7 @@ class Poe_Client:
                     "GET",
                     f"https://poe.com/edit_bot?bot={variables['botName']}",
                     headers={"Cookie": f"p-b={self.p_b}; p-lat={self.p_lat}"},
-                    timeout=ClientTimeout(5),
+                    timeout=ClientTimeout(15),
                     proxy=self.proxy,
                 ) as response:
                     text = await response.text()
@@ -266,7 +266,7 @@ class Poe_Client:
                     "GET",
                     SETTING_URL,
                     headers=self.headers,
-                    timeout=ClientTimeout(5),
+                    timeout=ClientTimeout(15),
                     proxy=self.proxy,
                 ) as response:
                     return loads(await response.text())
@@ -292,7 +292,7 @@ class Poe_Client:
                             "poe-tag-id": md5(base_string.encode()).hexdigest(),
                         },
                     },
-                    timeout=ClientTimeout(5),
+                    timeout=ClientTimeout(15),
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
@@ -315,7 +315,7 @@ class Poe_Client:
                             "poe-tag-id": md5(base_string.encode()).hexdigest(),
                         },
                     },
-                    timeout=ClientTimeout(5),
+                    timeout=ClientTimeout(15),
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
@@ -1265,7 +1265,7 @@ class Poe_Client:
                     "GET",
                     f"https://poe.com/_next/data/w4diyMjOxdjD6IZZxDJDt/{handle}.json?handle={handle}",
                     headers=self.headers,
-                    timeout=ClientTimeout(5),
+                    timeout=ClientTimeout(15),
                     proxy=self.proxy,
                 ) as response:
                     status_code = response.status
