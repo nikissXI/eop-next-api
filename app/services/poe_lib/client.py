@@ -637,11 +637,6 @@ class Poe_Client:
                         "queryHash": self.hashes["MessageAttachmentAdded"],
                     },
                     {
-                        "subscriptionName": "messageFollowupActionAdded",
-                        "query": None,
-                        "queryHash": self.hashes["MessageFollowupActionAdded"],
-                    },
-                    {
                         "subscriptionName": "messageMetadataUpdated",
                         "query": None,
                         "queryHash": self.hashes["MessageMetadataUpdated"],
@@ -677,87 +672,176 @@ class Poe_Client:
                         "queryHash": self.hashes["ViewerStateUpdated"],
                     },
                     {
-                        "subscriptionName": "canvasTabClosed",
-                        "query": None,
-                        "queryHash": self.hashes["CanvasTabClosed"],
-                    },
-                    {
-                        "subscriptionName": "canvasTabOpened",
-                        "query": None,
-                        "queryHash": self.hashes["CanvasTabOpened"],
-                    },
-                    {
-                        "subscriptionName": "canvasTabBackgrounded",
-                        "query": None,
-                        "queryHash": self.hashes["CanvasTabBackgrounded"],
-                    },
-                    {
                         "subscriptionName": "chatTitleUpdated",
                         "query": None,
                         "queryHash": self.hashes["ChatTitleUpdated"],
                     },
-                    {
-                        "subscriptionName": "chatDeleted",
-                        "query": None,
-                        "queryHash": self.hashes["ChatDeleted"],
-                    },
-                    {
-                        "subscriptionName": "knowledgeSourceUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["KnowledgeSourceUpdated"],
-                    },
-                    {
-                        "subscriptionName": "messagePointLimitUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["MessagePointLimitUpdated"],
-                    },
-                    {
-                        "subscriptionName": "chatMemberAddedWithContext",
-                        "query": None,
-                        "queryHash": self.hashes["ChatMemberAddedWithContext"],
-                    },
-                    {
-                        "subscriptionName": "chatMemberRemoved",
-                        "query": None,
-                        "queryHash": self.hashes["ChatMemberRemoved"],
-                    },
-                    {
-                        "subscriptionName": "viewerRemovedFromChat",
-                        "query": None,
-                        "queryHash": self.hashes["ViewerRemovedFromChat"],
-                    },
-                    {
-                        "subscriptionName": "chatSettingsUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["ChatSettingsUpdated"],
-                    },
-                    {
-                        "subscriptionName": "chatModalStateChanged",
-                        "query": None,
-                        "queryHash": self.hashes["ChatModalStateChanged"],
-                    },
-                    {
-                        "subscriptionName": "defaultBotOfChatChanged",
-                        "query": None,
-                        "queryHash": self.hashes["DefaultBotOfChatChanged"],
-                    },
-                    {
-                        "subscriptionName": "messageFollowupActionUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["MessageFollowupActionUpdated"],
-                    },
-                    {
-                        "subscriptionName": "unseenCountsUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["UnseenCountsUpdated"],
-                    },
-                    {
-                        "subscriptionName": "chatMuteStatusUpdated",
-                        "query": None,
-                        "queryHash": self.hashes["ChatMuteStatusUpdated"],
-                    },
                 ]
             },
+            # {
+            #     "subscriptions": [
+            #         {
+            #             "subscriptionName": "messageAdded",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageAdded"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageCancelled",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageCancelled"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageDeleted",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageDeleted"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageRead",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageRead"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageEdited",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageEdited"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageCreated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageCreated"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageStateUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageStateUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageAttachmentAdded",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageAttachmentAdded"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageFollowupActionAdded",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageFollowupActionAdded"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageMetadataUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageMetadataUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageReactionsUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageReactionsUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageTextUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageTextUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "jobStarted",
+            #             "query": None,
+            #             "queryHash": self.hashes["JobStarted"],
+            #         },
+            #         {
+            #             "subscriptionName": "jobUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["JobUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "jobCostUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["JobCostUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "viewerStateUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["ViewerStateUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "canvasTabClosed",
+            #             "query": None,
+            #             "queryHash": self.hashes["CanvasTabClosed"],
+            #         },
+            #         {
+            #             "subscriptionName": "canvasTabOpened",
+            #             "query": None,
+            #             "queryHash": self.hashes["CanvasTabOpened"],
+            #         },
+            #         {
+            #             "subscriptionName": "canvasTabBackgrounded",
+            #             "query": None,
+            #             "queryHash": self.hashes["CanvasTabBackgrounded"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatTitleUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatTitleUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatDeleted",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatDeleted"],
+            #         },
+            #         {
+            #             "subscriptionName": "knowledgeSourceUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["KnowledgeSourceUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "messagePointLimitUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessagePointLimitUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatMemberAddedWithContext",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatMemberAddedWithContext"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatMemberRemoved",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatMemberRemoved"],
+            #         },
+            #         {
+            #             "subscriptionName": "viewerRemovedFromChat",
+            #             "query": None,
+            #             "queryHash": self.hashes["ViewerRemovedFromChat"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatSettingsUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatSettingsUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatModalStateChanged",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatModalStateChanged"],
+            #         },
+            #         {
+            #             "subscriptionName": "defaultBotOfChatChanged",
+            #             "query": None,
+            #             "queryHash": self.hashes["DefaultBotOfChatChanged"],
+            #         },
+            #         {
+            #             "subscriptionName": "messageFollowupActionUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["MessageFollowupActionUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "unseenCountsUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["UnseenCountsUpdated"],
+            #         },
+            #         {
+            #             "subscriptionName": "chatMuteStatusUpdated",
+            #             "query": None,
+            #             "queryHash": self.hashes["ChatMuteStatusUpdated"],
+            #         },
+            #     ]
+            # },
             self.hashes["SubscriptionsMutation"],
         )
 
