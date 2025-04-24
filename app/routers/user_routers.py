@@ -6,7 +6,6 @@ import models.user_req_models as req_models
 import models.user_resp_models as resp_models
 from database.bot_db import Bot
 from database.chat_db import Chat
-from database.config_db import Config
 from database.user_db import User
 from fastapi import APIRouter, Body, Depends, File, Form, Path, Response, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -22,7 +21,6 @@ from services.poe_lib.type import (
     UnsupportedFileType,
 )
 from ujson import dump, dumps
-from utils.gtranslate.client import Translator
 from utils.tool_util import logger, user_action
 
 router = APIRouter()
@@ -1030,37 +1028,3 @@ async def _(
     user_action.info(f"用户 {user} {bot_name} ({bot_handle})  删除会话 {chatCode}")
 
     return response_200()
-
-
-@router.post(
-    "/translate",
-    summary="翻译为中文",
-    responses={
-        200: {
-            "description": "删除成功",
-            "model": resp_models.BasicRespBody[resp_models.TranslateRespBody],
-        },
-    },
-)
-async def _(
-    body: req_models.Translate = Body(
-        examples=[
-            {
-                "text": "fuck you",
-            }
-        ],
-    ),
-    user_data: dict = Depends(verify_token),
-):
-    p_b, p_lat, formkey, proxy = await Config.get_setting()
-
-    try:
-        zh_text = (
-            await Translator(proxies=proxy if proxy else None).translate(
-                body.text, dest="zh-cn", src="auto"
-            )
-        ).text
-    except Exception as e:
-        return response_500(repr(e))
-
-    return response_200({"zh_text": zh_text})
