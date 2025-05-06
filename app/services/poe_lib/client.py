@@ -337,7 +337,7 @@ class Poe_Client:
             raise ServerError("server error")
 
         except Exception as e:
-            if (400 <= status_code < 600) and forbidden_times < 3:
+            if (400 <= status_code < 600) and forbidden_times < 1:
                 return await self.send_query(
                     query_name, variables, hash, forbidden_times + 1, file_list
                 )
@@ -870,25 +870,6 @@ class Poe_Client:
                 "chatTitleUpdated",
                 "jobCostUpdated",
             ]:
-                if subscription_name not in [
-                    "messageRead",
-                    "messageCreated",
-                    "messagePointLimitUpdated",
-                    "viewerStateUpdated",
-                    "messageCancelled",
-                    "messageDeleted",
-                    "knowledgeSourceUpdated",
-                    "jobUpdated",
-                    "messageFollowupActionUpdated",
-                    "jobStarted",
-                    "chatDeleted",
-                    "chatMemberAddedWithContext",
-                ]:
-                    logger.warning(
-                        f"发现未知的subscription_name = {subscription_name}，数据已保存到本地"
-                    )
-                    with open(f"{subscription_name}.json", "w", encoding="utf-8") as w:
-                        dump(message, w, indent=4, ensure_ascii=False)
                 continue
 
             _data = payload["data"][subscription_name]
@@ -918,7 +899,7 @@ class Poe_Client:
             # 花费更新
             else:
                 data = PriceCost(price=_data["totalCostPoints"])
-                chat_id = int(_data["trigger"]["message"]["chat"]["chatId"])
+                chat_id = int(_data["createdMessagesConnection"]["edges"][0]["node"]["chat"]["chatId"])
 
             # 创建接收回答的队列
             if chat_id not in self.ws_data_queue:
@@ -1080,6 +1061,7 @@ class Poe_Client:
                 data = await wait_for(self.ws_data_queue[chatId].get(), timeout)
             except KeyError:
                 self.ws_data_queue[chatId] = Queue()
+                await sleep(1)
                 continue
             except TimeoutError:
                 if _data := await self.get_lastest_historyNode(
