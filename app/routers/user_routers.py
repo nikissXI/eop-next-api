@@ -788,17 +788,6 @@ async def _(
             bot_info["botId"],
         )
 
-    remain_points = await User.get_remain_points(user)
-    # 预检查
-    try:
-        price = poe.client.bot_price_cache[botHandle]
-    except KeyError:
-        bot_info = await poe.client.get_bot_info(botName)
-        price = bot_info["price"]
-
-    if json_response := await reply_pre_check(user, chatCode, remain_points, price):
-        return json_response
-
     #################
     ### 提问环节
     #################
@@ -807,6 +796,21 @@ async def _(
         bot_name, bot_handle, chat_id, title = await Chat.get_chat_info(user, chatCode)
     # 检查是否为用户的bot，顺便拿bot type
     bot_type, bot_name, bot_id = await Bot.get_bot_info(user, botHandle)
+
+    # 积分余额检查
+    remain_points = await User.get_remain_points(user)
+    try:
+        price = poe.client.bot_price_cache[botHandle]
+    except KeyError:
+        if bot_type == "自定义":
+            bot_info = await poe.client.get_bot_info(botHandle)
+        else:
+            bot_info = await poe.client.get_bot_info(botName)
+        price = bot_info["price"]
+
+    if json_response := await reply_pre_check(user, chatCode, remain_points, price):
+        return json_response
+
     # 处理附件
     file_list: list[tuple] = []
     if files:
