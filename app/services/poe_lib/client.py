@@ -899,7 +899,11 @@ class Poe_Client:
             # 花费更新
             else:
                 data = PriceCost(price=_data["totalCostPoints"])
-                chat_id = int(_data["createdMessagesConnection"]["edges"][0]["node"]["chat"]["chatId"])
+                chat_id = int(
+                    _data["createdMessagesConnection"]["edges"][0]["node"]["chat"][
+                        "chatId"
+                    ]
+                )
 
             # 创建接收回答的队列
             if chat_id not in self.ws_data_queue:
@@ -1616,7 +1620,9 @@ class Poe_Client:
             else "",
             "allowImage": _bot_info["allowsImageAttachments"],
             "allowFile": _bot_info["supportsFileUpload"],
-            "uploadFileSizeLimit": _bot_info["uploadFileSizeLimit"],
+            "uploadFileSizeLimit": _bot_info["uploadFileSizeLimit"]
+            if "uploadFileSizeLimit" in _bot_info
+            else 900000000,
             "imgUrl": img_url,
             "price": price,
             "botType": bot_type,
