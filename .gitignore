@@ -9,3 +9,4 @@ test
 *.log
 .idea
 config.txt
+hashes.json
