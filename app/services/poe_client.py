@@ -51,6 +51,9 @@ async def _():
     # 创建ws任务
     poe.client.ws_client_task = create_task(poe.client.connect_to_channel())
 
+    # 清空积分缓存
+    poe.client.bot_price_cache.clear()
+
 
 # 每日5点时清理队列内存
 @scheduler.scheduled_job("cron", hour=5)

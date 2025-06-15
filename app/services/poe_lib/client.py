@@ -468,7 +468,7 @@ class Poe_Client:
             "pageInfo": pageInfo,
         }
 
-    async def get_bot_info(self, botName: str) -> dict:
+    async def get_bot_info(self, botName: str, keyerror: bool = False) -> dict:
         """
         获取bot详细信息
 
@@ -482,7 +482,9 @@ class Poe_Client:
                 self.hashes["HandleBotLandingPageQuery"],
             )
             if result["data"]["bot"]:
-                return await self.filter_bot_info(result["data"]["bot"])
+                return await self.filter_bot_info(
+                    result["data"]["bot"], keyerror=keyerror
+                )
 
         except Exception as e:
             raise Exception(f"获取bot详细信息失败: {repr(e)}")
@@ -1577,7 +1579,7 @@ class Poe_Client:
         if resp["data"] is None and resp["errors"]:
             raise Exception(f"bot {botName} 移除失败: {resp['errors'][0]['message']}")
 
-    async def filter_bot_info(self, _bot_info: dict) -> dict:
+    async def filter_bot_info(self, _bot_info: dict, keyerror: bool = False) -> dict:
         if "isOfficialBot" in _bot_info:
             if _bot_info["isOfficialBot"]:
                 bot_type = "官方"
@@ -1597,15 +1599,23 @@ class Poe_Client:
         img_url = get_img_url(_bot_info["displayName"], _bot_info["picture"])
 
         try:
-            self.bot_price_cache["botHandle"] = _bot_info["botPricing"][
-                "standardMessagePrice"
-            ]
+            _x = _bot_info["botPricing"]["botPricingLabel"].split()
+            if len(_x) == 2:
+                self.bot_price_cache["botHandle"] = int(_x[0].replace("+", ""))
+            else:
+                self.bot_price_cache["botHandle"] = 500
+
+            # "可变积分"
+            # "4700+ 积分"
         except KeyError:
             try:
                 price = self.bot_price_cache["botHandle"]
             except KeyError:
+                if keyerror is True:
+                    raise Exception(f"拉取{_bot_info['displayName']}所需积分信息出错")
+
                 logger.warning(f"拉取{_bot_info['displayName']}所需积分信息")
-                await self.get_bot_info(_bot_info["displayName"])
+                await self.get_bot_info(_bot_info["displayName"], keyerror=True)
 
         price = self.bot_price_cache["botHandle"]
         if not price:
