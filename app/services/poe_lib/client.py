@@ -127,85 +127,94 @@ class Poe_Client:
             await self.update_hashes()
 
     async def update_hashes(self):
-        async with request(
-            "GET",
-            "https://poe.com/login?redirect_url=%2F",
-            headers=self.headers,
-            timeout=ClientTimeout(15),
-            proxy=self.proxy,
-        ) as response:
-            text = await response.text()
-
-        chunks_regex = (
-            r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks.+?\.js"
-        )
-        manifest_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/\S{21}\/_buildManifest\.js"
-        webpack_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks\/webpack.+?.js"
-        base_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/"
-
-        chunks = findall(chunks_regex, text)
-        manifest_url = findall(manifest_regex, text)[0]
-        webpack_url = findall(webpack_regex, text)[0]
-        base_url = findall(base_regex, text)[0]
-
-        async with request(
-            "GET",
-            manifest_url,
-            headers=self.headers,
-            timeout=ClientTimeout(15),
-            proxy=self.proxy,
-        ) as response:
-            text = await response.text()
-
-        resources_regex = r'"(static/.+?)"'
-        resources_list = findall(resources_regex, text)
-        urls = []
-
-        async with request(
-            "GET",
-            webpack_url,
-            headers=self.headers,
-            timeout=ClientTimeout(15),
-            proxy=self.proxy,
-        ) as response:
-            text = await response.text()
-
-        webpack_chunks_regex = r'\+\(({.+?})\)\[.\]\+"\.js"'
-        webpack_items_regex = r'(\d+):"([0-9a-zA-Z]{16})"'
-        json_text = findall(webpack_chunks_regex, text)[0]
-        webpack_chunks = findall(webpack_items_regex, json_text)
-
-        for chunk_id, chunk_hash in webpack_chunks:
-            urls.append(base_url + f"static/chunks/{chunk_id}.{chunk_hash}.js")
-        for resource in resources_list:
-            urls.append(base_url + resource)
-        urls = list(set(urls + chunks))
-
-        queries = {}
-        for url in urls:
-            if not url.endswith(".js"):
-                continue
-
-            async with request(
-                "GET",
-                url,
-                headers=self.headers,
-                timeout=ClientTimeout(15),
+        async with ClientSession(
+            headers=self.headers, timeout=ClientTimeout(10)
+        ) as session:
+            async with session.get(
+                "https://poe.com/login?redirect_url=%2F",
                 proxy=self.proxy,
             ) as response:
-                if response.status != 200:
-                    continue
-
                 text = await response.text()
 
-            hashes_regex = r'params:{id:"([0-9a-zA-Z]{64})".+?name:"(\S+?)"'
-            hashes_list = findall(hashes_regex, text)
+            chunks_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks.+?\.js"
+            manifest_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/\S{21}\/_buildManifest\.js"
+            webpack_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/static\/chunks\/webpack.+?.js"
+            base_regex = r"https:\/\/psc2\.cf2\.poecdn\.net\/assets\/_next\/"
 
-            for query_hash, query_name in hashes_list:
-                if "_" in query_name:
-                    query_name = query_name.split("_")[1]
-                query_name = query_name[0].upper() + query_name[1:]
-                queries[query_name] = query_hash
+            chunks = findall(chunks_regex, text)
+            manifest_url = findall(manifest_regex, text)[0]
+            webpack_url = findall(webpack_regex, text)[0]
+            base_url = findall(base_regex, text)[0]
+
+            async with session.get(
+                manifest_url,
+                proxy=self.proxy,
+            ) as response:
+                text = await response.text()
+
+            resources_regex = r'"(static/.+?)"'
+            resources_list = findall(resources_regex, text)
+            urls = []
+
+            async with session.get(
+                webpack_url,
+                proxy=self.proxy,
+            ) as response:
+                text = await response.text()
+
+            webpack_chunks_regex = r'\+\(({.+?})\)\[.\]\+"\.js"'
+            webpack_items_regex = r'(\d+):"([0-9a-zA-Z]{16})"'
+            json_text = findall(webpack_chunks_regex, text)[0]
+            webpack_chunks = findall(webpack_items_regex, json_text)
+
+            for chunk_id, chunk_hash in webpack_chunks:
+                urls.append(base_url + f"static/chunks/{chunk_id}.{chunk_hash}.js")
+            for resource in resources_list:
+                urls.append(base_url + resource)
+            urls = list(set(urls + chunks))
+
+            queries = {}
+            for url in urls:
+                if not url.endswith(".js"):
+                    continue
+
+                max_retries = 2
+                con = False
+                for attempt in range(max_retries):
+                    try:
+                        async with session.get(
+                            url,
+                            proxy=self.proxy,
+                        ) as response:
+                            if response.status != 200:
+                                if response.status == 403:
+                                    logger.error(await response.text())
+                                    con = True
+                                    break
+
+                                raise Exception(f"HTTP status: {response.status}")
+                            text = await response.text()
+                            # 处理文本内容
+                            break  # 请求成功，退出重试循环
+                    except Exception as e:
+                        logger.warning(f"重试第{attempt + 1}次，URL：{url}，错误：{e}")
+                        await sleep(5)  # 等待一段时间后重试
+
+                else:
+                    raise Exception("error")
+            
+                if con:
+                    logger.info("pass")
+                    continue
+
+                hashes_regex = r'params:{id:"([0-9a-zA-Z]{64})".+?name:"(\S+?)"'
+                hashes_list = findall(hashes_regex, text)
+
+                for query_hash, query_name in hashes_list:
+                    if "_" in query_name:
+                        query_name = query_name.split("_")[1]
+                    query_name = query_name[0].upper() + query_name[1:]
+                    queries[query_name] = query_hash
 
         with open(HASHES_PATH, "w", encoding="utf-8") as w:
             dump(queries, w, indent=4, sort_keys=True)

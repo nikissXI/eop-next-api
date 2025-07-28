@@ -44,7 +44,11 @@ async def _():
 @scheduler.scheduled_job("cron", hour=3)
 async def _():
     """每日3点更新hash"""
-    await poe.client.update_hashes()
+    # try:
+    #     await poe.client.update_hashes()
+    # except Exception as e:
+    #     logger.error(f"更新hash出错 {repr(e)}")
+
     # 取消之前的ws任务
     if poe.client.ws_client_task:
         poe.client.ws_client_task.cancel()

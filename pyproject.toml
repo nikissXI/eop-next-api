@@ -1,0 +1,21 @@
+[project]
+name = "eop-next-api"
+version = "0.1.0"
+description = "eop积分分发后端"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.12.14",
+    "apscheduler>=3.11.0",
+    "fastapi>=0.116.1",
+    "loguru>=0.7.3",
+    "passlib>=1.7.4",
+    "pydantic-settings>=2.10.1",
+    "pyjwt>=2.10.1",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.20",
+    "tortoise-orm[asyncpg]>=0.25.1",
+    "ujson>=5.10.0",
+    "uvicorn>=0.35.0",
+]
